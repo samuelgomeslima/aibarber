@@ -1,24 +1,32 @@
-import React, { useMemo, useState } from "react";
-import { View, Text, Pressable, StyleSheet, ScrollView, Alert } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { View, Text, Pressable, StyleSheet, ScrollView, Alert, ActivityIndicator } from "react-native";
+import { supabase } from "./lib/supabase";
 
 type Service = { id: "cut" | "cutshave"; name: string; minutes: number };
-type Booking = { date: string; start: string; end: string; serviceId: Service["id"] };
+type DbBooking = {
+  id: string;
+  date: string;   // 'YYYY-MM-DD'
+  start: string;  // 'HH:MM'
+  end: string;    // 'HH:MM'
+  service: "cut" | "cutshave";
+};
 
 const SERVICES: Service[] = [
   { id: "cut", name: "Cut", minutes: 30 },
   { id: "cutshave", name: "Cut & Shave", minutes: 60 },
 ];
 
-const openingHour = 9;  // 09:00
-const closingHour = 18; // 18:00
+const openingHour = 9;
+const closingHour = 18;
 
 function toDateKey(d: Date) {
-  // YYYY-MM-DD
-  return d.toISOString().slice(0, 10);
+  // local date to YYYY-MM-DD
+  const y = d.getFullYear();
+  const m = `${d.getMonth() + 1}`.padStart(2, "0");
+  const day = `${d.getDate()}`.padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
-function pad(n: number) {
-  return n.toString().padStart(2, "0");
-}
+function pad(n: number) { return n.toString().padStart(2, "0"); }
 function minutesToTime(mins: number) {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
@@ -34,53 +42,111 @@ function addMinutes(t: string, minutes: number) {
 function overlap(aStart: string, aEnd: string, bStart: string, bEnd: string) {
   const aS = timeToMinutes(aStart), aE = timeToMinutes(aEnd);
   const bS = timeToMinutes(bStart), bE = timeToMinutes(bEnd);
-  return Math.max(aS, bS) < Math.min(aE, bE); // true if intervals intersect
+  return Math.max(aS, bS) < Math.min(aE, bE);
 }
+
+/** ---- Supabase data helpers ---- */
+async function getBookings(dateKey: string) {
+  const { data, error, status } = await supabase
+    .from('bookings')
+    .select('id,date,start,"end",service')
+    .eq('date', dateKey)
+    .order('start');
+  console.log('[getBookings]', { dateKey, status, data, error });
+  if (error) throw error;
+  return data ?? [];
+}
+
+async function createBooking(dateKey: string, start: string, end: string, service: 'cut'|'cutshave') {
+  const payload = { date: dateKey, start, end, service };
+  const { data, error, status } = await supabase
+    .from('bookings')
+    .insert(payload)
+    .select('id');
+  console.log('[createBooking]', { payload, status, data, error });
+  if (error) throw error;
+}
+
+async function cancelBooking(id: string) {
+  const { data, error, status } = await supabase
+    .from('bookings')
+    .delete()
+    .eq('id', id);
+  console.log('[cancelBooking]', { id, status, data, error });
+  if (error) throw error;
+}
+/** -------------------------------- */
 
 export default function App() {
   const [selectedService, setSelectedService] = useState<Service>(SERVICES[0]);
   const [day, setDay] = useState<Date>(new Date());
-  const [bookings, setBookings] = useState<Booking[]>([]);
-
   const dateKey = toDateKey(day);
-  const todaysBookings = useMemo(
-    () => bookings.filter(b => b.date === dateKey),
-    [bookings, dateKey]
-  );
+
+  const [bookings, setBookings] = useState<DbBooking[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // >>> Load on mount and whenever the day changes
+  useEffect(() => {
+    let ignore = false;
+    (async () => {
+      try {
+        setLoading(true);
+        const rows = await getBookings(dateKey);
+        if (!ignore) setBookings(rows);
+      } catch (err: any) {
+        Alert.alert("Load failed", err.message ?? String(err));
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    })();
+    return () => { ignore = true; };
+  }, [dateKey]);
 
   const allSlots = useMemo(() => {
-    // slots every 30 minutes from opening to closing
     const start = openingHour * 60;
     const end = closingHour * 60;
     const slots: string[] = [];
-    for (let t = start; t <= end - 30; t += 30) {
-      slots.push(minutesToTime(t));
-    }
+    for (let t = start; t <= end - 30; t += 30) slots.push(minutesToTime(t));
     return slots;
   }, []);
 
+  // derive available slots from DB bookings
   const availableSlots = useMemo(() => {
-    // Filter out slots that would overlap with existing bookings for the day
     return allSlots.filter(start => {
       const end = addMinutes(start, selectedService.minutes);
-
-      // must finish by closing time
       if (timeToMinutes(end) > closingHour * 60) return false;
-
-      // avoid overlaps
-      const conflict = todaysBookings.some(b => overlap(start, end, b.start, b.end));
+      const conflict = bookings.some(b => overlap(start, end, b.start, b.end));
       return !conflict;
     });
-  }, [allSlots, todaysBookings, selectedService]);
+  }, [allSlots, bookings, selectedService]);
 
-  const book = (start: string) => {
+  // >>> Create on free-slot click
+  const book = async (start: string) => {
     const end = addMinutes(start, selectedService.minutes);
-    setBookings(prev => [...prev, { date: dateKey, start, end, serviceId: selectedService.id }]);
-    Alert.alert("Booked!", `${selectedService.name} at ${start} on ${dateKey}`);
+    try {
+      setLoading(true);
+      await createBooking(dateKey, start, end, selectedService.id);
+      const rows = await getBookings(dateKey); // refresh
+      setBookings(rows);
+      Alert.alert("Booked!", `${selectedService.name} at ${start} on ${dateKey}`);
+    } catch (err: any) {
+      Alert.alert("Booking failed", err.message ?? String(err));
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const cancelBooking = (i: number) => {
-    setBookings(prev => prev.filter((_, idx) => idx !== i));
+  // >>> Cancel by id
+  const onCancel = async (id: string) => {
+    try {
+      setLoading(true);
+      await cancelBooking(id);
+      setBookings(prev => prev.filter(b => b.id !== id));
+    } catch (err: any) {
+      Alert.alert("Cancel failed", err.message ?? String(err));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const changeDay = (delta: number) => {
@@ -99,10 +165,7 @@ export default function App() {
           <Pressable
             key={s.id}
             onPress={() => setSelectedService(s)}
-            style={[
-              styles.pill,
-              selectedService.id === s.id && styles.pillActive
-            ]}
+            style={[styles.pill, selectedService.id === s.id && styles.pillActive]}
           >
             <Text style={[styles.pillText, selectedService.id === s.id && styles.pillTextActive]}>
               {s.name} ({s.minutes} min)
@@ -116,17 +179,16 @@ export default function App() {
         <Pressable style={styles.btn} onPress={() => changeDay(-1)}>
           <Text style={styles.btnText}>◀︎ Previous</Text>
         </Pressable>
-        <View style={styles.dateBox}>
-          <Text style={styles.dateText}>{dateKey}</Text>
-        </View>
+        <View style={styles.dateBox}><Text style={styles.dateText}>{dateKey}</Text></View>
         <Pressable style={styles.btn} onPress={() => changeDay(1)}>
           <Text style={styles.btnText}>Next ▶︎</Text>
         </Pressable>
       </View>
 
       <Text style={styles.label}>3) Available slots</Text>
+      {loading && <ActivityIndicator />}
       <View style={styles.grid}>
-        {availableSlots.length === 0 && (
+        {availableSlots.length === 0 && !loading && (
           <Text style={styles.muted}>No free slots. Try another day/service.</Text>
         )}
         {availableSlots.map(t => (
@@ -136,23 +198,24 @@ export default function App() {
         ))}
       </View>
 
-      <Text style={styles.label}>Your bookings for {dateKey}</Text>
-      {todaysBookings.length === 0 ? (
+      <Text style={styles.label}>Bookings for {dateKey}</Text>
+      {bookings.length === 0 ? (
         <Text style={styles.muted}>— none yet —</Text>
       ) : (
-        todaysBookings.map((b, i) => (
-          <View key={`${b.start}-${i}`} style={styles.bookingRow}>
+        bookings.map((b) => (
+          <View key={b.id} style={styles.bookingRow}>
             <Text style={styles.bookingText}>
-              {SERVICES.find(s => s.id === b.serviceId)?.name} • {b.start}–{b.end}
+              {b.service === "cut" ? "Cut" : "Cut & Shave"} • {b.start}–{b.end}
             </Text>
-            <Pressable onPress={() => cancelBooking(i)} style={styles.cancel}>
+            <Pressable onPress={() => onCancel(b.id)} style={styles.cancel}>
               <Text style={styles.cancelText}>Cancel</Text>
             </Pressable>
           </View>
         ))
       )}
+
       <Text style={styles.smallNote}>
-        Demo note: bookings are in-memory. For production, add an API + DB (Azure Functions + Cosmos DB) and persist them.
+        Bookings are persisted in Supabase. Make sure your `bookings` table and RLS policies are set as described earlier.
       </Text>
     </ScrollView>
   );
