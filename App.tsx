@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, Pressable, StyleSheet, ScrollView, Alert, ActivityIndicator } from "react-native";
-import { supabase } from "./lib/supabase";
+import { supabase } from "./src/lib/supabase";
 
 type Service = { id: "cut" | "cutshave"; name: string; minutes: number };
 type DbBooking = {
