@@ -7,6 +7,7 @@ import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import DateSelector from "./src/components/DateSelector";
 import RecurrenceModal from "./src/components/RecurrenceModal";
 import OccurrencePreviewModal, { PreviewItem } from "./src/components/OccurrencePreviewModal";
+import BarberSelector, { Barber } from "./src/components/BarberSelector";
 
 /** ========== UI helpers / domain ========== */
 type Service = { id: "cut" | "cutshave"; name: string; minutes: number; icon: keyof typeof MaterialCommunityIcons.glyphMap };
@@ -27,13 +28,21 @@ function overlap(aS: string, aE: string, bS: string, bE: string) {
 }
 function humanDate(dk: string) { const d = new Date(`${dk}T00:00:00`); return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }); }
 
+/** ========== Barbers (mesma lista do componente, para exibir nome/ícone na lista) ========== */
+const BARBERS: Barber[] = [
+  { id: "joao", name: "João", icon: "account" },
+  { id: "maria", name: "Maria", icon: "account-outline" },
+  { id: "carlos", name: "Carlos", icon: "account-tie" },
+];
+const BARBER_MAP = Object.fromEntries(BARBERS.map(b => [b.id, b]));
+
 /** ========== Data layer ========== */
-type DbBooking = { id: string; date: string; start: string; end: string; service: "cut" | "cutshave" };
+type DbBooking = { id: string; date: string; start: string; end: string; service: "cut" | "cutshave"; barber: string };
 
 async function getBookings(dateKey: string) {
   const { data, error, status } = await supabase
     .from("bookings")
-    .select('id,date,start,"end",service')
+    .select('id,date,start,"end",service,barber')
     .eq("date", dateKey)
     .order("start");
   console.log("[getBookings]", { dateKey, status, data, error });
@@ -41,8 +50,8 @@ async function getBookings(dateKey: string) {
   return data ?? [];
 }
 
-async function createBooking(dateKey: string, start: string, end: string, service: "cut" | "cutshave") {
-  const payload = { date: dateKey, start, end, service };
+async function createBooking(dateKey: string, start: string, end: string, service: "cut" | "cutshave", barber: string) {
+  const payload = { date: dateKey, start, end, service, barber };
   const { data, error, status } = await supabase
     .from("bookings")
     .insert(payload)
@@ -86,6 +95,8 @@ function generateWeeklyOccurrences(opts: {
 /** ========== App ========== */
 export default function App() {
   const [selectedService, setSelectedService] = useState<Service>(SERVICES[0]);
+  const [selectedBarber, setSelectedBarber] = useState<Barber>(BARBERS[0]);
+
   const [day, setDay] = useState<Date>(new Date());
   const dateKey = toDateKey(day);
 
@@ -137,17 +148,20 @@ export default function App() {
     return allSlots.filter((start) => {
       const end = addMinutes(start, selectedService.minutes);
       if (timeToMinutes(end) > closingHour * 60) return false;
-      return !safe.some((b) => overlap(start, end, b.start, b.end));
+      // Bloqueia se houver conflito com QUALQUER barbeiro? Não.
+      // Aqui o conflito deve considerar o mesmo barbeiro selecionado:
+      return !safe.some((b) => b.barber === selectedBarber.id && overlap(start, end, b.start, b.end));
     });
-  }, [allSlots, bookings, selectedService]);
+  }, [allSlots, bookings, selectedService, selectedBarber]);
 
   const book = async (start: string) => {
     const end = addMinutes(start, selectedService.minutes);
     try {
       setLoading(true);
-      await createBooking(dateKey, start, end, selectedService.id);
+      await createBooking(dateKey, start, end, selectedService.id, selectedBarber.id);
       await load();
-      Alert.alert("Booked!", `${selectedService.name} at ${start} • ${humanDate(dateKey)}`);
+      const barberName = BARBER_MAP[selectedBarber.id]?.name ?? selectedBarber.id;
+      Alert.alert("Booked!", `${selectedService.name} with ${barberName} at ${start} • ${humanDate(dateKey)}`);
     } catch (e: any) {
       console.error(e);
       Alert.alert("Booking failed", e?.message ?? String(e));
@@ -198,13 +212,17 @@ export default function App() {
     try {
       setLoading(true);
       const dates = Array.from(new Set(raw.map((r) => r.date)));
-      const { data: existingAll, error } = await supabase.from("bookings").select('id,date,start,"end",service').in("date", dates);
+      const { data: existingAll, error } = await supabase
+        .from("bookings")
+        .select('id,date,start,"end",service,barber')
+        .in("date", dates);
+
       if (error) throw error;
 
-      const byDate = new Map<string, { start: string; end: string }[]>();
+      const byDate = new Map<string, { start: string; end: string; barber: string }[]>();
       (existingAll ?? []).forEach((b) => {
         if (!byDate.has(b.date)) byDate.set(b.date, []);
-        byDate.get(b.date)!.push({ start: b.start, end: b.end });
+        byDate.get(b.date)!.push({ start: b.start, end: b.end, barber: b.barber });
       });
 
       const out: PreviewItem[] = raw.map((r) => {
@@ -212,7 +230,8 @@ export default function App() {
           return { ...r, ok: false, reason: "outside-hours" };
         }
         const dayRows = byDate.get(r.date) ?? [];
-        const hasConflict = dayRows.some((b) => overlap(r.start, r.end, b.start, b.end));
+        // Conflito deve considerar o MESMO barbeiro
+        const hasConflict = dayRows.some((b) => b.barber === selectedBarber.id && overlap(r.start, r.end, b.start, b.end));
         return hasConflict ? { ...r, ok: false, reason: "conflict" } : { ...r, ok: true };
       });
 
@@ -228,7 +247,10 @@ export default function App() {
   }
 
   async function confirmPreviewInsert() {
-    const toInsert = previewItems.filter((i) => i.ok).map((i) => ({ date: i.date, start: i.start, end: i.end, service: selectedService.id as "cut" | "cutshave" }));
+    const toInsert = previewItems
+      .filter((i) => i.ok)
+      .map((i) => ({ date: i.date, start: i.start, end: i.end, service: selectedService.id as "cut" | "cutshave", barber: selectedBarber.id }));
+
     if (toInsert.length === 0) {
       setPreviewOpen(false);
       Alert.alert("Nothing to create", "All occurrences were skipped.");
@@ -241,7 +263,8 @@ export default function App() {
       setPreviewOpen(false);
       await load();
       const skipped = previewItems.length - toInsert.length;
-      Alert.alert("Created", `Added ${toInsert.length}${skipped ? ` • Skipped ${skipped}` : ""}`);
+      const barberName = BARBER_MAP[selectedBarber.id]?.name ?? selectedBarber.id;
+      Alert.alert("Created", `Added ${toInsert.length} with ${barberName}${skipped ? ` • Skipped ${skipped}` : ""}`);
     } catch (e: any) {
       console.error(e);
       Alert.alert("Create failed", e?.message ?? String(e));
@@ -284,7 +307,7 @@ export default function App() {
           })}
         </View>
 
-        {/* Repeat button now right below services */}
+        {/* Repeat button */}
         <View style={{ flexDirection: "row", justifyContent: "flex-start", marginTop: 12 }}>
           <Pressable
             onPress={() => setRecurrenceOpen(true)}
@@ -298,6 +321,11 @@ export default function App() {
 
       {/* Content */}
       <ScrollView contentContainerStyle={styles.container} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
+        {/* Barber selector */}
+        <Text style={styles.sectionLabel}>Escolha o barbeiro</Text>
+        <BarberSelector selected={selectedBarber} onChange={setSelectedBarber} />
+
+        {/* Date selector */}
         <Text style={styles.sectionLabel}>Pick a day</Text>
         <DateSelector value={day} onChange={setDay} colors={{ text: COLORS.text, subtext: COLORS.subtext, surface: COLORS.surface, border: COLORS.border, accent: COLORS.accent }} />
 
@@ -323,26 +351,46 @@ export default function App() {
               <Text style={styles.empty}>— none yet —</Text>
             </View>
           ) : (
-            bookings.map((b) => (
-              <View key={b.id} style={styles.bookingCard}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                  <MaterialCommunityIcons name={b.service === "cut" ? "content-cut" : "razor-double-edge"} size={20} color="#93c5fd" />
-                  <Text style={styles.bookingText}>{b.service === "cut" ? "Cut" : "Cut & Shave"} • {b.start}–{b.end}</Text>
+            bookings.map((b) => {
+              const svc = b.service === "cut" ? "Cut" : "Cut & Shave";
+              const barber = BARBER_MAP[b.barber] ?? { name: b.barber, icon: "account" as const };
+              return (
+                <View key={b.id} style={styles.bookingCard}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                    <MaterialCommunityIcons name={b.service === "cut" ? "content-cut" : "razor-double-edge"} size={20} color="#93c5fd" />
+                    <MaterialCommunityIcons name={barber.icon} size={18} color="#cbd5e1" />
+                    <Text style={styles.bookingText}>
+                      {svc} • {b.start}–{b.end} • {barber.name}
+                    </Text>
+                  </View>
+                  <Pressable onPress={() => onCancel(b.id)} style={styles.cancelBtn}>
+                    <Ionicons name="trash-outline" size={16} color="#fecaca" />
+                    <Text style={styles.cancelText}>Cancel</Text>
+                  </Pressable>
                 </View>
-                <Pressable onPress={() => onCancel(b.id)} style={styles.cancelBtn}>
-                  <Ionicons name="trash-outline" size={16} color="#fecaca" />
-                  <Text style={styles.cancelText}>Cancel</Text>
-                </Pressable>
-              </View>
-            ))
+              );
+            })
           )}
         </View>
 
-        <Text style={styles.note}>Tip: protect secrets with RLS/Policies. This screen directly calls Supabase.</Text>
+        <Text style={styles.note}>Tip: cada barbeiro tem agenda independente; conflitos são verificados por barbeiro.</Text>
       </ScrollView>
 
-      <RecurrenceModal visible={recurrenceOpen} onClose={() => setRecurrenceOpen(false)} onSubmit={handleRecurrenceSubmit} initialDate={day} colors={{ text: COLORS.text, subtext: COLORS.subtext, surface: COLORS.surface, border: COLORS.border, accent: COLORS.accent, bg: "#0c1017" }} />
-      <OccurrencePreviewModal visible={previewOpen} items={previewItems} onClose={() => setPreviewOpen(false)} onConfirm={confirmPreviewInsert} colors={{ text: COLORS.text, subtext: COLORS.subtext, surface: COLORS.surface, border: COLORS.border, accent: COLORS.accent, bg: "#0b0d13", danger: COLORS.danger }} />
+      {/* Modals */}
+      <RecurrenceModal
+        visible={recurrenceOpen}
+        onClose={() => setRecurrenceOpen(false)}
+        onSubmit={handleRecurrenceSubmit}
+        initialDate={day}
+        colors={{ text: COLORS.text, subtext: COLORS.subtext, surface: COLORS.surface, border: COLORS.border, accent: COLORS.accent, bg: "#0c1017" }}
+      />
+      <OccurrencePreviewModal
+        visible={previewOpen}
+        items={previewItems}
+        onClose={() => setPreviewOpen(false)}
+        onConfirm={confirmPreviewInsert}
+        colors={{ text: COLORS.text, subtext: COLORS.subtext, surface: COLORS.surface, border: COLORS.border, accent: COLORS.accent, bg: "#0b0d13", danger: COLORS.danger }}
+      />
 
       {loading && (
         <View style={styles.loadingOverlay} pointerEvents="none">
@@ -379,20 +427,13 @@ const styles = StyleSheet.create({
   badgeText: { color: "#cbd5e1", fontSize: 12, fontWeight: "600" },
 
   chipsRow: { flexDirection: "row", gap: 10, marginTop: 12 },
-  chip: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1, borderColor: "#ffffff12", backgroundColor: "rgba(255,255,255,0.045)", ...(SHADOW as object) },
+  chip: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1, borderColor: "#ffffff12", backgroundColor: "rgba(255,255,255,0.045)", ...(SHADOW as object) },
   chipActive: { backgroundColor: "#60a5fa", borderColor: "#60a5fa" },
   chipText: { color: "#cbd5e1", fontWeight: "700" },
   chipTextActive: { color: "#091016", fontWeight: "800" },
 
   container: { padding: 16, gap: 14 },
   sectionLabel: { color: "#e5e7eb", fontSize: 14, fontWeight: "700", letterSpacing: 0.3, marginTop: 8 },
-
-  dayStrip: { gap: 10, paddingVertical: 10 },
-  dayPill: { width: 72, paddingVertical: 10, borderRadius: 14, alignItems: "center", borderWidth: 1, borderColor: "#ffffff12", backgroundColor: "rgba(255,255,255,0.045)" },
-  dayPillActive: { backgroundColor: "#111827", borderColor: "#60a5fa" },
-  dayDow: { color: "#cbd5e1", fontSize: 12, fontWeight: "700" },
-  dayNum: { color: "#e5e7eb", fontSize: 18, fontWeight: "800" },
-  dayPillActiveText: { color: "#e5e7eb" },
 
   card: { backgroundColor: "rgba(255,255,255,0.045)", borderRadius: 18, borderWidth: 1, borderColor: "#ffffff12", padding: 12, ...(SHADOW as object) },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
