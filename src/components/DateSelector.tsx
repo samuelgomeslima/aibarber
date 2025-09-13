@@ -1,90 +1,284 @@
 // src/components/DateSelector.tsx
-import React, { useMemo } from "react";
-import { View, Text, Pressable, StyleSheet, ScrollView } from "react-native";
+import React, { useMemo, useState, useEffect } from "react";
+import { View, Text, Pressable, ScrollView, StyleSheet, Modal, Platform } from "react-native";
 
 type Props = {
   value: Date;
   onChange: (d: Date) => void;
-  daysBefore?: number;   // how many days before current value to show
-  daysAfter?: number;    // how many days after current value to show
   colors?: {
-    text: string; subtext: string; surface: string; border: string; accent: string;
+    text: string;
+    subtext: string;
+    surface: string;
+    border: string;
+    accent: string;
   };
 };
 
 const pad = (n: number) => n.toString().padStart(2, "0");
-const toDateKey = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const toDateKey = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const humanDow = (d: Date) => d.toLocaleDateString(undefined, { weekday: "short" });
+const humanDateKey = (dk: string) => {
+  const d = new Date(`${dk}T00:00:00`);
+  return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+};
 
 export default function DateSelector({
   value,
   onChange,
-  daysBefore = 4,
-  daysAfter = 10,
-  colors = { text: "#e5e7eb", subtext: "#cbd5e1", surface: "rgba(255,255,255,0.05)", border: "rgba(255,255,255,0.08)", accent: "#60a5fa" },
+  colors = {
+    text: "#e5e7eb",
+    subtext: "#cbd5e1",
+    surface: "rgba(255,255,255,0.045)",
+    border: "rgba(255,255,255,0.07)",
+    accent: "#60a5fa",
+  },
 }: Props) {
+  const [calendarOpen, setCalendarOpen] = useState(false);
+
   const dateKey = toDateKey(value);
 
+  // 10 dias, centrado em "value" (-3 .. +6)
   const days = useMemo(() => {
     const out: { key: string; d: Date }[] = [];
-    const start = new Date(value); start.setDate(start.getDate() - daysBefore);
-    const span = daysBefore + daysAfter + 1;
-    for (let i = 0; i < span; i++) {
-      const n = new Date(start);
-      n.setDate(start.getDate() + i);
+    const base = new Date(value);
+    base.setDate(base.getDate() - 3);
+    for (let i = 0; i < 10; i++) {
+      const n = new Date(base);
+      n.setDate(base.getDate() + i);
       out.push({ d: n, key: toDateKey(n) });
     }
     return out;
-  }, [value, daysBefore, daysAfter]);
+  }, [value]);
 
-  const jumpMonth = (delta: number) => {
-    const n = new Date(value);
-    n.setMonth(n.getMonth() + delta);
-    onChange(n);
+  const pickToday = () => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    onChange(now);
   };
 
   return (
-    <View style={{ gap: 10 }}>
-      <View style={styles.headerRow}>
-        <Pressable style={[styles.jumpBtn, { borderColor: colors.border, backgroundColor: colors.surface }]} onPress={() => jumpMonth(-1)}>
-          <Text style={{ color: colors.subtext }}>◀︎ Month</Text>
+    <View>
+      {/* Ações: Today + Calendar */}
+      <View style={styles.actionsRow}>
+        <Pressable
+          onPress={pickToday}
+          style={[styles.actionBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
+          accessibilityLabel="Go to today"
+        >
+          <Text style={[styles.actionText, { color: colors.text }]}>Today</Text>
         </Pressable>
-        <Text style={{ color: colors.text, fontWeight: "800" }}>
-          {value.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
-        </Text>
-        <Pressable style={[styles.jumpBtn, { borderColor: colors.border, backgroundColor: colors.surface }]} onPress={() => jumpMonth(1)}>
-          <Text style={{ color: colors.subtext }}>Month ▶︎</Text>
+
+        <Pressable
+          onPress={() => setCalendarOpen(true)}
+          style={[styles.actionBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
+          accessibilityLabel="Open calendar"
+        >
+          <Text style={[styles.actionText, { color: colors.text }]}>Calendar</Text>
         </Pressable>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingVertical: 8 }}>
+      {/* Tira horizontal de dias */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={[styles.dayStrip, { gap: 10, paddingVertical: 10 }]}
+      >
         {days.map(({ d, key }) => {
           const active = key === dateKey;
           return (
             <Pressable
               key={key}
-              onPress={() => onChange(d)}
+              onPress={() => onChange(new Date(d))}
               style={[
-                styles.pill,
+                styles.dayPill,
                 { borderColor: colors.border, backgroundColor: colors.surface },
-                active && { backgroundColor: "#111827", borderColor: colors.accent }
+                active && { backgroundColor: "#111827", borderColor: colors.accent },
               ]}
+              accessibilityRole="button"
+              accessibilityLabel={`Select ${d.toDateString()}`}
             >
-              <Text style={[styles.dow, { color: colors.subtext }, active && { color: colors.text }]}>
-                {d.toLocaleDateString(undefined, { weekday: "short" })}
-              </Text>
-              <Text style={[styles.num, { color: colors.text }]}>{d.getDate()}</Text>
+              <Text style={[styles.dayDow, { color: colors.subtext }, active && { color: colors.text }]}>{humanDow(d)}</Text>
+              <Text style={[styles.dayNum, { color: colors.text }]}>{d.getDate()}</Text>
             </Pressable>
           );
         })}
       </ScrollView>
+
+      {/* Modal do calendário (com buffer + Apply) */}
+      <CalendarModal
+        visible={calendarOpen}
+        onClose={() => setCalendarOpen(false)}
+        value={value}
+        onConfirm={(d) => {
+          onChange(d);
+          setCalendarOpen(false);
+        }}
+        colors={colors}
+      />
+
+      {/* Rótulo com resumo da data atual */}
+      <Text style={[styles.currentLabel, { color: colors.subtext }]}>{humanDateKey(dateKey)}</Text>
+    </View>
+  );
+}
+
+function CalendarModal({
+  visible,
+  onClose,
+  value,
+  onConfirm,
+  colors,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  value: Date;
+  onConfirm: (d: Date) => void;
+  colors: NonNullable<Props["colors"]>;
+}) {
+  const [temp, setTemp] = useState<Date>(value);
+
+  // Sempre que abrir, sincroniza a data temporária com a atual
+  useEffect(() => {
+    if (visible) setTemp(new Date(value));
+  }, [visible, value]);
+
+  if (!visible) return null;
+
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.backdrop}>
+        <View style={[styles.sheet, { backgroundColor: "#0c1017", borderColor: colors.border }]}>
+          <Text style={[styles.sheetTitle, { color: colors.text }]}>Select a date</Text>
+
+          {Platform.OS === "web" ? (
+            <WebDatePicker value={temp} onChange={setTemp} colors={colors} />
+          ) : (
+            <NativeDatePicker value={temp} onChange={setTemp} colors={colors} />
+          )}
+
+          <View style={styles.sheetActions}>
+            <Pressable onPress={onClose} style={[styles.sheetBtn, { borderColor: colors.border }]}>
+              <Text style={{ color: colors.subtext, fontWeight: "700" }}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => onConfirm(temp)}
+              style={[styles.sheetBtn, { borderColor: colors.accent, backgroundColor: colors.accent }]}
+            >
+              <Text style={{ color: "#071018", fontWeight: "800" }}>Apply</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+/** ---- Web: <input type="date"> (controlado; ignora clear) ---- */
+function WebDatePicker({
+  value,
+  onChange,
+  colors,
+}: {
+  value: Date;
+  onChange: (d: Date) => void;
+  colors: NonNullable<Props["colors"]>;
+}) {
+  const toInputValue = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const fromInputValue = (s: string) => {
+    if (!s) return null; // ignora "Clear" (não propaga)
+    const [y, m, day] = s.split("-").map(Number);
+    const d = new Date();
+    d.setFullYear(y, m - 1, day);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  };
+
+  return (
+    <View style={{ marginTop: 8 }}>
+      {}
+      <input
+        type="date"
+        value={toInputValue(value)} // CONTROLADO -> o "Clear" não apaga o valor
+        onChange={(e: any) => {
+          const next = fromInputValue(e.target.value);
+          if (next) onChange(next); // só atualiza se houver data válida
+        }}
+        style={{
+          padding: 10,
+          borderRadius: 10,
+          border: `1px solid ${colors.border}`,
+          background: "rgba(255,255,255,0.06)",
+          color: colors.text,
+          outline: "none",
+          fontWeight: 700,
+        }}
+      />
+    </View>
+  );
+}
+
+/** ---- Native: @react-native-community/datetimepicker (buffer; não fecha) ---- */
+function NativeDatePicker({
+  value,
+  onChange,
+  colors,
+}: {
+  value: Date;
+  onChange: (d: Date) => void;
+  colors: NonNullable<Props["colors"]>;
+}) {
+  // Lazy require para não quebrar o bundle web se não estiver instalado
+  const RNDateTimePicker = require("@react-native-community/datetimepicker").default;
+
+  return (
+    <View style={{ marginTop: 8 }}>
+      <RNDateTimePicker
+        mode="date"
+        value={value}
+        display={Platform.OS === "ios" ? "inline" : "calendar"}
+        onChange={(_evt: unknown, d?: Date) => {
+          // Tipagem explícita para evitar implicit any; bufferiza seleção
+          if (d) onChange(d);
+        }}
+        themeVariant="dark"
+        // @ts-ignore platform-specific prop (iOS)
+        textColor={colors.text}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  jumpBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1 },
-  pill: { width: 72, paddingVertical: 10, borderRadius: 14, alignItems: "center", borderWidth: 1 },
-  dow: { fontSize: 12, fontWeight: "700" },
-  num: { fontSize: 18, fontWeight: "800" },
+  actionsRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 6,
+  },
+  actionBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  actionText: { fontWeight: "800", letterSpacing: 0.3 },
+
+  dayStrip: {},
+  dayPill: {
+    width: 72,
+    paddingVertical: 10,
+    borderRadius: 14,
+    alignItems: "center",
+    borderWidth: 1,
+  },
+  dayDow: { fontSize: 12, fontWeight: "700" },
+  dayNum: { fontSize: 18, fontWeight: "800" },
+
+  currentLabel: { marginTop: 6, fontSize: 12, fontWeight: "700" },
+
+  // Modal
+  backdrop: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.45)", padding: 16 },
+  sheet: { width: 420, maxWidth: "100%", borderRadius: 16, borderWidth: 1, padding: 16, gap: 12 },
+  sheetTitle: { fontSize: 16, fontWeight: "800" },
+  sheetActions: { marginTop: 12, flexDirection: "row", justifyContent: "flex-end", gap: 10 },
+  sheetBtn: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1 },
 });
