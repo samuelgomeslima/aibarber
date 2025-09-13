@@ -3,6 +3,11 @@ import { View, Text, Pressable, StyleSheet, ScrollView, Alert, ActivityIndicator
 import { supabase } from "./src/lib/supabase";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 
+/* Components */
+import DateSelector from "./src/components/DateSelector";
+import RecurrenceModal from "./src/components/RecurrenceModal";
+import OccurrencePreviewModal, { PreviewItem } from "./src/components/OccurrencePreviewModal";
+
 /** ========== UI helpers / domain ========== */
 type Service = { id: "cut" | "cutshave"; name: string; minutes: number; icon: keyof typeof MaterialCommunityIcons.glyphMap };
 const SERVICES: Service[] = [
@@ -22,42 +27,63 @@ function overlap(aS: string, aE: string, bS: string, bE: string) {
 }
 function humanDate(dk: string) { const d = new Date(`${dk}T00:00:00`); return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }); }
 
-/** ========== Data layer (adjust if you already have data.ts) ========== */
+/** ========== Data layer ========== */
 type DbBooking = { id: string; date: string; start: string; end: string; service: "cut" | "cutshave" };
 
-/** ---- Supabase data helpers ---- */
 async function getBookings(dateKey: string) {
   const { data, error, status } = await supabase
-    .from('bookings')
+    .from("bookings")
     .select('id,date,start,"end",service')
-    .eq('date', dateKey)
-    .order('start');
-  console.log('[getBookings]', { dateKey, status, data, error });
+    .eq("date", dateKey)
+    .order("start");
+  console.log("[getBookings]", { dateKey, status, data, error });
   if (error) throw error;
   return data ?? [];
 }
 
-async function createBooking(dateKey: string, start: string, end: string, service: 'cut'|'cutshave') {
+async function createBooking(dateKey: string, start: string, end: string, service: "cut" | "cutshave") {
   const payload = { date: dateKey, start, end, service };
   const { data, error, status } = await supabase
-    .from('bookings')
+    .from("bookings")
     .insert(payload)
-    .select('id');
-  console.log('[createBooking]', { payload, status, data, error });
+    .select("id");
+  console.log("[createBooking]", { payload, status, data, error });
   if (error) throw error;
 }
 
 async function cancelBooking(id: string) {
-  const { data, error, status } = await supabase
-    .from('bookings')
-    .delete()
-    .eq('id', id);
-  console.log('[cancelBooking]', { id, status, data, error });
+  const { data, error, status } = await supabase.from("bookings").delete().eq("id", id);
+  console.log("[cancelBooking]", { id, status, data, error });
   if (error) throw error;
 }
-/** -------------------------------- */
 
-/** ========== App (modern styling) ========== */
+/** Weekly recurrence generator (single weekday, weekly interval = 1) */
+function generateWeeklyOccurrences(opts: {
+  startFrom: Date;
+  weekday: number;
+  time: string;
+  count: number;
+}) {
+  const { startFrom, weekday, time, count } = opts;
+  const [hh, mm] = time.split(":").map(Number);
+  if (Number.isNaN(hh) || Number.isNaN(mm)) return [];
+
+  const first = new Date(startFrom);
+  first.setHours(0, 0, 0, 0);
+  const delta = (weekday - first.getDay() + 7) % 7;
+  first.setDate(first.getDate() + delta);
+  first.setHours(hh, mm, 0, 0);
+
+  const out: { date: string; start: string }[] = [];
+  for (let i = 0; i < count; i++) {
+    const d = new Date(first);
+    d.setDate(first.getDate() + i * 7);
+    out.push({ date: toDateKey(d), start: `${pad(hh)}:${pad(mm)}` });
+  }
+  return out;
+}
+
+/** ========== App ========== */
 export default function App() {
   const [selectedService, setSelectedService] = useState<Service>(SERVICES[0]);
   const [day, setDay] = useState<Date>(new Date());
@@ -66,6 +92,10 @@ export default function App() {
   const [bookings, setBookings] = useState<DbBooking[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  const [recurrenceOpen, setRecurrenceOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewItems, setPreviewItems] = useState<PreviewItem[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -81,15 +111,22 @@ export default function App() {
     }
   }, [dateKey]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    try { await load(); } finally { setRefreshing(false); }
+    try {
+      await load();
+    } finally {
+      setRefreshing(false);
+    }
   }, [load]);
 
   const allSlots = useMemo(() => {
-    const start = openingHour * 60, end = closingHour * 60;
+    const start = openingHour * 60,
+      end = closingHour * 60;
     const slots: string[] = [];
     for (let t = start; t <= end - 30; t += 30) slots.push(minutesToTime(t));
     return slots;
@@ -97,10 +134,10 @@ export default function App() {
 
   const availableSlots = useMemo(() => {
     const safe = Array.isArray(bookings) ? bookings : [];
-    return allSlots.filter(start => {
+    return allSlots.filter((start) => {
       const end = addMinutes(start, selectedService.minutes);
       if (timeToMinutes(end) > closingHour * 60) return false;
-      return !safe.some(b => overlap(start, end, b.start, b.end));
+      return !safe.some((b) => overlap(start, end, b.start, b.end));
     });
   }, [allSlots, bookings, selectedService]);
 
@@ -123,7 +160,7 @@ export default function App() {
     try {
       setLoading(true);
       await cancelBooking(id);
-      setBookings(prev => prev.filter(b => b.id !== id));
+      setBookings((prev) => prev.filter((b) => b.id !== id));
     } catch (e: any) {
       console.error(e);
       Alert.alert("Cancel failed", e?.message ?? String(e));
@@ -132,7 +169,6 @@ export default function App() {
     }
   };
 
-  /** Build a 10-day strip centered around current selection */
   const days = useMemo(() => {
     const out: { key: string; d: Date }[] = [];
     const base = new Date(day);
@@ -144,6 +180,75 @@ export default function App() {
     }
     return out;
   }, [day]);
+
+  async function handleRecurrenceSubmit(opts: { weekday: number; time: string; count: number; startFrom: Date }) {
+    const minutes = selectedService.minutes;
+    const raw = generateWeeklyOccurrences({
+      startFrom: opts.startFrom,
+      weekday: opts.weekday,
+      time: opts.time,
+      count: opts.count,
+    }).map((o) => ({ date: o.date, start: o.start, end: addMinutes(o.start, minutes) }));
+
+    if (raw.length === 0) {
+      Alert.alert("Nothing to preview", "Check the weekday/time/start date.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const dates = Array.from(new Set(raw.map((r) => r.date)));
+      const { data: existingAll, error } = await supabase.from("bookings").select('id,date,start,"end",service').in("date", dates);
+      if (error) throw error;
+
+      const byDate = new Map<string, { start: string; end: string }[]>();
+      (existingAll ?? []).forEach((b) => {
+        if (!byDate.has(b.date)) byDate.set(b.date, []);
+        byDate.get(b.date)!.push({ start: b.start, end: b.end });
+      });
+
+      const out: PreviewItem[] = raw.map((r) => {
+        if (timeToMinutes(r.end) > closingHour * 60) {
+          return { ...r, ok: false, reason: "outside-hours" };
+        }
+        const dayRows = byDate.get(r.date) ?? [];
+        const hasConflict = dayRows.some((b) => overlap(r.start, r.end, b.start, b.end));
+        return hasConflict ? { ...r, ok: false, reason: "conflict" } : { ...r, ok: true };
+      });
+
+      setPreviewItems(out);
+      setRecurrenceOpen(false);
+      setPreviewOpen(true);
+    } catch (e: any) {
+      console.error(e);
+      Alert.alert("Preview failed", e?.message ?? String(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function confirmPreviewInsert() {
+    const toInsert = previewItems.filter((i) => i.ok).map((i) => ({ date: i.date, start: i.start, end: i.end, service: selectedService.id as "cut" | "cutshave" }));
+    if (toInsert.length === 0) {
+      setPreviewOpen(false);
+      Alert.alert("Nothing to create", "All occurrences were skipped.");
+      return;
+    }
+    try {
+      setLoading(true);
+      const { error } = await supabase.from("bookings").insert(toInsert);
+      if (error) throw error;
+      setPreviewOpen(false);
+      await load();
+      const skipped = previewItems.length - toInsert.length;
+      Alert.alert("Created", `Added ${toInsert.length}${skipped ? ` • Skipped ${skipped}` : ""}`);
+    } catch (e: any) {
+      console.error(e);
+      Alert.alert("Create failed", e?.message ?? String(e));
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
@@ -162,21 +267,15 @@ export default function App() {
 
         {/* Service chips */}
         <View style={styles.chipsRow}>
-          {SERVICES.map(s => {
+          {SERVICES.map((s) => {
             const active = s.id === selectedService.id;
             return (
               <Pressable
                 key={s.id}
                 onPress={() => setSelectedService(s)}
                 style={[styles.chip, active && styles.chipActive]}
-                accessibilityRole="button"
-                accessibilityLabel={`Service ${s.name}`}
               >
-                <MaterialCommunityIcons
-                  name={s.icon}
-                  size={16}
-                  color={active ? COLORS.accentFgOn : COLORS.subtext}
-                />
+                <MaterialCommunityIcons name={s.icon} size={16} color={active ? COLORS.accentFgOn : COLORS.subtext} />
                 <Text style={[styles.chipText, active && styles.chipTextActive]}>
                   {s.name} · {s.minutes}m
                 </Text>
@@ -184,43 +283,30 @@ export default function App() {
             );
           })}
         </View>
+
+        {/* Repeat button now right below services */}
+        <View style={{ flexDirection: "row", justifyContent: "flex-start", marginTop: 12 }}>
+          <Pressable
+            onPress={() => setRecurrenceOpen(true)}
+            style={[styles.chip, { borderColor: COLORS.border, backgroundColor: COLORS.surface }]}
+          >
+            <Ionicons name="repeat" size={16} color={COLORS.subtext} />
+            <Text style={styles.chipText}>Repeat…</Text>
+          </Pressable>
+        </View>
       </View>
 
       {/* Content */}
-      <ScrollView
-        contentContainerStyle={styles.container}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      >
-        {/* Date strip */}
+      <ScrollView contentContainerStyle={styles.container} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
         <Text style={styles.sectionLabel}>Pick a day</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dayStrip}>
-          {days.map(({ d, key }) => {
-            const active = key === dateKey;
-            return (
-              <Pressable
-                key={key}
-                onPress={() => setDay(d)}
-                style={[styles.dayPill, active && styles.dayPillActive]}
-                accessibilityRole="button"
-                accessibilityLabel={`Select ${d.toDateString()}`}
-              >
-                <Text style={[styles.dayDow, active && styles.dayPillActiveText]}>
-                  {d.toLocaleDateString(undefined, { weekday: "short" })}
-                </Text>
-                <Text style={[styles.dayNum, active && styles.dayPillActiveText]}>{d.getDate()}</Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+        <DateSelector value={day} onChange={setDay} colors={{ text: COLORS.text, subtext: COLORS.subtext, surface: COLORS.surface, border: COLORS.border, accent: COLORS.accent }} />
 
         {/* Slots */}
         <Text style={styles.sectionLabel}>Available slots · {humanDate(dateKey)}</Text>
         <View style={styles.card}>
           <View style={styles.grid}>
-            {availableSlots.length === 0 && !loading && (
-              <Text style={styles.empty}>No free slots. Try another day/service.</Text>
-            )}
-            {availableSlots.map(t => (
+            {availableSlots.length === 0 && !loading && <Text style={styles.empty}>No free slots. Try another day/service.</Text>}
+            {availableSlots.map((t) => (
               <Pressable key={t} style={({ pressed }) => [styles.slot, pressed && styles.slotPressed]} onPress={() => book(t)}>
                 <Ionicons name="time-outline" size={16} color={COLORS.subtext} />
                 <Text style={styles.slotText}>{t}</Text>
@@ -237,19 +323,13 @@ export default function App() {
               <Text style={styles.empty}>— none yet —</Text>
             </View>
           ) : (
-            bookings.map(b => (
+            bookings.map((b) => (
               <View key={b.id} style={styles.bookingCard}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                  <MaterialCommunityIcons
-                    name={b.service === "cut" ? "content-cut" : "razor-double-edge"}
-                    size={20}
-                    color="#93c5fd"
-                  />
-                  <Text style={styles.bookingText}>
-                    {b.service === "cut" ? "Cut" : "Cut & Shave"} • {b.start}–{b.end}
-                  </Text>
+                  <MaterialCommunityIcons name={b.service === "cut" ? "content-cut" : "razor-double-edge"} size={20} color="#93c5fd" />
+                  <Text style={styles.bookingText}>{b.service === "cut" ? "Cut" : "Cut & Shave"} • {b.start}–{b.end}</Text>
                 </View>
-                <Pressable onPress={() => onCancel(b.id)} style={styles.cancelBtn} accessibilityLabel="Cancel booking">
+                <Pressable onPress={() => onCancel(b.id)} style={styles.cancelBtn}>
                   <Ionicons name="trash-outline" size={16} color="#fecaca" />
                   <Text style={styles.cancelText}>Cancel</Text>
                 </Pressable>
@@ -258,8 +338,11 @@ export default function App() {
           )}
         </View>
 
-        <Text style={styles.note}>Tip: keep backend secrets server-side; the app calls /api.</Text>
+        <Text style={styles.note}>Tip: protect secrets with RLS/Policies. This screen directly calls Supabase.</Text>
       </ScrollView>
+
+      <RecurrenceModal visible={recurrenceOpen} onClose={() => setRecurrenceOpen(false)} onSubmit={handleRecurrenceSubmit} initialDate={day} colors={{ text: COLORS.text, subtext: COLORS.subtext, surface: COLORS.surface, border: COLORS.border, accent: COLORS.accent, bg: "#0c1017" }} />
+      <OccurrencePreviewModal visible={previewOpen} items={previewItems} onClose={() => setPreviewOpen(false)} onConfirm={confirmPreviewInsert} colors={{ text: COLORS.text, subtext: COLORS.subtext, surface: COLORS.surface, border: COLORS.border, accent: COLORS.accent, bg: "#0b0d13", danger: COLORS.danger }} />
 
       {loading && (
         <View style={styles.loadingOverlay} pointerEvents="none">
@@ -293,33 +376,33 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   title: { color: "#fff", fontSize: 22, fontWeight: "800", letterSpacing: 0.3 },
   badge: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.06)" },
-  badgeText: { color: COLORS.subtext, fontSize: 12, fontWeight: "600" },
+  badgeText: { color: "#cbd5e1", fontSize: 12, fontWeight: "600" },
 
   chipsRow: { flexDirection: "row", gap: 10, marginTop: 12 },
-  chip: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface, ...(SHADOW as object) },
-  chipActive: { backgroundColor: COLORS.accent, borderColor: COLORS.accent },
-  chipText: { color: COLORS.subtext, fontWeight: "700" },
-  chipTextActive: { color: COLORS.accentFgOn, fontWeight: "800" },
+  chip: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1, borderColor: "#ffffff12", backgroundColor: "rgba(255,255,255,0.045)", ...(SHADOW as object) },
+  chipActive: { backgroundColor: "#60a5fa", borderColor: "#60a5fa" },
+  chipText: { color: "#cbd5e1", fontWeight: "700" },
+  chipTextActive: { color: "#091016", fontWeight: "800" },
 
   container: { padding: 16, gap: 14 },
-  sectionLabel: { color: COLORS.text, fontSize: 14, fontWeight: "700", letterSpacing: 0.3, marginTop: 8 },
+  sectionLabel: { color: "#e5e7eb", fontSize: 14, fontWeight: "700", letterSpacing: 0.3, marginTop: 8 },
 
   dayStrip: { gap: 10, paddingVertical: 10 },
-  dayPill: { width: 72, paddingVertical: 10, borderRadius: 14, alignItems: "center", borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface },
-  dayPillActive: { backgroundColor: "#111827", borderColor: COLORS.accent },
-  dayDow: { color: COLORS.subtext, fontSize: 12, fontWeight: "700" },
-  dayNum: { color: COLORS.text, fontSize: 18, fontWeight: "800" },
-  dayPillActiveText: { color: COLORS.text },
+  dayPill: { width: 72, paddingVertical: 10, borderRadius: 14, alignItems: "center", borderWidth: 1, borderColor: "#ffffff12", backgroundColor: "rgba(255,255,255,0.045)" },
+  dayPillActive: { backgroundColor: "#111827", borderColor: "#60a5fa" },
+  dayDow: { color: "#cbd5e1", fontSize: 12, fontWeight: "700" },
+  dayNum: { color: "#e5e7eb", fontSize: 18, fontWeight: "800" },
+  dayPillActiveText: { color: "#e5e7eb" },
 
-  card: { backgroundColor: COLORS.surface, borderRadius: 18, borderWidth: 1, borderColor: COLORS.border, padding: 12, ...(SHADOW as object) },
+  card: { backgroundColor: "rgba(255,255,255,0.045)", borderRadius: 18, borderWidth: 1, borderColor: "#ffffff12", padding: 12, ...(SHADOW as object) },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  slot: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: COLORS.border, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.03)" },
+  slot: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: "#ffffff12", borderRadius: 12, backgroundColor: "rgba(255,255,255,0.03)" },
   slotPressed: { opacity: 0.7 },
-  slotText: { color: COLORS.text, fontWeight: "700" },
-  empty: { color: COLORS.subtext, padding: 6 },
+  slotText: { color: "#e5e7eb", fontWeight: "700" },
+  empty: { color: "#cbd5e1", padding: 6 },
 
-  bookingCard: { borderRadius: 16, padding: 12, borderWidth: 1, borderColor: COLORS.border, backgroundColor: "rgba(255,255,255,0.035)", flexDirection: "row", alignItems: "center", justifyContent: "space-between", ...(SHADOW as object) },
-  bookingText: { color: COLORS.text, fontSize: 15, fontWeight: "700" },
+  bookingCard: { borderRadius: 16, padding: 12, borderWidth: 1, borderColor: "#ffffff12", backgroundColor: "rgba(255,255,255,0.035)", flexDirection: "row", alignItems: "center", justifyContent: "space-between", ...(SHADOW as object) },
+  bookingText: { color: "#e5e7eb", fontSize: 15, fontWeight: "700" },
   cancelBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 10, borderWidth: 1, borderColor: "rgba(239,68,68,0.35)", backgroundColor: "rgba(239,68,68,0.1)" },
   cancelText: { color: "#fecaca", fontWeight: "800" },
 
