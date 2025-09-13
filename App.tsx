@@ -5,7 +5,7 @@ import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 
 /* Components */
 import DateSelector from "./src/components/DateSelector";
-import RecurrenceModal from "./src/components/RecurrenceModal";
+import RecurrenceModal from "./src/components/RecurrenceModal"; // receives fixedDate/fixedTime/fixedService/fixedBarber
 import OccurrencePreviewModal, { PreviewItem } from "./src/components/OccurrencePreviewModal";
 import BarberSelector, { Barber } from "./src/components/BarberSelector";
 
@@ -28,7 +28,7 @@ function overlap(aS: string, aE: string, bS: string, bE: string) {
 }
 function humanDate(dk: string) { const d = new Date(`${dk}T00:00:00`); return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }); }
 
-/** ========== Barbers (mesma lista do componente, para exibir nome/ícone na lista) ========== */
+/** ========== Barbers (para exibir nome/ícone na lista) ========== */
 const BARBERS: Barber[] = [
   { id: "joao", name: "João", icon: "account" },
   { id: "maria", name: "Maria", icon: "account-outline" },
@@ -66,32 +66,6 @@ async function cancelBooking(id: string) {
   if (error) throw error;
 }
 
-/** Weekly recurrence generator (single weekday, weekly interval = 1) */
-function generateWeeklyOccurrences(opts: {
-  startFrom: Date;
-  weekday: number;
-  time: string;
-  count: number;
-}) {
-  const { startFrom, weekday, time, count } = opts;
-  const [hh, mm] = time.split(":").map(Number);
-  if (Number.isNaN(hh) || Number.isNaN(mm)) return [];
-
-  const first = new Date(startFrom);
-  first.setHours(0, 0, 0, 0);
-  const delta = (weekday - first.getDay() + 7) % 7;
-  first.setDate(first.getDate() + delta);
-  first.setHours(hh, mm, 0, 0);
-
-  const out: { date: string; start: string }[] = [];
-  for (let i = 0; i < count; i++) {
-    const d = new Date(first);
-    d.setDate(first.getDate() + i * 7);
-    out.push({ date: toDateKey(d), start: `${pad(hh)}:${pad(mm)}` });
-  }
-  return out;
-}
-
 /** ========== App ========== */
 export default function App() {
   const [selectedService, setSelectedService] = useState<Service>(SERVICES[0]);
@@ -107,6 +81,9 @@ export default function App() {
   const [recurrenceOpen, setRecurrenceOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewItems, setPreviewItems] = useState<PreviewItem[]>([]);
+
+  // Horário selecionado (só cria ao clicar "Book service")
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -136,8 +113,7 @@ export default function App() {
   }, [load]);
 
   const allSlots = useMemo(() => {
-    const start = openingHour * 60,
-      end = closingHour * 60;
+    const start = openingHour * 60, end = closingHour * 60;
     const slots: string[] = [];
     for (let t = start; t <= end - 30; t += 30) slots.push(minutesToTime(t));
     return slots;
@@ -148,11 +124,17 @@ export default function App() {
     return allSlots.filter((start) => {
       const end = addMinutes(start, selectedService.minutes);
       if (timeToMinutes(end) > closingHour * 60) return false;
-      // Bloqueia se houver conflito com QUALQUER barbeiro? Não.
-      // Aqui o conflito deve considerar o mesmo barbeiro selecionado:
+      // conflito só conta para o MESMO barbeiro
       return !safe.some((b) => b.barber === selectedBarber.id && overlap(start, end, b.start, b.end));
     });
   }, [allSlots, bookings, selectedService, selectedBarber]);
+
+  // Se o slot selecionado sair da lista (mudou dia/serviço/barbeiro ou ficou indisponível), limpa
+  useEffect(() => {
+    if (selectedSlot && !availableSlots.includes(selectedSlot)) {
+      setSelectedSlot(null);
+    }
+  }, [availableSlots, selectedSlot, selectedService, selectedBarber, dateKey]);
 
   const book = async (start: string) => {
     const end = addMinutes(start, selectedService.minutes);
@@ -183,34 +165,31 @@ export default function App() {
     }
   };
 
-  const days = useMemo(() => {
-    const out: { key: string; d: Date }[] = [];
-    const base = new Date(day);
-    base.setDate(base.getDate() - 3);
-    for (let i = 0; i < 10; i++) {
-      const n = new Date(base);
-      n.setDate(base.getDate() + i);
-      out.push({ d: n, key: toDateKey(n) });
-    }
-    return out;
-  }, [day]);
-
-  async function handleRecurrenceSubmit(opts: { weekday: number; time: string; count: number; startFrom: Date }) {
+  /** Recorrência: Start date (dia da semana vem dessa data) + time + count */
+  async function handleRecurrenceSubmit(opts: { time: string; count: number; startFrom: Date }) {
     const minutes = selectedService.minutes;
-    const raw = generateWeeklyOccurrences({
-      startFrom: opts.startFrom,
-      weekday: opts.weekday,
-      time: opts.time,
-      count: opts.count,
-    }).map((o) => ({ date: o.date, start: o.start, end: addMinutes(o.start, minutes) }));
+
+    const [hh, mm] = opts.time.split(":").map(Number);
+    const first = new Date(opts.startFrom);
+    first.setHours(hh, mm, 0, 0);
+
+    const raw = Array.from({ length: opts.count }, (_, i) => {
+      const d = new Date(first);
+      d.setDate(first.getDate() + i * 7); // semanal
+      const date = toDateKey(d);
+      const start = `${pad(hh)}:${pad(mm)}`;
+      const end = addMinutes(start, minutes);
+      return { date, start, end };
+    });
 
     if (raw.length === 0) {
-      Alert.alert("Nothing to preview", "Check the weekday/time/start date.");
+      Alert.alert("Nothing to preview", "Check the start date/time/count.");
       return;
     }
 
     try {
       setLoading(true);
+
       const dates = Array.from(new Set(raw.map((r) => r.date)));
       const { data: existingAll, error } = await supabase
         .from("bookings")
@@ -230,7 +209,6 @@ export default function App() {
           return { ...r, ok: false, reason: "outside-hours" };
         }
         const dayRows = byDate.get(r.date) ?? [];
-        // Conflito deve considerar o MESMO barbeiro
         const hasConflict = dayRows.some((b) => b.barber === selectedBarber.id && overlap(r.start, r.end, b.start, b.end));
         return hasConflict ? { ...r, ok: false, reason: "conflict" } : { ...r, ok: true };
       });
@@ -306,17 +284,6 @@ export default function App() {
             );
           })}
         </View>
-
-        {/* Repeat button */}
-        <View style={{ flexDirection: "row", justifyContent: "flex-start", marginTop: 12 }}>
-          <Pressable
-            onPress={() => setRecurrenceOpen(true)}
-            style={[styles.chip, { borderColor: COLORS.border, backgroundColor: COLORS.surface }]}
-          >
-            <Ionicons name="repeat" size={16} color={COLORS.subtext} />
-            <Text style={styles.chipText}>Repeat…</Text>
-          </Pressable>
-        </View>
       </View>
 
       {/* Content */}
@@ -333,13 +300,107 @@ export default function App() {
         <Text style={styles.sectionLabel}>Available slots · {humanDate(dateKey)}</Text>
         <View style={styles.card}>
           <View style={styles.grid}>
-            {availableSlots.length === 0 && !loading && <Text style={styles.empty}>No free slots. Try another day/service.</Text>}
-            {availableSlots.map((t) => (
-              <Pressable key={t} style={({ pressed }) => [styles.slot, pressed && styles.slotPressed]} onPress={() => book(t)}>
-                <Ionicons name="time-outline" size={16} color={COLORS.subtext} />
-                <Text style={styles.slotText}>{t}</Text>
-              </Pressable>
-            ))}
+            {allSlots.map((t) => {
+              const isAvailable = availableSlots.includes(t);
+              const isSelected = selectedSlot === t;
+
+              if (!isAvailable) {
+                // Slot ocupado (para o barbeiro selecionado)
+                const conflict = bookings.find(
+                  (b) =>
+                    b.barber === selectedBarber.id &&
+                    overlap(t, addMinutes(t, selectedService.minutes), b.start, b.end)
+                );
+                return (
+                  <Pressable
+                    key={t}
+                    onPress={() =>
+                      Alert.alert(
+                        "Já ocupado",
+                        conflict
+                          ? `${conflict.service === "cut" ? "Cut" : "Cut & Shave"} com ${
+                              BARBER_MAP[conflict.barber]?.name
+                            } • ${conflict.start}–${conflict.end}`
+                          : "Este horário não está disponível."
+                      )
+                    }
+                    style={[styles.slot, styles.slotBusy]}
+                  >
+                    <Ionicons name="close-circle-outline" size={16} color={COLORS.danger} />
+                    <Text style={styles.slotBusyText}>{t}</Text>
+                  </Pressable>
+                );
+              }
+
+              // Slot disponível
+              return (
+                <Pressable
+                  key={t}
+                  onPress={() => setSelectedSlot(t)}
+                  style={[
+                    styles.slot,
+                    isSelected && styles.slotActive,
+                  ]}
+                >
+                  <Ionicons
+                    name="time-outline"
+                    size={16}
+                    color={isSelected ? COLORS.accentFgOn : COLORS.subtext}
+                  />
+                  <Text style={[styles.slotText, isSelected && styles.slotTextActive]}>{t}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {/* Resumo fixo */}
+          {selectedSlot && (
+            <Text style={styles.summaryText}>
+              {selectedService.name} • {BARBER_MAP[selectedBarber.id]?.name} • {selectedSlot} • {humanDate(dateKey)}
+            </Text>
+          )}
+
+          {/* Botões lado a lado (Book + Repeat) */}
+          <View style={{ marginTop: 12, flexDirection: "row", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
+            <Pressable
+              onPress={async () => {
+                if (!selectedSlot) {
+                  Alert.alert("Select a time", "Choose an available slot first.");
+                  return;
+                }
+                await book(selectedSlot);
+                setSelectedSlot(null);
+              }}
+              disabled={!selectedSlot || loading}
+              style={[
+                styles.bookBtn,
+                (!selectedSlot || loading) && styles.bookBtnDisabled,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Book service"
+            >
+              <Text style={styles.bookBtnText}>Book service</Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => {
+                if (!selectedSlot) {
+                  Alert.alert("Select a time", "Choose an available slot first.");
+                  return;
+                }
+                setRecurrenceOpen(true);
+              }}
+              style={[
+                styles.bookBtn, // mesma aparência do "Book service"
+                (!selectedSlot || loading) && styles.bookBtnDisabled,
+                { flexDirection: "row", alignItems: "center" },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Open recurrence"
+            >
+              <Ionicons name="repeat" size={16} color={COLORS.accentFgOn} />
+              <Text style={[styles.bookBtnText, { marginLeft: 6 }]}>Repeat…</Text>
+            </Pressable>
           </View>
         </View>
 
@@ -381,7 +442,10 @@ export default function App() {
         visible={recurrenceOpen}
         onClose={() => setRecurrenceOpen(false)}
         onSubmit={handleRecurrenceSubmit}
-        initialDate={day}
+        fixedDate={day}
+        fixedTime={selectedSlot || "00:00"} // só abrimos o modal quando há slot selecionado
+        fixedService={selectedService.name}
+        fixedBarber={BARBER_MAP[selectedBarber.id]?.name || selectedBarber.id}
         colors={{ text: COLORS.text, subtext: COLORS.subtext, surface: COLORS.surface, border: COLORS.border, accent: COLORS.accent, bg: "#0c1017" }}
       />
       <OccurrencePreviewModal
@@ -437,9 +501,27 @@ const styles = StyleSheet.create({
 
   card: { backgroundColor: "rgba(255,255,255,0.045)", borderRadius: 18, borderWidth: 1, borderColor: "#ffffff12", padding: 12, ...(SHADOW as object) },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+
   slot: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: "#ffffff12", borderRadius: 12, backgroundColor: "rgba(255,255,255,0.03)" },
   slotPressed: { opacity: 0.7 },
   slotText: { color: "#e5e7eb", fontWeight: "700" },
+
+  // seleção de horário
+  slotActive: { backgroundColor: COLORS.accent, borderColor: COLORS.accent },
+  slotTextActive: { color: COLORS.accentFgOn },
+
+  // slot ocupado
+  slotBusy: { backgroundColor: "rgba(239,68,68,0.15)", borderColor: "rgba(239,68,68,0.4)" },
+  slotBusyText: { color: COLORS.danger, textDecorationLine: "line-through", fontWeight: "700" },
+
+  // resumo fixo
+  summaryText: { marginTop: 10, textAlign: "center", color: COLORS.text, fontWeight: "700", fontSize: 14 },
+
+  // botões
+  bookBtn: { paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, backgroundColor: COLORS.accent, borderWidth: 1, borderColor: COLORS.accent },
+  bookBtnDisabled: { opacity: 0.5 },
+  bookBtnText: { color: COLORS.accentFgOn, fontWeight: "800" },
+
   empty: { color: "#cbd5e1", padding: 6 },
 
   bookingCard: { borderRadius: 16, padding: 12, borderWidth: 1, borderColor: "#ffffff12", backgroundColor: "rgba(255,255,255,0.035)", flexDirection: "row", alignItems: "center", justifyContent: "space-between", ...(SHADOW as object) },
