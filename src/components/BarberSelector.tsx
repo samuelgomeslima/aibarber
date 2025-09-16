@@ -4,7 +4,7 @@ import { View, Text, Pressable, StyleSheet } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 export type Barber = {
-  id: string;
+  id: "joao" | "maria" | "carlos";
   name: string;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
 };
@@ -15,31 +15,37 @@ const BARBERS: Barber[] = [
   { id: "carlos", name: "Carlos", icon: "account-tie" },
 ];
 
-export default function BarberSelector({
-  selected,
-  onChange,
-}: {
+type Props = {
   selected: Barber;
   onChange: (b: Barber) => void;
-}) {
+  /** novo */
+  disabled?: boolean;
+};
+
+export default function BarberSelector({ selected, onChange, disabled = false }: Props) {
   return (
-    <View style={styles.row}>
+    <View
+      style={[
+        styles.row,
+        disabled && { opacity: 0.6 },
+      ]}
+      // Quando desabilitado, não deixa clicar
+      pointerEvents={disabled ? "none" : "auto"}
+    >
       {BARBERS.map((b) => {
-        const active = selected.id === b.id;
+        const active = b.id === selected.id;
         return (
           <Pressable
             key={b.id}
             onPress={() => onChange(b)}
-            style={[styles.card, active && styles.activeCard]}
+            style={[styles.card, active && styles.cardActive]}
           >
             <MaterialCommunityIcons
               name={b.icon}
-              size={20}
-              color={active ? "#0b0d13" : "#cbd5e1"}
+              size={18}
+              color={active ? "#091016" : "#cbd5e1"}
             />
-            <Text style={[styles.text, active && styles.activeText]}>
-              {b.name}
-            </Text>
+            <Text style={[styles.name, active && styles.nameActive]}>{b.name}</Text>
           </Pressable>
         );
       })}
@@ -50,25 +56,29 @@ export default function BarberSelector({
 const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    marginTop: 12,
-    marginBottom: 12,
+    gap: 10,
+    marginTop: 6,
   },
   card: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingVertical: 8,
+    gap: 8,
+    paddingVertical: 10,
     paddingHorizontal: 14,
-    borderRadius: 999,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-    backgroundColor: "rgba(255,255,255,0.05)",
+    borderColor: "rgba(255,255,255,0.07)",
+    backgroundColor: "rgba(255,255,255,0.045)",
   },
-  activeCard: {
+  cardActive: {
     backgroundColor: "#60a5fa",
     borderColor: "#60a5fa",
   },
-  text: { color: "#cbd5e1", fontWeight: "600" },
-  activeText: { color: "#0b0d13", fontWeight: "700" },
+  name: {
+    color: "#cbd5e1",
+    fontWeight: "800",
+  },
+  nameActive: {
+    color: "#091016",
+  },
 });
