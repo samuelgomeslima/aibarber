@@ -19,6 +19,7 @@ import DateSelector from "./src/components/DateSelector";
 import RecurrenceModal from "./src/components/RecurrenceModal"; // recebe fixedDate/fixedTime/fixedService/fixedBarber
 import OccurrencePreviewModal, { PreviewItem } from "./src/components/OccurrencePreviewModal";
 import BarberSelector, { Barber } from "./src/components/BarberSelector";
+import AssistantChat from "./src/components/AssistantChat";
 
 /* Novo: formulário de usuário (com date_of_birth e salvando no Supabase) */
 import UserForm from "./src/components/UserForm";
@@ -130,7 +131,7 @@ async function listCustomers(query: string) {
 /** ========== App ========== */
 export default function App() {
   const [selectedService, setSelectedService] = useState<Service>(SERVICES[0]);
-  const [activeScreen, setActiveScreen] = useState<"home" | "booking">("home");
+  const [activeScreen, setActiveScreen] = useState<"home" | "booking" | "assistant">("home");
 
   // Cliente -> obrigatório antes do barbeiro
   const [clientModalOpen, setClientModalOpen] = useState(false);
@@ -367,6 +368,63 @@ export default function App() {
     return out;
   }, [day]);
 
+  const assistantContextSummary = useMemo(() => {
+    const serviceList = SERVICES.map((s) => `${s.name} (${s.minutes}m)`).join(", ");
+    const barberList = BARBERS.map((b) => b.name).join(", ");
+    const bookingLines = bookings.slice(0, 6).map((b) => {
+      const serviceName = b.service === "cut" ? "Cut" : "Cut & Shave";
+      const barberName = BARBER_MAP[b.barber]?.name ?? b.barber;
+      const customerName = b._customer
+        ? ` for ${b._customer.first_name}${b._customer.last_name ? ` ${b._customer.last_name}` : ""}`
+        : "";
+      return `${humanDate(b.date)} ${b.start}–${b.end} • ${serviceName} • ${barberName}${customerName}`;
+    });
+
+    let summary = `Hours: ${pad(openingHour)}:00–${pad(closingHour)}:00\nServices: ${serviceList}\nBarbers: ${barberList}`;
+    if (bookingLines.length) {
+      summary += `\nBookings:\n${bookingLines.join("\n")}`;
+      if (bookings.length > bookingLines.length) {
+        const remaining = bookings.length - bookingLines.length;
+        summary += `\n…and ${remaining} more booking${remaining === 1 ? "" : "s"}.`;
+      }
+    } else {
+      summary += "\nBookings: none scheduled yet.";
+    }
+    return summary;
+  }, [bookings]);
+
+  const assistantSystemPrompt = useMemo(() => {
+    const serviceLines = SERVICES.map((s) => `• ${s.name} (${s.minutes} minutes)`).join("\n");
+    const barberLines = BARBERS.map((b) => `• ${b.name}`).join("\n");
+    const bookingLines = bookings
+      .map((b) => {
+        const serviceName = b.service === "cut" ? "Cut" : "Cut & Shave";
+        const barberName = BARBER_MAP[b.barber]?.name ?? b.barber;
+        const customerName = b._customer
+          ? ` for ${b._customer.first_name}${b._customer.last_name ? ` ${b._customer.last_name}` : ""}`
+          : "";
+        return `${humanDate(b.date)} ${b.start}–${b.end} • ${serviceName} • ${barberName}${customerName}`;
+      })
+      .slice(0, 12)
+      .join("\n");
+
+    const existingBookings = bookingLines || "(No bookings are currently scheduled.)";
+
+    return [
+      "You are AIBarber, an assistant that helps manage a barbershop booking agenda.",
+      `Opening hours: ${pad(openingHour)}:00 to ${pad(closingHour)}:00.`,
+      "Services:",
+      serviceLines,
+      "Barbers:",
+      barberLines,
+      "Existing bookings:",
+      existingBookings,
+      "When the user asks to schedule, gather the service, barber, date, and preferred time before making suggestions.",
+      "Recommend options that do not overlap with the listed bookings and explain any conflicts you find.",
+      "Always remind the user that you cannot save bookings yourself and that they must confirm inside the app's Bookings screen.",
+    ].join("\n");
+  }, [bookings]);
+
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
       <View style={styles.navBar}>
@@ -400,6 +458,19 @@ export default function App() {
               color={activeScreen === "booking" ? COLORS.accentFgOn : COLORS.subtext}
             />
             <Text style={[styles.navItemText, activeScreen === "booking" && styles.navItemTextActive]}>Bookings</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setActiveScreen("assistant")}
+            style={[styles.navItem, activeScreen === "assistant" && styles.navItemActive]}
+            accessibilityRole="button"
+            accessibilityLabel="Open the AI assistant"
+          >
+            <Ionicons
+              name="sparkles-outline"
+              size={18}
+              color={activeScreen === "assistant" ? COLORS.accentFgOn : COLORS.subtext}
+            />
+            <Text style={[styles.navItemText, activeScreen === "assistant" && styles.navItemTextActive]}>Assistant</Text>
           </Pressable>
         </View>
       </View>
@@ -649,6 +720,21 @@ export default function App() {
             </View>
           )}
       </>
+    ) : activeScreen === "assistant" ? (
+      <AssistantChat
+        colors={{
+          text: COLORS.text,
+          subtext: COLORS.subtext,
+          surface: COLORS.surface,
+          border: COLORS.border,
+          accent: COLORS.accent,
+          accentFgOn: COLORS.accentFgOn,
+          danger: COLORS.danger,
+          bg: COLORS.bg,
+        }}
+        systemPrompt={assistantSystemPrompt}
+        contextSummary={assistantContextSummary}
+      />
     ) : (
       <View style={styles.defaultScreen}>
         <MaterialCommunityIcons name="calendar-month-outline" size={48} color={COLORS.accent} />
