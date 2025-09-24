@@ -1,5 +1,5 @@
 const API_URL = "https://api.openai.com/v1/chat/completions";
-const API_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+const API_KEY = process.env.OPENAI_API_KEY;
 
 export type ChatMessage = {
   role: "system" | "user" | "assistant";
@@ -22,7 +22,7 @@ function buildErrorMessage(status: number, body: any) {
 
 export async function fetchAssistantReply(messages: ChatMessage[]): Promise<string> {
   if (!isOpenAiConfigured) {
-    throw new Error("OpenAI API key is not configured. Set EXPO_PUBLIC_OPENAI_API_KEY in your environment.");
+    throw new Error("OpenAI API key is not configured. Set OPENAI_API_KEY in your environment.");
   }
 
   const response = await fetch(API_URL, {
