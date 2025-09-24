@@ -130,6 +130,7 @@ async function listCustomers(query: string) {
 /** ========== App ========== */
 export default function App() {
   const [selectedService, setSelectedService] = useState<Service>(SERVICES[0]);
+  const [activeScreen, setActiveScreen] = useState<"home" | "booking">("home");
 
   // Cliente -> obrigatório antes do barbeiro
   const [clientModalOpen, setClientModalOpen] = useState(false);
@@ -368,250 +369,305 @@ export default function App() {
 
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <MaterialCommunityIcons name="content-cut" size={26} color="#fff" />
-            <Text style={styles.title}>AIBarber</Text>
-          </View>
-          <View style={styles.badge}>
-            <Ionicons name="time-outline" size={14} color={COLORS.subtext} />
-            <Text style={styles.badgeText}>09:00–18:00</Text>
-          </View>
+      <View style={styles.navBar}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <MaterialCommunityIcons name="content-cut" size={22} color="#fff" />
+          <Text style={styles.navBrand}>AIBarber</Text>
         </View>
-
-        {/* Service chips */}
-        <View style={styles.chipsRow}>
-          {SERVICES.map((s) => {
-            const active = s.id === selectedService.id;
-            return (
-              <Pressable
-                key={s.id}
-                onPress={() => setSelectedService(s)}
-                style={[styles.chip, active && styles.chipActive]}
-              >
-                <MaterialCommunityIcons name={s.icon} size={16} color={active ? COLORS.accentFgOn : COLORS.subtext} />
-                <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                  {s.name} · {s.minutes}m
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        {/* Client picker (novo, antes do barbeiro) */}
-        <View style={{ marginTop: 12, gap: 8 }}>
-          <Text style={{ color: COLORS.subtext, fontWeight: "800", fontSize: 12 }}>Client</Text>
-          <View style={[styles.cardRow, { borderColor: COLORS.border }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: COLORS.text, fontWeight: "800" }}>
-                {selectedCustomer ? `${selectedCustomer.first_name} ${selectedCustomer.last_name}` : "No client selected"}
-              </Text>
-              {selectedCustomer?.phone ? (
-                <Text style={{ color: COLORS.subtext, fontSize: 12 }}>
-                  {selectedCustomer.phone} · {selectedCustomer.email ?? ""}
-                </Text>
-              ) : null}
-            </View>
-            <Pressable onPress={() => setClientModalOpen(true)} style={[styles.smallBtn, { borderColor: COLORS.accent, backgroundColor: COLORS.accent }]}>
-              <Text style={{ color: COLORS.accentFgOn, fontWeight: "900" }}>{selectedCustomer ? "Change" : "Select"}</Text>
-            </Pressable>
-          </View>
-        </View>
-
-        {/* Barber selector (desabilita se não houver cliente) */}
-        <View style={{ marginTop: 12, opacity: selectedCustomer ? 1 : 0.6 }}>
-          <Text style={styles.sectionLabel}>Escolha o barbeiro</Text>
-          <BarberSelector
-            selected={selectedBarber}
-            onChange={setSelectedBarber}
-            disabled={!selectedCustomer}
-          />
+        <View style={styles.navActions}>
+          <Pressable
+            onPress={() => setActiveScreen("home")}
+            style={[styles.navItem, activeScreen === "home" && styles.navItemActive]}
+            accessibilityRole="button"
+            accessibilityLabel="Go to overview"
+          >
+            <MaterialCommunityIcons
+              name="view-dashboard-outline"
+              size={18}
+              color={activeScreen === "home" ? COLORS.accentFgOn : COLORS.subtext}
+            />
+            <Text style={[styles.navItemText, activeScreen === "home" && styles.navItemTextActive]}>Overview</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setActiveScreen("booking")}
+            style={[styles.navItem, activeScreen === "booking" && styles.navItemActive]}
+            accessibilityRole="button"
+            accessibilityLabel="Go to bookings"
+          >
+            <MaterialCommunityIcons
+              name="calendar-clock"
+              size={18}
+              color={activeScreen === "booking" ? COLORS.accentFgOn : COLORS.subtext}
+            />
+            <Text style={[styles.navItemText, activeScreen === "booking" && styles.navItemTextActive]}>Bookings</Text>
+          </Pressable>
         </View>
       </View>
 
-      {/* Content */}
-      <ScrollView contentContainerStyle={styles.container} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-        {/* Date selector */}
-        <Text style={styles.sectionLabel}>Pick a day</Text>
-        <DateSelector
-          value={day}
-          onChange={setDay}
-          colors={{ text: COLORS.text, subtext: COLORS.subtext, surface: COLORS.surface, border: COLORS.border, accent: COLORS.accent }}
-        />
+      {activeScreen === "booking" ? (
+        <>
+            {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerRow}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <MaterialCommunityIcons name="content-cut" size={26} color="#fff" />
+              <Text style={styles.title}>AIBarber</Text>
+            </View>
+            <View style={styles.badge}>
+              <Ionicons name="time-outline" size={14} color={COLORS.subtext} />
+              <Text style={styles.badgeText}>09:00–18:00</Text>
+            </View>
+          </View>
 
-        {/* Slots */}
-        <Text style={styles.sectionLabel}>Available slots · {humanDate(dateKey)}</Text>
-        <View style={styles.card}>
-        <View style={styles.grid}>
-  {allSlots.map((t) => {
-    const isAvailable = availableSlots.includes(t);
-    const isSelected = selectedSlot === t;
+          {/* Service chips */}
+          <View style={styles.chipsRow}>
+            {SERVICES.map((s) => {
+              const active = s.id === selectedService.id;
+              return (
+                <Pressable
+                  key={s.id}
+                  onPress={() => setSelectedService(s)}
+                  style={[styles.chip, active && styles.chipActive]}
+                >
+                  <MaterialCommunityIcons name={s.icon} size={16} color={active ? COLORS.accentFgOn : COLORS.subtext} />
+                  <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                    {s.name} · {s.minutes}m
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
-    if (!isAvailable) {
-      const conflict = bookings.find(
-        (b) =>
-          b.barber === selectedBarber.id &&
-          overlap(t, addMinutes(t, selectedService.minutes), b.start, b.end)
-      );
-      return (
-        <Pressable
-          key={t}
-          onPress={() =>
-            Alert.alert(
-              "Já ocupado",
-              conflict
-                ? `${conflict.service === "cut" ? "Cut" : "Cut & Shave"} com ${
-                    BARBER_MAP[conflict.barber]?.name
-                  } • ${conflict.start}–${conflict.end}`
-                : "Este horário não está disponível."
-            )
-          }
-          style={[styles.slot, styles.slotBusy]}
-        >
-          <Ionicons name="close-circle-outline" size={16} color={COLORS.danger} />
-          <Text style={styles.slotBusyText}>{t}</Text>
-        </Pressable>
-      );
-    }
+          {/* Client picker (novo, antes do barbeiro) */}
+          <View style={{ marginTop: 12, gap: 8 }}>
+            <Text style={{ color: COLORS.subtext, fontWeight: "800", fontSize: 12 }}>Client</Text>
+            <View style={[styles.cardRow, { borderColor: COLORS.border }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: COLORS.text, fontWeight: "800" }}>
+                  {selectedCustomer ? `${selectedCustomer.first_name} ${selectedCustomer.last_name}` : "No client selected"}
+                </Text>
+                {selectedCustomer?.phone ? (
+                  <Text style={{ color: COLORS.subtext, fontSize: 12 }}>
+                    {selectedCustomer.phone} · {selectedCustomer.email ?? ""}
+                  </Text>
+                ) : null}
+              </View>
+              <Pressable onPress={() => setClientModalOpen(true)} style={[styles.smallBtn, { borderColor: COLORS.accent, backgroundColor: COLORS.accent }]}>
+                <Text style={{ color: COLORS.accentFgOn, fontWeight: "900" }}>{selectedCustomer ? "Change" : "Select"}</Text>
+              </Pressable>
+            </View>
+          </View>
 
-    return (
-      <Pressable
-        key={t}
-        onPress={() => setSelectedSlot(t)}
-        style={[styles.slot, isSelected && styles.slotActive]}
-      >
-        <Ionicons
-          name="time-outline"
-          size={16}
-          color={isSelected ? COLORS.accentFgOn : COLORS.subtext}
-        />
-        <Text style={[styles.slotText, isSelected && styles.slotTextActive]}>{t}</Text>
-      </Pressable>
-    );
-  })}
-</View>
-
-
-          {/* Resumo fixo */}
-          {selectedSlot && (
-            <Text style={styles.summaryText}>
-              {selectedService.name} • {BARBER_MAP[selectedBarber.id]?.name} • {selectedSlot} • {humanDate(dateKey)}
-              {selectedCustomer ? ` • ${selectedCustomer.first_name}` : ""}
-            </Text>
-          )}
-
-          {/* Botões lado a lado (Book + Repeat) */}
-          <View style={{ marginTop: 12, flexDirection: "row", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
-            <Pressable
-              onPress={async () => {
-                if (!selectedSlot) {
-                  Alert.alert("Select a time", "Choose an available slot first.");
-                  return;
-                }
-                await book(selectedSlot);
-                setSelectedSlot(null);
-              }}
-              disabled={!selectedSlot || loading || !selectedCustomer}
-              style={[styles.bookBtn, (!selectedSlot || loading || !selectedCustomer) && styles.bookBtnDisabled]}
-              accessibilityRole="button"
-              accessibilityLabel="Book service"
-            >
-              <Text style={styles.bookBtnText}>Book service</Text>
-            </Pressable>
-
-            <Pressable
-              onPress={() => {
-                if (!selectedSlot) {
-                  Alert.alert("Select a time", "Choose an available slot first.");
-                  return;
-                }
-                if (!selectedCustomer) {
-                  Alert.alert("Select client", "Choose/create a client first.");
-                  return;
-                }
-                setRecurrenceOpen(true);
-              }}
-              style={[styles.bookBtn, (!selectedSlot || loading || !selectedCustomer) && styles.bookBtnDisabled, { flexDirection: "row", alignItems: "center" }]}
-              accessibilityRole="button"
-              accessibilityLabel="Open recurrence"
-            >
-              <Ionicons name="repeat" size={16} color={COLORS.accentFgOn} />
-              <Text style={[styles.bookBtnText, { marginLeft: 6 }]}>Repeat…</Text>
-            </Pressable>
+          {/* Barber selector (desabilita se não houver cliente) */}
+          <View style={{ marginTop: 12, opacity: selectedCustomer ? 1 : 0.6 }}>
+            <Text style={styles.sectionLabel}>Escolha o barbeiro</Text>
+            <BarberSelector
+              selected={selectedBarber}
+              onChange={setSelectedBarber}
+              disabled={!selectedCustomer}
+            />
           </View>
         </View>
 
-        {/* Bookings */}
-        <Text style={styles.sectionLabel}>Your bookings</Text>
-        <View style={{ gap: 10 }}>
-          {bookings.length === 0 ? (
-            <View style={styles.card}><Text style={styles.empty}>— none yet —</Text></View>
-          ) : (
-            bookings.map((b) => {
-              const svc = b.service === "cut" ? "Cut" : "Cut & Shave";
-              const barber = BARBER_MAP[b.barber] ?? { name: b.barber, icon: "account" as const };
-              return (
-                <View key={b.id} style={styles.bookingCard}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                    <MaterialCommunityIcons name={b.service === "cut" ? "content-cut" : "razor-double-edge"} size={20} color="#93c5fd" />
-                    <MaterialCommunityIcons name={barber.icon} size={18} color="#cbd5e1" />
-                    <Text style={styles.bookingText}>
-                      {svc} • {b.start}–{b.end} • {barber.name}
-                      {b._customer ? ` • ${b._customer.first_name}` : ""}
-                    </Text>
+        {/* Content */}
+        <ScrollView contentContainerStyle={styles.container} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
+          {/* Date selector */}
+          <Text style={styles.sectionLabel}>Pick a day</Text>
+          <DateSelector
+            value={day}
+            onChange={setDay}
+            colors={{ text: COLORS.text, subtext: COLORS.subtext, surface: COLORS.surface, border: COLORS.border, accent: COLORS.accent }}
+          />
+
+          {/* Slots */}
+          <Text style={styles.sectionLabel}>Available slots · {humanDate(dateKey)}</Text>
+          <View style={styles.card}>
+          <View style={styles.grid}>
+    {allSlots.map((t) => {
+      const isAvailable = availableSlots.includes(t);
+      const isSelected = selectedSlot === t;
+
+      if (!isAvailable) {
+        const conflict = bookings.find(
+          (b) =>
+            b.barber === selectedBarber.id &&
+            overlap(t, addMinutes(t, selectedService.minutes), b.start, b.end)
+        );
+        return (
+          <Pressable
+            key={t}
+            onPress={() =>
+              Alert.alert(
+                "Já ocupado",
+                conflict
+                  ? `${conflict.service === "cut" ? "Cut" : "Cut & Shave"} com ${
+                      BARBER_MAP[conflict.barber]?.name
+                    } • ${conflict.start}–${conflict.end}`
+                  : "Este horário não está disponível."
+              )
+            }
+            style={[styles.slot, styles.slotBusy]}
+          >
+            <Ionicons name="close-circle-outline" size={16} color={COLORS.danger} />
+            <Text style={styles.slotBusyText}>{t}</Text>
+          </Pressable>
+        );
+      }
+
+      return (
+        <Pressable
+          key={t}
+          onPress={() => setSelectedSlot(t)}
+          style={[styles.slot, isSelected && styles.slotActive]}
+        >
+          <Ionicons
+            name="time-outline"
+            size={16}
+            color={isSelected ? COLORS.accentFgOn : COLORS.subtext}
+          />
+          <Text style={[styles.slotText, isSelected && styles.slotTextActive]}>{t}</Text>
+        </Pressable>
+      );
+    })}
+  </View>
+
+
+            {/* Resumo fixo */}
+            {selectedSlot && (
+              <Text style={styles.summaryText}>
+                {selectedService.name} • {BARBER_MAP[selectedBarber.id]?.name} • {selectedSlot} • {humanDate(dateKey)}
+                {selectedCustomer ? ` • ${selectedCustomer.first_name}` : ""}
+              </Text>
+            )}
+
+            {/* Botões lado a lado (Book + Repeat) */}
+            <View style={{ marginTop: 12, flexDirection: "row", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
+              <Pressable
+                onPress={async () => {
+                  if (!selectedSlot) {
+                    Alert.alert("Select a time", "Choose an available slot first.");
+                    return;
+                  }
+                  await book(selectedSlot);
+                  setSelectedSlot(null);
+                }}
+                disabled={!selectedSlot || loading || !selectedCustomer}
+                style={[styles.bookBtn, (!selectedSlot || loading || !selectedCustomer) && styles.bookBtnDisabled]}
+                accessibilityRole="button"
+                accessibilityLabel="Book service"
+              >
+                <Text style={styles.bookBtnText}>Book service</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  if (!selectedSlot) {
+                    Alert.alert("Select a time", "Choose an available slot first.");
+                    return;
+                  }
+                  if (!selectedCustomer) {
+                    Alert.alert("Select client", "Choose/create a client first.");
+                    return;
+                  }
+                  setRecurrenceOpen(true);
+                }}
+                style={[styles.bookBtn, (!selectedSlot || loading || !selectedCustomer) && styles.bookBtnDisabled, { flexDirection: "row", alignItems: "center" }]}
+                accessibilityRole="button"
+                accessibilityLabel="Open recurrence"
+              >
+                <Ionicons name="repeat" size={16} color={COLORS.accentFgOn} />
+                <Text style={[styles.bookBtnText, { marginLeft: 6 }]}>Repeat…</Text>
+              </Pressable>
+            </View>
+          </View>
+
+          {/* Bookings */}
+          <Text style={styles.sectionLabel}>Your bookings</Text>
+          <View style={{ gap: 10 }}>
+            {bookings.length === 0 ? (
+              <View style={styles.card}><Text style={styles.empty}>— none yet —</Text></View>
+            ) : (
+              bookings.map((b) => {
+                const svc = b.service === "cut" ? "Cut" : "Cut & Shave";
+                const barber = BARBER_MAP[b.barber] ?? { name: b.barber, icon: "account" as const };
+                return (
+                  <View key={b.id} style={styles.bookingCard}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                      <MaterialCommunityIcons name={b.service === "cut" ? "content-cut" : "razor-double-edge"} size={20} color="#93c5fd" />
+                      <MaterialCommunityIcons name={barber.icon} size={18} color="#cbd5e1" />
+                      <Text style={styles.bookingText}>
+                        {svc} • {b.start}–{b.end} • {barber.name}
+                        {b._customer ? ` • ${b._customer.first_name}` : ""}
+                      </Text>
+                    </View>
+                    <Pressable onPress={() => onCancel(b.id)} style={styles.cancelBtn}>
+                      <Ionicons name="trash-outline" size={16} color="#fecaca" />
+                      <Text style={styles.cancelText}>Cancel</Text>
+                    </Pressable>
                   </View>
-                  <Pressable onPress={() => onCancel(b.id)} style={styles.cancelBtn}>
-                    <Ionicons name="trash-outline" size={16} color="#fecaca" />
-                    <Text style={styles.cancelText}>Cancel</Text>
-                  </Pressable>
-                </View>
-              );
-            })
+                );
+              })
+            )}
+          </View>
+
+          <Text style={styles.note}>Tip: selecione/crie o cliente antes do barbeiro; conflitos são por barbeiro.</Text>
+        </ScrollView>
+
+        {/* Modals: Recorrência e Preview (mantidos) */}
+        <RecurrenceModal
+          visible={recurrenceOpen}
+          onClose={() => setRecurrenceOpen(false)}
+          onSubmit={handleRecurrenceSubmit}
+          fixedDate={day}
+          fixedTime={selectedSlot || "00:00"}
+          fixedService={selectedService.name}
+          fixedBarber={BARBER_MAP[selectedBarber.id]?.name || selectedBarber.id}
+          colors={{ text: COLORS.text, subtext: COLORS.subtext, surface: COLORS.surface, border: COLORS.border, accent: COLORS.accent, bg: "#0c1017" }}
+        />
+        <OccurrencePreviewModal
+          visible={previewOpen}
+          items={previewItems}
+          onClose={() => setPreviewOpen(false)}
+          onConfirm={confirmPreviewInsert}
+          colors={{ text: COLORS.text, subtext: COLORS.subtext, surface: COLORS.surface, border: COLORS.border, accent: COLORS.accent, bg: "#0b0d13", danger: COLORS.danger }}
+        />
+
+        {/* Modal de clientes (lista + criar via UserForm) */}
+        <ClientModal
+          visible={clientModalOpen}
+          onClose={() => setClientModalOpen(false)}
+          customers={customers}
+          loading={customersLoading}
+          onRefreshQuery={(q) => { setCustomerQuery(q); refreshCustomers(q); }}
+          onPick={(c) => { setSelectedCustomer(c); setClientModalOpen(false); }}
+          onSaved={(c) => { setSelectedCustomer(c); refreshCustomers(); }}
+        />
+
+          {loading && (
+            <View style={styles.loadingOverlay} pointerEvents="none">
+              <ActivityIndicator size="large" />
+            </View>
           )}
-        </View>
-
-        <Text style={styles.note}>Tip: selecione/crie o cliente antes do barbeiro; conflitos são por barbeiro.</Text>
-      </ScrollView>
-
-      {/* Modals: Recorrência e Preview (mantidos) */}
-      <RecurrenceModal
-        visible={recurrenceOpen}
-        onClose={() => setRecurrenceOpen(false)}
-        onSubmit={handleRecurrenceSubmit}
-        fixedDate={day}
-        fixedTime={selectedSlot || "00:00"}
-        fixedService={selectedService.name}
-        fixedBarber={BARBER_MAP[selectedBarber.id]?.name || selectedBarber.id}
-        colors={{ text: COLORS.text, subtext: COLORS.subtext, surface: COLORS.surface, border: COLORS.border, accent: COLORS.accent, bg: "#0c1017" }}
-      />
-      <OccurrencePreviewModal
-        visible={previewOpen}
-        items={previewItems}
-        onClose={() => setPreviewOpen(false)}
-        onConfirm={confirmPreviewInsert}
-        colors={{ text: COLORS.text, subtext: COLORS.subtext, surface: COLORS.surface, border: COLORS.border, accent: COLORS.accent, bg: "#0b0d13", danger: COLORS.danger }}
-      />
-
-      {/* Modal de clientes (lista + criar via UserForm) */}
-      <ClientModal
-        visible={clientModalOpen}
-        onClose={() => setClientModalOpen(false)}
-        customers={customers}
-        loading={customersLoading}
-        onRefreshQuery={(q) => { setCustomerQuery(q); refreshCustomers(q); }}
-        onPick={(c) => { setSelectedCustomer(c); setClientModalOpen(false); }}
-        onSaved={(c) => { setSelectedCustomer(c); refreshCustomers(); }}
-      />
-
-      {loading && (
-        <View style={styles.loadingOverlay} pointerEvents="none">
-          <ActivityIndicator size="large" />
-        </View>
-      )}
-    </View>
-  );
+      </>
+    ) : (
+      <View style={styles.defaultScreen}>
+        <MaterialCommunityIcons name="calendar-month-outline" size={48} color={COLORS.accent} />
+        <Text style={styles.defaultTitle}>Welcome to AIBarber</Text>
+        <Text style={styles.defaultSubtitle}>
+          Keep track of your barbershop schedule and manage recurring bookings with ease.
+        </Text>
+        <Pressable
+          onPress={() => setActiveScreen("booking")}
+          style={styles.defaultCta}
+          accessibilityRole="button"
+          accessibilityLabel="Open the booking screen"
+        >
+          <Text style={styles.defaultCtaText}>Start booking</Text>
+        </Pressable>
+      </View>
+    )}
+  </View>
+);
 }
 
 /** ======== Modal de Cliente (lista + criar) ======== */
@@ -740,7 +796,51 @@ const SHADOW = Platform.select({
 });
 
 const styles = StyleSheet.create({
-  header: { paddingTop: 56, paddingBottom: 16, paddingHorizontal: 16, borderBottomWidth: 1, borderColor: "#11151c", backgroundColor: "#0c1017" },
+  navBar: {
+    paddingTop: Platform.select({ ios: 52, android: 40, default: 24 }),
+    paddingBottom: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderColor: "#11151c",
+    backgroundColor: "#0c1017",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    flexWrap: "wrap",
+  },
+  navBrand: { color: "#fff", fontSize: 18, fontWeight: "800", letterSpacing: 0.3 },
+  navActions: { flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" },
+  navItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#ffffff12",
+    backgroundColor: "rgba(255,255,255,0.045)",
+  },
+  navItemActive: { backgroundColor: COLORS.accent, borderColor: COLORS.accent },
+  navItemText: { color: COLORS.subtext, fontWeight: "700" },
+  navItemTextActive: { color: COLORS.accentFgOn },
+
+  defaultScreen: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 16 },
+  defaultTitle: { color: COLORS.text, fontSize: 24, fontWeight: "800", textAlign: "center", letterSpacing: 0.3 },
+  defaultSubtitle: { color: COLORS.subtext, fontSize: 14, textAlign: "center", lineHeight: 20, maxWidth: 320 },
+  defaultCta: {
+    marginTop: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 999,
+    backgroundColor: COLORS.accent,
+    borderWidth: 1,
+    borderColor: COLORS.accent,
+  },
+  defaultCtaText: { color: COLORS.accentFgOn, fontWeight: "800", fontSize: 14 },
+
+  header: { paddingTop: 24, paddingBottom: 16, paddingHorizontal: 16, borderBottomWidth: 1, borderColor: "#11151c", backgroundColor: "#0c1017" },
   headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   title: { color: "#fff", fontSize: 22, fontWeight: "800", letterSpacing: 0.3 },
   badge: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.06)" },
