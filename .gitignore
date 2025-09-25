@@ -42,3 +42,6 @@ yarn-error.*
 # supabase
 !src/lib/
 !src/lib/supabase.ts
+
+# Azure Functions (local settings)
+api/local.settings.json
