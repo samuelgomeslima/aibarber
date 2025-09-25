@@ -1,5 +1,7 @@
 // Node 18+ on Azure Functions has global fetch.
-const ALLOWED_ORIGINS = []; // e.g., ["https://your-swa.azurestaticapps.net"]; empty = same-origin via SWA
+const ALLOWED_ORIGINS = [
+  "https://lively-plant-0be70001e.2.azurestaticapps.net/",
+];
 
 function cors(req) {
   // If front-end and API are served by SWA together, you can omit CORS completely.
@@ -12,15 +14,23 @@ function cors(req) {
   return {
     "Access-Control-Allow-Origin": allow,
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   };
 }
 
 function badRequest(body, req) {
-  return { status: 400, body: JSON.stringify(body), headers: { "Content-Type": "application/json", ...cors(req) } };
+  return {
+    status: 400,
+    body: JSON.stringify(body),
+    headers: { "Content-Type": "application/json", ...cors(req) },
+  };
 }
 function serverError(body, req) {
-  return { status: 500, body: JSON.stringify(body), headers: { "Content-Type": "application/json", ...cors(req) } };
+  return {
+    status: 500,
+    body: JSON.stringify(body),
+    headers: { "Content-Type": "application/json", ...cors(req) },
+  };
 }
 function noContent(req) {
   return { status: 204, headers: cors(req) };
@@ -33,7 +43,8 @@ module.exports = async function (context, req) {
   const key = process.env.OPENAI_API_KEY;
   if (req.method === "GET") {
     // Health check endpoint: returns 204 if configured
-    if (!key) return serverError({ error: "OPENAI_API_KEY not configured" }, req);
+    if (!key)
+      return serverError({ error: "OPENAI_API_KEY not configured" }, req);
     return noContent(req);
   }
 
@@ -44,7 +55,8 @@ module.exports = async function (context, req) {
 
   let payload = {};
   try {
-    payload = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
+    payload =
+      typeof req.body === "string" ? JSON.parse(req.body) : req.body || {};
   } catch {
     return badRequest({ error: "Invalid JSON body" }, req);
   }
@@ -59,21 +71,21 @@ module.exports = async function (context, req) {
     const r = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${key}`,
-        "Content-Type": "application/json"
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         model,
         temperature,
-        messages
-      })
+        messages,
+      }),
     });
 
     const text = await r.text(); // pass through OpenAI response as-is
     return {
       status: r.status,
       body: text,
-      headers: { "Content-Type": "application/json", ...cors(req) }
+      headers: { "Content-Type": "application/json", ...cors(req) },
     };
   } catch (err) {
     context.log("Proxy error:", err);
