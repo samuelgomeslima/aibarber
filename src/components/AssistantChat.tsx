@@ -12,11 +12,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-import {
-  ChatMessage,
-  fetchAssistantReply,
-  isOpenAiConfigured as checkOpenAiConfigured,
-} from "../lib/openai";
+import { ChatMessage, fetchAssistantReply, isOpenAiConfigured } from "../lib/openai";
 
 type DisplayMessage = {
   role: "assistant" | "user";
@@ -48,30 +44,15 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary }: 
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [openAiConfigured, setOpenAiConfigured] = useState(true);
 
   const scrollRef = useRef<ScrollView>(null);
   useEffect(() => {
     scrollRef.current?.scrollToEnd({ animated: true });
   }, [messages]);
 
-  useEffect(() => {
-    let active = true;
-    checkOpenAiConfigured()
-      .then((configured) => {
-        if (active) setOpenAiConfigured(configured);
-      })
-      .catch(() => {
-        if (active) setOpenAiConfigured(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
   const canSend = useMemo(() => {
-    return Boolean(input.trim()) && !pending && openAiConfigured;
-  }, [input, pending, openAiConfigured]);
+    return Boolean(input.trim()) && !pending && isOpenAiConfigured;
+  }, [input, pending]);
 
   const handleSend = async () => {
     const trimmed = input.trim();
@@ -109,7 +90,7 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary }: 
         <View style={[styles.summaryCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
           <Text style={[styles.summaryTitle, { color: colors.text }]}>Booking context</Text>
           <Text style={[styles.summaryText, { color: colors.subtext }]}>{contextSummary}</Text>
-          {!openAiConfigured && (
+          {!isOpenAiConfigured && (
             <Text style={[styles.warningText, { color: colors.danger }]}>Set EXPO_PUBLIC_OPENAI_API_KEY to enable the assistant.</Text>
           )}
         </View>
@@ -159,7 +140,7 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary }: 
             placeholderTextColor={colors.subtext}
             multiline
             style={[styles.input, { color: colors.text }]}
-            editable={!pending && openAiConfigured}
+            editable={!pending && isOpenAiConfigured}
           />
           <Pressable
             onPress={handleSend}

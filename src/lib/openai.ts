@@ -1,19 +1,12 @@
-const PROXY_URL = "/api/openai-proxy";
+const API_URL = "https://api.openai.com/v1/chat/completions";
+const API_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
 
 export type ChatMessage = {
   role: "system" | "user" | "assistant";
   content: string;
 };
 
-// Optional: runtime health probe (client-side way to check config)
-export async function isOpenAiConfigured(): Promise<boolean> {
-  try {
-    const res = await fetch(PROXY_URL, { method: "GET" });
-    return res.status === 204;
-  } catch {
-    return false;
-  }
-}
+export const isOpenAiConfigured = typeof API_KEY === "string" && API_KEY.length > 0;
 
 function buildErrorMessage(status: number, body: any) {
   if (body && typeof body === "object" && "error" in body) {
@@ -21,7 +14,6 @@ function buildErrorMessage(status: number, body: any) {
     if (err && typeof err === "object" && "message" in err) {
       return String(err.message);
     }
-    if (typeof err === "string") return err;
   }
   if (status >= 400 && status < 500) return `Request failed with status ${status}.`;
   if (status >= 500) return "OpenAI service is currently unavailable.";
@@ -29,9 +21,16 @@ function buildErrorMessage(status: number, body: any) {
 }
 
 export async function fetchAssistantReply(messages: ChatMessage[]): Promise<string> {
-  const response = await fetch(PROXY_URL, {
+  if (!isOpenAiConfigured) {
+    throw new Error("OpenAI API key is not configured. Set EXPO_PUBLIC_OPENAI_API_KEY in your environment.");
+  }
+
+  const response = await fetch(API_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${API_KEY}`,
+    },
     body: JSON.stringify({
       model: "gpt-4o-mini",
       temperature: 0.7,
@@ -39,13 +38,7 @@ export async function fetchAssistantReply(messages: ChatMessage[]): Promise<stri
     }),
   });
 
-  let body: any = null;
-  try {
-    body = await response.json();
-  } catch {
-    // pass
-  }
-
+  const body = await response.json();
   if (!response.ok) {
     throw new Error(buildErrorMessage(response.status, body));
   }
