@@ -110,7 +110,7 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary }: 
           <Text style={[styles.summaryTitle, { color: colors.text }]}>Booking context</Text>
           <Text style={[styles.summaryText, { color: colors.subtext }]}>{contextSummary}</Text>
           {!openAiConfigured && (
-            <Text style={[styles.warningText, { color: colors.danger }]}>Set OPENAI_API_KEY to enable the assistant.</Text>
+            <Text style={[styles.warningText, { color: colors.danger }]}>Set EXPO_PUBLIC_OPENAI_API_KEY to enable the assistant.</Text>
           )}
         </View>
 

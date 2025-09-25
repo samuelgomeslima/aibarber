@@ -40,18 +40,25 @@ module.exports = async function (context, req) {
   // CORS preflight
   if (req.method === "OPTIONS") return noContent(req);
 
-  const key = process.env.OPENAI_API_KEY;
+  const key = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
   if (req.method === "GET") {
     // Health check endpoint: returns 204 if configured
     if (!key)
-      return serverError({ error: "OPENAI_API_KEY not configured" }, req);
+      return serverError(
+        { error: "EXPO_PUBLIC_OPENAI_API_KEY not configured" },
+        req
+      );
     return noContent(req);
   }
 
   if (req.method !== "POST") {
     return badRequest({ error: "Use POST /api/openai-proxy" }, req);
   }
-  if (!key) return serverError({ error: "OPENAI_API_KEY not configured" }, req);
+  if (!key)
+    return serverError(
+      { error: "EXPO_PUBLIC_OPENAI_API_KEY not configured" },
+      req
+    );
 
   let payload = {};
   try {
