@@ -12,7 +12,8 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-import { ChatMessage, fetchAssistantReply, isOpenAiConfigured } from "../lib/openai";
+import { isOpenAiConfigured } from "../lib/openai";
+import { runBookingAgent } from "../lib/bookingAgent";
 
 type DisplayMessage = {
   role: "assistant" | "user";
@@ -32,12 +33,13 @@ type AssistantChatProps = {
   };
   systemPrompt: string;
   contextSummary: string;
+  onBookingsMutated?: () => Promise<void> | void;
 };
 
 const INITIAL_ASSISTANT_MESSAGE =
-  "Hi! I'm your AIBarber assistant. Ask me about availability, services, or to plan new bookings.";
+  "Hi! I'm your AIBarber agent. I can check availability, book services, and cancel existing appointments for you.";
 
-export default function AssistantChat({ colors, systemPrompt, contextSummary }: AssistantChatProps) {
+export default function AssistantChat({ colors, systemPrompt, contextSummary, onBookingsMutated }: AssistantChatProps) {
   const [messages, setMessages] = useState<DisplayMessage[]>([
     { role: "assistant", content: INITIAL_ASSISTANT_MESSAGE },
   ]);
@@ -66,11 +68,12 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary }: 
     setError(null);
 
     try {
-      const payload: ChatMessage[] = [
-        { role: "system", content: systemPrompt },
-        ...nextMessages.map((m) => ({ role: m.role, content: m.content })),
-      ];
-      const reply = await fetchAssistantReply(payload);
+      const reply = await runBookingAgent({
+        systemPrompt,
+        contextSummary,
+        conversation: nextMessages,
+        onBookingsMutated,
+      });
       setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
     } catch (e: any) {
       const message = e?.message ? String(e.message) : "Something went wrong.";

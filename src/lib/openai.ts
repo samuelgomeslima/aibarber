@@ -20,10 +20,16 @@ function buildErrorMessage(status: number, body: any) {
   return "Unexpected error calling OpenAI.";
 }
 
-export async function fetchAssistantReply(messages: ChatMessage[]): Promise<string> {
+export async function callOpenAIChatCompletion(payload: Record<string, any>) {
   if (!isOpenAiConfigured) {
     throw new Error("OpenAI API key is not configured. Set EXPO_PUBLIC_OPENAI_API_KEY in your environment.");
   }
+
+  const bodyPayload = {
+    model: "gpt-4o-mini",
+    temperature: 0.7,
+    ...payload,
+  };
 
   const response = await fetch(API_URL, {
     method: "POST",
@@ -31,11 +37,7 @@ export async function fetchAssistantReply(messages: ChatMessage[]): Promise<stri
       "Content-Type": "application/json",
       Authorization: `Bearer ${API_KEY}`,
     },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      temperature: 0.7,
-      messages,
-    }),
+    body: JSON.stringify(bodyPayload),
   });
 
   const body = await response.json();
@@ -43,6 +45,11 @@ export async function fetchAssistantReply(messages: ChatMessage[]): Promise<stri
     throw new Error(buildErrorMessage(response.status, body));
   }
 
+  return body;
+}
+
+export async function fetchAssistantReply(messages: ChatMessage[]): Promise<string> {
+  const body = await callOpenAIChatCompletion({ messages });
   const content = body?.choices?.[0]?.message?.content;
   if (typeof content !== "string" || !content.trim()) {
     throw new Error("OpenAI assistant did not return any content.");
