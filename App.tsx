@@ -14,6 +14,30 @@ import {
 import { supabase } from "./src/lib/supabase";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 
+import {
+  SERVICES,
+  BARBERS,
+  BARBER_MAP,
+  type Service,
+  openingHour,
+  closingHour,
+  pad,
+  toDateKey,
+  minutesToTime,
+  timeToMinutes,
+  addMinutes,
+  overlap,
+  humanDate,
+} from "./src/lib/domain";
+import {
+  getBookings,
+  createBooking,
+  cancelBooking,
+  listCustomers,
+  type BookingWithCustomer,
+  type Customer,
+} from "./src/lib/bookings";
+
 /* Components (mantidos) */
 import DateSelector from "./src/components/DateSelector";
 import RecurrenceModal from "./src/components/RecurrenceModal"; // recebe fixedDate/fixedTime/fixedService/fixedBarber
@@ -23,110 +47,6 @@ import AssistantChat from "./src/components/AssistantChat";
 
 /* Novo: formulário de usuário (com date_of_birth e salvando no Supabase) */
 import UserForm from "./src/components/UserForm";
-
-/** ========== UI helpers / domain ========== */
-type Service = { id: "cut" | "cutshave"; name: string; minutes: number; icon: keyof typeof MaterialCommunityIcons.glyphMap };
-const SERVICES: Service[] = [
-  { id: "cut", name: "Cut", minutes: 30, icon: "content-cut" },
-  { id: "cutshave", name: "Cut & Shave", minutes: 60, icon: "razor-double-edge" },
-];
-
-const openingHour = 9, closingHour = 18;
-const pad = (n: number) => n.toString().padStart(2, "0");
-function toDateKey(d: Date) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
-function minutesToTime(mins: number) { const h = Math.floor(mins / 60), m = mins % 60; return `${pad(h)}:${pad(m)}`; }
-function timeToMinutes(t: string) { const [h, m] = t.split(":").map(Number); return h * 60 + m; }
-function addMinutes(t: string, minutes: number) { return minutesToTime(timeToMinutes(t) + minutes); }
-function overlap(aS: string, aE: string, bS: string, bE: string) {
-  const as = timeToMinutes(aS), ae = timeToMinutes(aE), bs = timeToMinutes(bS), be = timeToMinutes(bE);
-  return Math.max(as, bs) < Math.min(ae, be);
-}
-function humanDate(dk: string) { const d = new Date(`${dk}T00:00:00`); return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }); }
-
-/** ========== Barbeiros (para exibir nome/ícone) ========== */
-const BARBERS: Barber[] = [
-  { id: "joao", name: "João", icon: "account" },
-  { id: "maria", name: "Maria", icon: "account-outline" },
-  { id: "carlos", name: "Carlos", icon: "account-tie" },
-];
-const BARBER_MAP = Object.fromEntries(BARBERS.map(b => [b.id, b]));
-
-/** ========== Tipos de dados ========== */
-type DbBooking = {
-  id: string;
-  date: string;
-  start: string;
-  end: string;
-  service: "cut" | "cutshave";
-  barber: string;
-  customer_id?: string | null;
-};
-type Customer = { id: string; first_name: string; last_name: string; phone?: string | null; email?: string | null; date_of_birth?: string | null };
-
-/** ========== Data layer ========== */
-async function getBookings(dateKey: string) {
-  const { data, error, status } = await supabase
-    .from("bookings")
-    .select('id,date,start,"end",service,barber,customer_id')
-    .eq("date", dateKey)
-    .order("start");
-  console.log("[getBookings]", { dateKey, status, data, error });
-  if (error) throw error;
-
-  const rows = (data ?? []) as DbBooking[];
-
-  // opcional: carregar clientes para exibir na lista
-  const ids = Array.from(new Set(rows.map(r => r.customer_id).filter(Boolean))) as string[];
-  let customerMap = new Map<string, Customer>();
-  if (ids.length) {
-    const { data: people, error: e2 } = await supabase
-      .from("customers")
-      .select("id,first_name,last_name,phone,email,date_of_birth")
-      .in("id", ids);
-    if (e2) throw e2;
-    customerMap = new Map((people ?? []).map(c => [c.id, c as Customer]));
-  }
-
-  // anexa o cliente (se houver)
-  return rows.map(r => ({ ...r, _customer: r.customer_id ? customerMap.get(r.customer_id) : undefined })) as (DbBooking & { _customer?: Customer })[];
-}
-
-async function createBooking(payload: {
-  date: string;
-  start: string;
-  end: string;
-  service: "cut" | "cutshave";
-  barber: string;
-  customer_id?: string | null;
-}) {
-  const { error, status } = await supabase
-    .from("bookings")
-    .insert(payload)
-    .select("id");
-  console.log("[createBooking]", { payload, status, error });
-  if (error) throw error;
-}
-
-async function cancelBooking(id: string) {
-  const { data, error, status } = await supabase.from("bookings").delete().eq("id", id);
-  console.log("[cancelBooking]", { id, status, data, error });
-  if (error) throw error;
-}
-
-async function listCustomers(query: string) {
-  const q = (query || "").trim();
-  let req = supabase.from("customers").select("id,first_name,last_name,phone,email,date_of_birth").order("first_name").limit(20);
-  if (q) {
-    req = supabase
-      .from("customers")
-      .select("id,first_name,last_name,phone,email,date_of_birth")
-      .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%`)
-      .limit(20);
-  }
-  const { data, error } = await req;
-  if (error) throw error;
-  return (data ?? []) as Customer[];
-}
 
 /** ========== App ========== */
 export default function App() {
@@ -146,7 +66,7 @@ export default function App() {
   const [day, setDay] = useState<Date>(new Date());
   const dateKey = toDateKey(day);
 
-  const [bookings, setBookings] = useState<(DbBooking & { _customer?: Customer })[]>([]);
+  const [bookings, setBookings] = useState<BookingWithCustomer[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -419,9 +339,10 @@ export default function App() {
       barberLines,
       "Existing bookings:",
       existingBookings,
+      "You can use tools to check availability, create bookings, and cancel bookings.",
       "When the user asks to schedule, gather the service, barber, date, and preferred time before making suggestions.",
-      "Recommend options that do not overlap with the listed bookings and explain any conflicts you find.",
-      "Always remind the user that you cannot save bookings yourself and that they must confirm inside the app's Bookings screen.",
+      "Call get_availability before committing to a new booking, and explain any conflicts you find.",
+      "After performing a booking or cancellation, confirm the action and summarize the result for the user.",
     ].join("\n");
   }, [bookings]);
 
@@ -734,6 +655,7 @@ export default function App() {
         }}
         systemPrompt={assistantSystemPrompt}
         contextSummary={assistantContextSummary}
+        onBookingsMutated={load}
       />
     ) : (
       <View style={styles.defaultScreen}>

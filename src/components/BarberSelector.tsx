@@ -3,17 +3,9 @@ import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
-export type Barber = {
-  id: "joao" | "maria" | "carlos";
-  name: string;
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
-};
+import { BARBERS, type Barber as DomainBarber } from "../lib/domain";
 
-const BARBERS: Barber[] = [
-  { id: "joao", name: "João", icon: "account" },
-  { id: "maria", name: "Maria", icon: "account-outline" },
-  { id: "carlos", name: "Carlos", icon: "account-tie" },
-];
+export type Barber = DomainBarber;
 
 type Props = {
   selected: Barber;
