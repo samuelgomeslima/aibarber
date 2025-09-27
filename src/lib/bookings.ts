@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+
 export type DbBooking = {
   id: string;
   date: string;
@@ -20,17 +21,7 @@ export type Customer = {
 
 export type BookingWithCustomer = DbBooking & { _customer?: Customer };
 
-export async function getBookings(dateKey: string): Promise<BookingWithCustomer[]> {
-  const { data, error, status } = await supabase
-    .from("bookings")
-    .select('id,date,start,"end",service,barber,customer_id')
-    .eq("date", dateKey)
-    .order("start");
-
-  console.log("[getBookings]", { dateKey, status, data, error });
-  if (error) throw error;
-
-  const rows = (data ?? []) as DbBooking[];
+async function attachCustomers(rows: DbBooking[]): Promise<BookingWithCustomer[]> {
   const ids = Array.from(new Set(rows.map((r) => r.customer_id).filter(Boolean))) as string[];
   let customerMap = new Map<string, Customer>();
 
@@ -44,6 +35,20 @@ export async function getBookings(dateKey: string): Promise<BookingWithCustomer[
   }
 
   return rows.map((r) => ({ ...r, _customer: r.customer_id ? customerMap.get(r.customer_id) : undefined }));
+}
+
+export async function getBookings(dateKey: string): Promise<BookingWithCustomer[]> {
+  const { data, error, status } = await supabase
+    .from("bookings")
+    .select('id,date,start,"end",service,barber,customer_id')
+    .eq("date", dateKey)
+    .order("start");
+
+  console.log("[getBookings]", { dateKey, status, data, error });
+  if (error) throw error;
+
+  const rows = (data ?? []) as DbBooking[];
+  return attachCustomers(rows);
 }
 
 export async function getBookingsForRange(
@@ -64,19 +69,22 @@ export async function getBookingsForRange(
   if (error) throw error;
 
   const rows = (data ?? []) as DbBooking[];
-  const ids = Array.from(new Set(rows.map((r) => r.customer_id).filter(Boolean))) as string[];
-  let customerMap = new Map<string, Customer>();
+  return attachCustomers(rows);
+}
 
-  if (ids.length) {
-    const { data: people, error: e2 } = await supabase
-      .from("customers")
-      .select("id,first_name,last_name,phone,email,date_of_birth")
-      .in("id", ids);
-    if (e2) throw e2;
-    customerMap = new Map((people ?? []).map((c) => [c.id, c as Customer]));
-  }
+export async function listRecentBookings(limit = 200): Promise<BookingWithCustomer[]> {
+  const { data, error, status } = await supabase
+    .from("bookings")
+    .select('id,date,start,"end",service,barber,customer_id')
+    .order("date", { ascending: true })
+    .order("start", { ascending: true })
+    .limit(limit);
 
-  return rows.map((r) => ({ ...r, _customer: r.customer_id ? customerMap.get(r.customer_id) : undefined }));
+  console.log("[listRecentBookings]", { status, error, limit });
+  if (error) throw error;
+
+  const rows = (data ?? []) as DbBooking[];
+  return attachCustomers(rows);
 }
 
 export async function createBooking(payload: {

@@ -10,6 +10,7 @@ import {
   RefreshControl,
   Platform,
   Modal,
+  TextInput,
 } from "react-native";
 import { supabase } from "./src/lib/supabase";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
@@ -35,6 +36,7 @@ import {
   createBooking,
   cancelBooking,
   listCustomers,
+  listRecentBookings,
   type BookingWithCustomer,
   type Customer,
 } from "./src/lib/bookings";
@@ -56,7 +58,9 @@ export default function App() {
   const [services, setServices] = useState<Service[]>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
-  const [activeScreen, setActiveScreen] = useState<"home" | "booking" | "services" | "assistant">("home");
+  const [activeScreen, setActiveScreen] = useState<
+    "home" | "bookings" | "bookService" | "services" | "assistant"
+  >("home");
 
   // Cliente -> obrigatório antes do barbeiro
   const [clientModalOpen, setClientModalOpen] = useState(false);
@@ -74,6 +78,14 @@ export default function App() {
   const [bookings, setBookings] = useState<BookingWithCustomer[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  const [allBookings, setAllBookings] = useState<BookingWithCustomer[]>([]);
+  const [allBookingsLoading, setAllBookingsLoading] = useState(false);
+  const [bookingFilterBarber, setBookingFilterBarber] = useState<string | null>(null);
+  const [bookingFilterService, setBookingFilterService] = useState<string | null>(null);
+  const [bookingFilterClient, setBookingFilterClient] = useState("");
+  const [bookingFilterDate, setBookingFilterDate] = useState("");
+  const [bookingFilterTime, setBookingFilterTime] = useState("");
 
   const [recurrenceOpen, setRecurrenceOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -154,6 +166,20 @@ export default function App() {
     }
   }, [dateKey]);
 
+  const loadAllBookings = useCallback(async () => {
+    setAllBookingsLoading(true);
+    try {
+      const rows = await listRecentBookings();
+      setAllBookings(Array.isArray(rows) ? rows : []);
+    } catch (e: any) {
+      console.error(e);
+      Alert.alert("Bookings list", e?.message ?? String(e));
+      setAllBookings([]);
+    } finally {
+      setAllBookingsLoading(false);
+    }
+  }, []);
+
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
@@ -161,6 +187,12 @@ export default function App() {
       loadWeek();
     }
   }, [activeScreen, loadWeek]);
+
+  useEffect(() => {
+    if (activeScreen === "bookings") {
+      loadAllBookings();
+    }
+  }, [activeScreen, loadAllBookings]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -228,6 +260,7 @@ export default function App() {
       });
       await load();
       await loadWeek();
+      await loadAllBookings();
       const barberName = BARBER_MAP[selectedBarber.id]?.name ?? selectedBarber.id;
       Alert.alert("Booked!", `${selectedService.name} • ${selectedCustomer.first_name} • ${barberName} • ${start} • ${humanDate(dateKey)}`);
     } catch (e: any) {
@@ -244,6 +277,7 @@ export default function App() {
       await cancelBooking(id);
       setBookings((prev) => prev.filter((b) => b.id !== id));
       await loadWeek();
+      await loadAllBookings();
     } catch (e: any) {
       console.error(e);
       Alert.alert("Cancel failed", e?.message ?? String(e));
@@ -439,10 +473,57 @@ export default function App() {
     ].join("\n");
   }, [bookings, serviceMap, services]);
 
+  const filteredBookingsList = useMemo(() => {
+    const barber = bookingFilterBarber?.trim();
+    const service = bookingFilterService?.trim();
+    const client = bookingFilterClient.trim().toLowerCase();
+    const date = bookingFilterDate.trim();
+    const time = bookingFilterTime.trim().toLowerCase();
+
+    return [...allBookings]
+      .filter((booking) => {
+        if (barber && booking.barber !== barber) return false;
+        if (service && booking.service !== service) return false;
+        if (date && booking.date !== date) return false;
+        if (time) {
+          const start = (booking.start ?? "").toLowerCase();
+          const end = (booking.end ?? "").toLowerCase();
+          if (!start.includes(time) && !end.includes(time)) return false;
+        }
+        if (client) {
+          const name = `${booking._customer?.first_name ?? ""} ${booking._customer?.last_name ?? ""}`
+            .trim()
+            .toLowerCase();
+          if (!name.includes(client)) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        if (a.date === b.date) return a.start.localeCompare(b.start);
+        return a.date.localeCompare(b.date);
+      });
+  }, [
+    allBookings,
+    bookingFilterBarber,
+    bookingFilterService,
+    bookingFilterClient,
+    bookingFilterDate,
+    bookingFilterTime,
+  ]);
+
+  const clearBookingFilters = useCallback(() => {
+    setBookingFilterBarber(null);
+    setBookingFilterService(null);
+    setBookingFilterClient("");
+    setBookingFilterDate("");
+    setBookingFilterTime("");
+  }, []);
+
   const handleBookingsMutated = useCallback(async () => {
     await load();
     await loadWeek();
-  }, [load, loadWeek]);
+    await loadAllBookings();
+  }, [load, loadWeek, loadAllBookings]);
 
   const weekSummary = useMemo(() => {
     const barberCounts = new Map<string, number>();
@@ -497,6 +578,8 @@ export default function App() {
     return entries[0] ?? null;
   }, [weekSummary.barberCounts]);
 
+  const bookingsNavActive = activeScreen === "bookings" || activeScreen === "bookService";
+
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
       <View style={styles.navBar}>
@@ -519,17 +602,17 @@ export default function App() {
             <Text style={[styles.navItemText, activeScreen === "home" && styles.navItemTextActive]}>Overview</Text>
           </Pressable>
           <Pressable
-            onPress={() => setActiveScreen("booking")}
-            style={[styles.navItem, activeScreen === "booking" && styles.navItemActive]}
+            onPress={() => setActiveScreen("bookings")}
+            style={[styles.navItem, bookingsNavActive && styles.navItemActive]}
             accessibilityRole="button"
             accessibilityLabel="Go to bookings"
           >
             <MaterialCommunityIcons
               name="calendar-clock"
               size={18}
-              color={activeScreen === "booking" ? COLORS.accentFgOn : COLORS.subtext}
+              color={bookingsNavActive ? COLORS.accentFgOn : COLORS.subtext}
             />
-            <Text style={[styles.navItemText, activeScreen === "booking" && styles.navItemTextActive]}>Bookings</Text>
+            <Text style={[styles.navItemText, bookingsNavActive && styles.navItemTextActive]}>Bookings</Text>
           </Pressable>
           <Pressable
             onPress={() => setActiveScreen("services")}
@@ -560,7 +643,7 @@ export default function App() {
         </View>
       </View>
 
-      {activeScreen === "booking" ? (
+      {activeScreen === "bookService" ? (
         <>
             {/* Header */}
         <View style={styles.header}>
@@ -817,23 +900,182 @@ export default function App() {
             </View>
           )}
       </>
-    ) : activeScreen === "assistant" ? (
-      <AssistantChat
-        colors={{
-          text: COLORS.text,
-          subtext: COLORS.subtext,
-          surface: COLORS.surface,
-          border: COLORS.border,
-          accent: COLORS.accent,
-          accentFgOn: COLORS.accentFgOn,
-          danger: COLORS.danger,
-          bg: COLORS.bg,
-        }}
-        systemPrompt={assistantSystemPrompt}
-        contextSummary={assistantContextSummary}
-        onBookingsMutated={handleBookingsMutated}
-        services={services}
-      />
+    ) : activeScreen === "bookings" ? (
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 20, gap: 16 }}
+        refreshControl={<RefreshControl refreshing={allBookingsLoading} onRefresh={loadAllBookings} />}
+      >
+        <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 12 }]}>
+          <View style={styles.listHeaderRow}>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={[styles.title, { color: COLORS.text }]}>Bookings</Text>
+              <Text style={{ color: COLORS.subtext, fontSize: 13, fontWeight: "600" }}>
+                Review recent bookings and refine the list using the filters below.
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => setActiveScreen("bookService")}
+              style={[styles.defaultCta, { marginTop: 0 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Open booking screen"
+            >
+              <Text style={styles.defaultCtaText}>Book service</Text>
+            </Pressable>
+          </View>
+
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={styles.filterLabel}>Barber</Text>
+              <View style={styles.filterChipsRow}>
+                <Pressable
+                  onPress={() => setBookingFilterBarber(null)}
+                  style={[styles.chip, !bookingFilterBarber && styles.chipActive]}
+                >
+                  <MaterialCommunityIcons
+                    name="account-group"
+                    size={16}
+                    color={!bookingFilterBarber ? COLORS.accentFgOn : COLORS.subtext}
+                  />
+                  <Text style={[styles.chipText, !bookingFilterBarber && styles.chipTextActive]}>All</Text>
+                </Pressable>
+                {BARBERS.map((barber) => {
+                  const active = bookingFilterBarber === barber.id;
+                  return (
+                    <Pressable
+                      key={barber.id}
+                      onPress={() => setBookingFilterBarber(active ? null : barber.id)}
+                      style={[styles.chip, active && styles.chipActive]}
+                    >
+                      <MaterialCommunityIcons
+                        name={barber.icon}
+                        size={16}
+                        color={active ? COLORS.accentFgOn : COLORS.subtext}
+                      />
+                      <Text style={[styles.chipText, active && styles.chipTextActive]}>{barber.name}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View>
+              <Text style={styles.filterLabel}>Service</Text>
+              <View style={styles.filterChipsRow}>
+                <Pressable
+                  onPress={() => setBookingFilterService(null)}
+                  style={[styles.chip, !bookingFilterService && styles.chipActive]}
+                >
+                  <MaterialCommunityIcons
+                    name="briefcase-outline"
+                    size={16}
+                    color={!bookingFilterService ? COLORS.accentFgOn : COLORS.subtext}
+                  />
+                  <Text style={[styles.chipText, !bookingFilterService && styles.chipTextActive]}>All</Text>
+                </Pressable>
+                {services.map((svc) => {
+                  const active = bookingFilterService === svc.id;
+                  return (
+                    <Pressable
+                      key={svc.id}
+                      onPress={() => setBookingFilterService(active ? null : svc.id)}
+                      style={[styles.chip, active && styles.chipActive]}
+                    >
+                      <MaterialCommunityIcons
+                        name={svc.icon}
+                        size={16}
+                        color={active ? COLORS.accentFgOn : COLORS.subtext}
+                      />
+                      <Text style={[styles.chipText, active && styles.chipTextActive]}>{svc.name}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View>
+              <Text style={styles.filterLabel}>Client</Text>
+              <TextInput
+                placeholder="Search by client name"
+                placeholderTextColor={`${COLORS.subtext}99`}
+                value={bookingFilterClient}
+                onChangeText={setBookingFilterClient}
+                style={styles.input}
+              />
+            </View>
+
+            <View style={styles.filterRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.filterLabel}>Date (YYYY-MM-DD)</Text>
+                <TextInput
+                  placeholder="2025-01-30"
+                  placeholderTextColor={`${COLORS.subtext}99`}
+                  value={bookingFilterDate}
+                  onChangeText={setBookingFilterDate}
+                  style={styles.input}
+                  autoCapitalize="none"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.filterLabel}>Time</Text>
+                <TextInput
+                  placeholder="09:30"
+                  placeholderTextColor={`${COLORS.subtext}99`}
+                  value={bookingFilterTime}
+                  onChangeText={setBookingFilterTime}
+                  style={styles.input}
+                  autoCapitalize="none"
+                />
+              </View>
+            </View>
+
+            <View style={styles.filterActions}>
+              <Pressable onPress={clearBookingFilters} style={[styles.smallBtn, { borderColor: COLORS.border }]}>
+                <Text style={{ color: COLORS.subtext, fontWeight: "800" }}>Clear filters</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+
+        <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 10 }]}>
+          <View style={styles.listHeaderRow}>
+            <Text style={[styles.title, { color: COLORS.text }]}>Results</Text>
+            <Text style={{ color: COLORS.subtext, fontWeight: "700" }}>
+              {filteredBookingsList.length} of {allBookings.length}
+            </Text>
+          </View>
+
+          {allBookingsLoading ? (
+            <ActivityIndicator />
+          ) : filteredBookingsList.length === 0 ? (
+            <Text style={styles.empty}>No bookings match your filters.</Text>
+          ) : (
+            filteredBookingsList.map((booking) => {
+              const service = serviceMap.get(booking.service);
+              const barber = BARBER_MAP[booking.barber];
+              const customerName = booking._customer
+                ? `${booking._customer.first_name}${booking._customer.last_name ? ` ${booking._customer.last_name}` : ""}`
+                : "Walk-in";
+              return (
+                <View key={booking.id} style={styles.bookingListRow}>
+                  <View style={styles.bookingListTime}>
+                    <Text style={styles.bookingListDate}>{humanDate(booking.date)}</Text>
+                    <Text style={styles.bookingListClock}>
+                      {booking.start} – {booking.end}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.bookingListTitle}>{service?.name ?? booking.service}</Text>
+                    <Text style={styles.bookingListMeta}>
+                      {(barber?.name ?? booking.barber) + (customerName ? ` • ${customerName}` : "")}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </View>
+      </ScrollView>
     ) : activeScreen === "services" ? (
       <ScrollView
         style={{ flex: 1 }}
@@ -905,6 +1147,23 @@ export default function App() {
           )}
         </View>
       </ScrollView>
+    ) : activeScreen === "assistant" ? (
+      <AssistantChat
+        colors={{
+          text: COLORS.text,
+          subtext: COLORS.subtext,
+          surface: COLORS.surface,
+          border: COLORS.border,
+          accent: COLORS.accent,
+          accentFgOn: COLORS.accentFgOn,
+          danger: COLORS.danger,
+          bg: COLORS.bg,
+        }}
+        systemPrompt={assistantSystemPrompt}
+        contextSummary={assistantContextSummary}
+        onBookingsMutated={handleBookingsMutated}
+        services={services}
+      />
     ) : (
       <ScrollView
         style={{ flex: 1 }}
@@ -1190,6 +1449,7 @@ const styles = StyleSheet.create({
   badgeText: { color: "#cbd5e1", fontSize: 12, fontWeight: "600" },
 
   chipsRow: { flexDirection: "row", gap: 10, marginTop: 12 },
+  filterChipsRow: { flexDirection: "row", gap: 8, flexWrap: "wrap", marginTop: 8 },
   chip: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1, borderColor: "#ffffff12", backgroundColor: "rgba(255,255,255,0.045)", ...(SHADOW as object) },
   chipActive: { backgroundColor: "#60a5fa", borderColor: "#60a5fa" },
   chipText: { color: "#cbd5e1", fontWeight: "700" },
@@ -1197,8 +1457,39 @@ const styles = StyleSheet.create({
 
   container: { padding: 16, gap: 14 },
   sectionLabel: { color: "#e5e7eb", fontSize: 14, fontWeight: "700", letterSpacing: 0.3, marginTop: 8 },
+  filterLabel: { color: COLORS.subtext, fontSize: 12, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.4 },
 
   card: { backgroundColor: "rgba(255,255,255,0.045)", borderRadius: 18, borderWidth: 1, borderColor: "#ffffff12", padding: 12, ...(SHADOW as object) },
+  input: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#ffffff12",
+    backgroundColor: "rgba(255,255,255,0.035)",
+    color: COLORS.text,
+    fontWeight: "700",
+    marginTop: 6,
+  },
+  filterRow: { flexDirection: "row", gap: 12, flexWrap: "wrap" },
+  filterActions: { flexDirection: "row", justifyContent: "flex-end" },
+  listHeaderRow: { flexDirection: "row", alignItems: "center", gap: 12, justifyContent: "space-between" },
+  bookingListRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#ffffff12",
+    backgroundColor: "rgba(255,255,255,0.03)",
+  },
+  bookingListTime: { width: 140 },
+  bookingListDate: { color: COLORS.text, fontWeight: "800", fontSize: 13 },
+  bookingListClock: { color: COLORS.subtext, fontWeight: "700", fontSize: 12 },
+  bookingListTitle: { color: COLORS.text, fontWeight: "800", fontSize: 15 },
+  bookingListMeta: { color: COLORS.subtext, fontWeight: "600", fontSize: 12, marginTop: 2 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
 
   slot: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: "#ffffff12", borderRadius: 12, backgroundColor: "rgba(255,255,255,0.03)" },
