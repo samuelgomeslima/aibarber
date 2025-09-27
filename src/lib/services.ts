@@ -17,14 +17,18 @@ export async function listServices(): Promise<Service[]> {
     .order("name");
   if (error) throw error;
   const rows = (data ?? []) as DbService[];
-  return rows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    estimated_minutes: row.estimated_minutes,
-    price_cents: row.price_cents,
-    icon: (row.icon || "content-cut") as Service["icon"],
-    created_at: row.created_at ?? null,
-  }));
+  return rows.map((row) => {
+    const minutes = Number(row.estimated_minutes);
+    const price = Number(row.price_cents);
+    return {
+      id: row.id,
+      name: row.name,
+      estimated_minutes: Number.isFinite(minutes) ? minutes : Number.parseInt(String(row.estimated_minutes ?? 0), 10) || 0,
+      price_cents: Number.isFinite(price) ? price : Number.parseInt(String(row.price_cents ?? 0), 10) || 0,
+      icon: (row.icon || "content-cut") as Service["icon"],
+      created_at: row.created_at ?? null,
+    };
+  });
 }
 
 export async function createService(payload: {
@@ -34,19 +38,23 @@ export async function createService(payload: {
   icon: Service["icon"];
 }): Promise<Service> {
   const cleanName = payload.name?.trim();
-  const minutes = Number(payload.estimated_minutes);
-  const price = Number(payload.price_cents);
+  const minutesInput = Number(payload.estimated_minutes);
+  const priceInput = Number(payload.price_cents);
 
   if (!cleanName) throw new Error("Name is required");
-  if (!Number.isFinite(minutes) || minutes <= 0) throw new Error("Estimated minutes must be greater than 0");
-  if (!Number.isFinite(price) || price < 0) throw new Error("Price must be 0 or more");
+  if (!Number.isFinite(minutesInput) || minutesInput <= 0) {
+    throw new Error("Estimated minutes must be greater than 0");
+  }
+  if (!Number.isFinite(priceInput) || priceInput < 0) {
+    throw new Error("Price must be 0 or more");
+  }
 
   const { data, error } = await supabase
     .from("services")
     .insert({
       name: cleanName,
-      estimated_minutes: Math.round(minutes),
-      price_cents: Math.round(price),
+      estimated_minutes: Math.round(minutesInput),
+      price_cents: Math.round(priceInput),
       icon: payload.icon,
     })
     .select("id,name,estimated_minutes,price_cents,icon,created_at")
@@ -54,11 +62,18 @@ export async function createService(payload: {
 
   if (error) throw error;
 
+  const minutes = Number(data!.estimated_minutes);
+  const price = Number(data!.price_cents);
+
   return {
     id: data!.id,
     name: data!.name,
-    estimated_minutes: data!.estimated_minutes,
-    price_cents: data!.price_cents,
+    estimated_minutes: Number.isFinite(minutes)
+      ? minutes
+      : Number.parseInt(String(data!.estimated_minutes ?? 0), 10) || 0,
+    price_cents: Number.isFinite(price)
+      ? price
+      : Number.parseInt(String(data!.price_cents ?? 0), 10) || 0,
     icon: (data!.icon || "content-cut") as Service["icon"],
     created_at: data!.created_at ?? null,
   };
