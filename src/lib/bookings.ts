@@ -46,6 +46,39 @@ export async function getBookings(dateKey: string): Promise<BookingWithCustomer[
   return rows.map((r) => ({ ...r, _customer: r.customer_id ? customerMap.get(r.customer_id) : undefined }));
 }
 
+export async function getBookingsForRange(
+  startDate: string,
+  endDate: string,
+): Promise<BookingWithCustomer[]> {
+  if (!startDate || !endDate) return [];
+
+  const { data, error, status } = await supabase
+    .from("bookings")
+    .select('id,date,start,"end",service,barber,customer_id')
+    .gte("date", startDate)
+    .lte("date", endDate)
+    .order("date")
+    .order("start");
+
+  console.log("[getBookingsForRange]", { startDate, endDate, status, error });
+  if (error) throw error;
+
+  const rows = (data ?? []) as DbBooking[];
+  const ids = Array.from(new Set(rows.map((r) => r.customer_id).filter(Boolean))) as string[];
+  let customerMap = new Map<string, Customer>();
+
+  if (ids.length) {
+    const { data: people, error: e2 } = await supabase
+      .from("customers")
+      .select("id,first_name,last_name,phone,email,date_of_birth")
+      .in("id", ids);
+    if (e2) throw e2;
+    customerMap = new Map((people ?? []).map((c) => [c.id, c as Customer]));
+  }
+
+  return rows.map((r) => ({ ...r, _customer: r.customer_id ? customerMap.get(r.customer_id) : undefined }));
+}
+
 export async function createBooking(payload: {
   date: string;
   start: string;

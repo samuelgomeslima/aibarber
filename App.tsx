@@ -31,6 +31,7 @@ import {
 } from "./src/lib/domain";
 import {
   getBookings,
+  getBookingsForRange,
   createBooking,
   cancelBooking,
   listCustomers,
@@ -55,7 +56,7 @@ export default function App() {
   const [services, setServices] = useState<Service[]>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
-  const [activeScreen, setActiveScreen] = useState<"home" | "booking" | "assistant">("home");
+  const [activeScreen, setActiveScreen] = useState<"home" | "booking" | "services" | "assistant">("home");
 
   // Cliente -> obrigatório antes do barbeiro
   const [clientModalOpen, setClientModalOpen] = useState(false);
@@ -77,6 +78,10 @@ export default function App() {
   const [recurrenceOpen, setRecurrenceOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewItems, setPreviewItems] = useState<PreviewItem[]>([]);
+
+  const [weekBookings, setWeekBookings] = useState<BookingWithCustomer[]>([]);
+  const [weekDays, setWeekDays] = useState<{ date: Date; key: string }[]>([]);
+  const [weekLoading, setWeekLoading] = useState(false);
 
   // Horário selecionado (só cria ao clicar "Book service")
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
@@ -109,6 +114,32 @@ export default function App() {
 
   const serviceMap = useMemo(() => new Map(services.map((s) => [s.id, s])), [services]);
 
+  const loadWeek = useCallback(async () => {
+    const now = new Date();
+    const start = startOfWeek(now);
+    const days = Array.from({ length: 7 }, (_, index) => {
+      const d = new Date(start);
+      d.setDate(start.getDate() + index);
+      return { date: d, key: toDateKey(d) };
+    });
+
+    const startKey = days[0]?.key ?? toDateKey(start);
+    const endKey = days[days.length - 1]?.key ?? startKey;
+
+    setWeekDays(days);
+    setWeekLoading(true);
+    try {
+      const rows = await getBookingsForRange(startKey, endKey);
+      setWeekBookings(rows);
+    } catch (e: any) {
+      console.error(e);
+      Alert.alert("Weekly bookings", e?.message ?? String(e));
+      setWeekBookings([]);
+    } finally {
+      setWeekLoading(false);
+    }
+  }, []);
+
   const load = useCallback(async () => {
     try {
       setLoading(true);
@@ -124,6 +155,12 @@ export default function App() {
   }, [dateKey]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (activeScreen === "home") {
+      loadWeek();
+    }
+  }, [activeScreen, loadWeek]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -190,6 +227,7 @@ export default function App() {
         customer_id: selectedCustomer.id, // salva o cliente
       });
       await load();
+      await loadWeek();
       const barberName = BARBER_MAP[selectedBarber.id]?.name ?? selectedBarber.id;
       Alert.alert("Booked!", `${selectedService.name} • ${selectedCustomer.first_name} • ${barberName} • ${start} • ${humanDate(dateKey)}`);
     } catch (e: any) {
@@ -205,6 +243,7 @@ export default function App() {
       setLoading(true);
       await cancelBooking(id);
       setBookings((prev) => prev.filter((b) => b.id !== id));
+      await loadWeek();
     } catch (e: any) {
       console.error(e);
       Alert.alert("Cancel failed", e?.message ?? String(e));
@@ -312,6 +351,7 @@ export default function App() {
       if (error) throw error;
       setPreviewOpen(false);
       await load();
+      await loadWeek();
       const skipped = previewItems.length - toInsert.length;
       const barberName = BARBER_MAP[selectedBarber.id]?.name ?? selectedBarber.id;
       Alert.alert("Created", `Added ${toInsert.length} with ${barberName}${skipped ? ` • Skipped ${skipped}` : ""}`);
@@ -399,6 +439,64 @@ export default function App() {
     ].join("\n");
   }, [bookings, serviceMap, services]);
 
+  const handleBookingsMutated = useCallback(async () => {
+    await load();
+    await loadWeek();
+  }, [load, loadWeek]);
+
+  const weekSummary = useMemo(() => {
+    const barberCounts = new Map<string, number>();
+    let totalMinutes = 0;
+    let totalRevenue = 0;
+
+    weekBookings.forEach((booking) => {
+      barberCounts.set(booking.barber, (barberCounts.get(booking.barber) ?? 0) + 1);
+      const service = serviceMap.get(booking.service);
+      const duration = service?.estimated_minutes ?? Math.max(timeToMinutes(booking.end) - timeToMinutes(booking.start), 0);
+      totalMinutes += duration;
+      if (service?.price_cents) {
+        totalRevenue += service.price_cents;
+      }
+    });
+
+    return {
+      total: weekBookings.length,
+      totalMinutes,
+      totalRevenue,
+      barberCounts,
+    };
+  }, [serviceMap, weekBookings]);
+
+  const weekDayMap = useMemo(() => {
+    const map = new Map<string, BookingWithCustomer[]>();
+    weekBookings.forEach((booking) => {
+      if (!map.has(booking.date)) map.set(booking.date, []);
+      map.get(booking.date)!.push(booking);
+    });
+    for (const [, rows] of map) {
+      rows.sort((a, b) => a.start.localeCompare(b.start));
+    }
+    return map;
+  }, [weekBookings]);
+
+  const weekDaySummaries = useMemo(
+    () => weekDays.map((dayInfo) => ({ ...dayInfo, bookings: weekDayMap.get(dayInfo.key) ?? [] })),
+    [weekDayMap, weekDays],
+  );
+
+  const weekRangeLabel = useMemo(() => {
+    if (!weekDays.length) return "";
+    const start = weekDays[0].date;
+    const end = weekDays[weekDays.length - 1].date;
+    return `${formatRangeDate(start)} – ${formatRangeDate(end)}`;
+  }, [weekDays]);
+
+  const topBarberEntry = useMemo(() => {
+    const entries = Array.from(weekSummary.barberCounts.entries());
+    entries.sort((a, b) => b[1] - a[1]);
+    return entries[0] ?? null;
+  }, [weekSummary.barberCounts]);
+
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
       <View style={styles.navBar}>
@@ -432,6 +530,19 @@ export default function App() {
               color={activeScreen === "booking" ? COLORS.accentFgOn : COLORS.subtext}
             />
             <Text style={[styles.navItemText, activeScreen === "booking" && styles.navItemTextActive]}>Bookings</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setActiveScreen("services")}
+            style={[styles.navItem, activeScreen === "services" && styles.navItemActive]}
+            accessibilityRole="button"
+            accessibilityLabel="Manage services"
+          >
+            <MaterialCommunityIcons
+              name="briefcase-outline"
+              size={18}
+              color={activeScreen === "services" ? COLORS.accentFgOn : COLORS.subtext}
+            />
+            <Text style={[styles.navItemText, activeScreen === "services" && styles.navItemTextActive]}>Services</Text>
           </Pressable>
           <Pressable
             onPress={() => setActiveScreen("assistant")}
@@ -720,10 +831,10 @@ export default function App() {
         }}
         systemPrompt={assistantSystemPrompt}
         contextSummary={assistantContextSummary}
-        onBookingsMutated={load}
+        onBookingsMutated={handleBookingsMutated}
         services={services}
       />
-    ) : (
+    ) : activeScreen === "services" ? (
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: 20, gap: 16 }}
@@ -794,9 +905,112 @@ export default function App() {
           )}
         </View>
       </ScrollView>
+    ) : (
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 20, gap: 16 }}
+        refreshControl={<RefreshControl refreshing={weekLoading} onRefresh={loadWeek} />}
+      >
+        <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 12 }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <MaterialCommunityIcons name="view-dashboard-outline" size={22} color={COLORS.accent} />
+            <Text style={[styles.title, { color: COLORS.text }]}>This week</Text>
+          </View>
+          <Text style={{ color: COLORS.subtext, fontSize: 13, fontWeight: "600" }}>
+            Overview of bookings scheduled for {weekRangeLabel || "the current week"}.
+          </Text>
+        </View>
+
+        <View style={styles.statsGrid}>
+          <View style={[styles.statCard, { borderColor: COLORS.border, backgroundColor: COLORS.surface }]}>
+            <Text style={[styles.statLabel, { color: COLORS.subtext }]}>Bookings</Text>
+            <Text style={[styles.statValue, { color: COLORS.text }]}>{weekSummary.total}</Text>
+            <Text style={[styles.statDetail, { color: COLORS.subtext }]}>Avg. {(weekDays.length ? (weekSummary.total / weekDays.length).toFixed(1) : "0.0")} per day</Text>
+          </View>
+          <View style={[styles.statCard, { borderColor: COLORS.border, backgroundColor: COLORS.surface }]}>
+            <Text style={[styles.statLabel, { color: COLORS.subtext }]}>Service hours</Text>
+            <Text style={[styles.statValue, { color: COLORS.text }]}>
+              {(weekSummary.totalMinutes / 60).toFixed(weekSummary.totalMinutes / 60 >= 10 ? 0 : 1)}
+            </Text>
+            <Text style={[styles.statDetail, { color: COLORS.subtext }]}>Hours booked</Text>
+          </View>
+          <View style={[styles.statCard, { borderColor: COLORS.border, backgroundColor: COLORS.surface }]}>
+            <Text style={[styles.statLabel, { color: COLORS.subtext }]}>Revenue</Text>
+            <Text style={[styles.statValue, { color: COLORS.text }]}>{formatPrice(weekSummary.totalRevenue)}</Text>
+            <Text style={[styles.statDetail, { color: COLORS.subtext }]}>Based on service prices</Text>
+          </View>
+          <View style={[styles.statCard, { borderColor: COLORS.border, backgroundColor: COLORS.surface }]}>
+            <Text style={[styles.statLabel, { color: COLORS.subtext }]}>Busiest barber</Text>
+            <Text style={[styles.statValue, { color: COLORS.text }]}>
+              {topBarberEntry ? BARBER_MAP[topBarberEntry[0]]?.name ?? topBarberEntry[0] : "—"}
+            </Text>
+            <Text style={[styles.statDetail, { color: COLORS.subtext }]}> 
+              {topBarberEntry ? `${topBarberEntry[1]} booking${topBarberEntry[1] === 1 ? "" : "s"}` : "No bookings"}
+            </Text>
+          </View>
+        </View>
+
+        <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 12 }]}>
+          <Text style={[styles.title, { color: COLORS.text }]}>Bookings by day</Text>
+          {weekDaySummaries.map(({ key, date, bookings }) => (
+            <View key={key} style={styles.dayRow}>
+              <View style={styles.dayHeader}>
+                <Text style={[styles.dayTitle, { color: COLORS.text }]}>{formatWeekday(date)}</Text>
+                <View style={[styles.dayCountBadge, { borderColor: COLORS.border, backgroundColor: COLORS.bg }]}>
+                  <Text style={[styles.dayCountText, { color: COLORS.subtext }]}>
+                    {bookings.length} booking{bookings.length === 1 ? "" : "s"}
+                  </Text>
+                </View>
+              </View>
+              {bookings.length === 0 ? (
+                <Text style={[styles.empty, { marginLeft: 2 }]}>No bookings</Text>
+              ) : (
+                bookings.map((b) => {
+                  const svc = serviceMap.get(b.service);
+                  const barberName = BARBER_MAP[b.barber]?.name ?? b.barber;
+                  const customerName = b._customer
+                    ? `${b._customer.first_name}${b._customer.last_name ? ` ${b._customer.last_name}` : ""}`
+                    : "";
+                  return (
+                    <View key={b.id} style={styles.dayBookingRow}>
+                      <MaterialCommunityIcons name={svc?.icon ?? "calendar"} size={18} color={COLORS.accent} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.dayBookingText, { color: COLORS.text }]}>
+                          {b.start} – {b.end} • {svc?.name ?? b.service}
+                        </Text>
+                        <Text style={[styles.dayBookingMeta, { color: COLORS.subtext }]}>
+                          {barberName}
+                          {customerName ? ` • ${customerName}` : ""}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })
+              )}
+            </View>
+          ))}
+        </View>
+      </ScrollView>
     )}
   </View>
 );
+}
+
+function startOfWeek(date: Date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = (day + 6) % 7;
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - diff);
+  return d;
+}
+
+function formatRangeDate(date: Date) {
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function formatWeekday(date: Date) {
+  return date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 }
 
 /** ======== Modal de Cliente (lista + criar) ======== */
@@ -1040,4 +1254,40 @@ const styles = StyleSheet.create({
     borderColor: "#ffffff12",
     backgroundColor: "rgba(255,255,255,0.035)",
   },
+  statsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  statCard: {
+    flex: 1,
+    minWidth: 180,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 6,
+  },
+  statLabel: { fontSize: 12, fontWeight: "700", textTransform: "uppercase" },
+  statValue: { fontSize: 24, fontWeight: "800" },
+  statDetail: { fontSize: 12, fontWeight: "600" },
+  dayRow: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#ffffff12",
+    padding: 12,
+    gap: 10,
+    backgroundColor: "rgba(255,255,255,0.03)",
+  },
+  dayHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+  dayTitle: { fontSize: 14, fontWeight: "800" },
+  dayCountBadge: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  dayCountText: { fontSize: 12, fontWeight: "700" },
+  dayBookingRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  dayBookingText: { fontSize: 13, fontWeight: "700" },
+  dayBookingMeta: { fontSize: 12, fontWeight: "600" },
 });
