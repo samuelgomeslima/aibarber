@@ -14,6 +14,9 @@ import {
   getBookings,
   createBooking,
   cancelBooking,
+  findCustomerByPhone,
+  createCustomer as insertCustomer,
+  getCustomerById,
   type BookingWithCustomer,
 } from "./bookings";
 import { callOpenAIChatCompletion, isOpenAiConfigured } from "./openai";
@@ -95,12 +98,16 @@ const TOOL_DEFINITIONS = [
             enum: BARBERS.map((b) => b.id),
             description: "ID of the barber to book",
           },
+          customer_id: {
+            type: "string",
+            description: "ID of the customer making the booking",
+          },
           customer_name: {
             type: "string",
             description: "Optional name of the customer for reference",
           },
         },
-        required: ["date", "start", "service_id", "barber_id"],
+        required: ["date", "start", "service_id", "barber_id", "customer_id"],
       },
     },
   },
@@ -122,6 +129,38 @@ const TOOL_DEFINITIONS = [
             description: "ID of the barber handling the booking",
           },
         },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "find_customer",
+      description:
+        "Check if a customer is already registered by phone number. Provide digits only; do not include formatting characters.",
+      parameters: {
+        type: "object",
+        properties: {
+          phone: { type: "string", description: "Phone number digits" },
+        },
+        required: ["phone"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_customer",
+      description:
+        "Register a new customer when they are not found. Always include the first name, last name, and phone digits.",
+      parameters: {
+        type: "object",
+        properties: {
+          first_name: { type: "string" },
+          last_name: { type: "string" },
+          phone: { type: "string", description: "Phone number digits" },
+        },
+        required: ["first_name", "last_name", "phone"],
       },
     },
   },
@@ -155,6 +194,7 @@ function serializeBooking(b: BookingWithCustomer) {
     end: b.end,
     service_id: b.service,
     barber_id: b.barber,
+    customer_id: b.customer_id ?? null,
     service_name: SERVICES.find((s) => s.id === b.service)?.name ?? b.service,
     barber_name: BARBER_MAP[b.barber as keyof typeof BARBER_MAP]?.name ?? b.barber,
     customer_name: b._customer
@@ -196,15 +236,27 @@ async function getAvailability(args: {
 }
 
 async function bookService(
-  args: { date: string; start: string; service_id: string; barber_id: string; customer_name?: string },
+  args: {
+    date: string;
+    start: string;
+    service_id: string;
+    barber_id: string;
+    customer_id: string;
+    customer_name?: string;
+  },
   onMutated?: () => Promise<void> | void,
 ) {
-  const { date, start, service_id, barber_id } = args || {};
-  if (!date || !start || !service_id || !barber_id) {
-    return { error: "Missing date, start, service_id, or barber_id" };
+  const { date, start, service_id, barber_id, customer_id } = args || {};
+  if (!date || !start || !service_id || !barber_id || !customer_id) {
+    return { error: "Missing date, start, service_id, barber_id, or customer_id" };
   }
   const service = SERVICES.find((s) => s.id === service_id);
   if (!service) return { error: `Unknown service ${service_id}` };
+
+  const customer = await getCustomerById(customer_id);
+  if (!customer) {
+    return { error: `Customer ${customer_id} not found` };
+  }
 
   const startMinutes = timeToMinutes(start);
   if (startMinutes < openingHour * 60) return { error: "Start time is before opening hours" };
@@ -226,7 +278,7 @@ async function bookService(
     end,
     service: service.id,
     barber: barber_id,
-    customer_id: null,
+    customer_id,
   });
 
   await onMutated?.();
@@ -241,6 +293,56 @@ async function bookService(
       service_id: service.id,
       barber_id,
     },
+  };
+}
+
+async function findCustomer(args: { phone: string }) {
+  const digits = (args?.phone ?? "").replace(/\D/g, "");
+  if (!digits) {
+    return { error: "Phone is required" };
+  }
+  const customer = await findCustomerByPhone(digits);
+  if (!customer) return { customer: null };
+  return {
+    customer: {
+      id: customer.id,
+      first_name: customer.first_name,
+      last_name: customer.last_name,
+      phone: customer.phone,
+    },
+  };
+}
+
+async function createCustomer(args: { first_name: string; last_name: string; phone: string }) {
+  const first = args?.first_name?.trim();
+  const last = args?.last_name?.trim();
+  const digits = (args?.phone ?? "").replace(/\D/g, "");
+  if (!first || !last || !digits) {
+    return { error: "first_name, last_name, and phone are required" };
+  }
+
+  const existing = await findCustomerByPhone(digits);
+  if (existing) {
+    return {
+      customer: {
+        id: existing.id,
+        first_name: existing.first_name,
+        last_name: existing.last_name,
+        phone: existing.phone,
+      },
+      already_exists: true,
+    };
+  }
+
+  const created = await insertCustomer({ first_name: first, last_name: last, phone: digits });
+  return {
+    customer: {
+      id: created.id,
+      first_name: created.first_name,
+      last_name: created.last_name,
+      phone: created.phone,
+    },
+    already_exists: false,
   };
 }
 
@@ -296,6 +398,8 @@ export async function runBookingAgent(options: AgentRunOptions): Promise<string>
     get_availability: (args: any) => getAvailability(args),
     book_service: (args: any) => bookService(args, onBookingsMutated),
     cancel_booking: (args: any) => cancelService(args, onBookingsMutated),
+    find_customer: (args: any) => findCustomer(args),
+    create_customer: (args: any) => createCustomer(args),
   };
 
   for (let attempt = 0; attempt < 6; attempt++) {

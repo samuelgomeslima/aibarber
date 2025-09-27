@@ -88,3 +88,55 @@ export async function listCustomers(query: string) {
   if (error) throw error;
   return (data ?? []) as Customer[];
 }
+
+export async function getCustomerById(id: string) {
+  if (!id?.trim()) return null;
+  const { data, error, status } = await supabase
+    .from("customers")
+    .select("id,first_name,last_name,phone,email,date_of_birth")
+    .eq("id", id.trim())
+    .maybeSingle();
+  console.log("[getCustomerById]", { id, status, error });
+  if (error) throw error;
+  return (data ?? null) as Customer | null;
+}
+
+export async function findCustomerByPhone(phone: string) {
+  const digits = (phone || "").replace(/\D/g, "");
+  if (!digits) return null;
+  const { data, error, status } = await supabase
+    .from("customers")
+    .select("id,first_name,last_name,phone,email,date_of_birth")
+    .eq("phone", digits)
+    .maybeSingle();
+  console.log("[findCustomerByPhone]", { phone: digits, status, error });
+  if (error) throw error;
+  return (data ?? null) as Customer | null;
+}
+
+export async function createCustomer(payload: {
+  first_name: string;
+  last_name: string;
+  phone: string;
+}) {
+  const first_name = payload.first_name?.trim();
+  const last_name = payload.last_name?.trim();
+  const phoneDigits = (payload.phone || "").replace(/\D/g, "");
+
+  if (!first_name || !last_name || phoneDigits.length < 8) {
+    throw new Error("Invalid customer payload");
+  }
+
+  const { data, error, status } = await supabase
+    .from("customers")
+    .insert({
+      first_name,
+      last_name,
+      phone: phoneDigits,
+    })
+    .select("id,first_name,last_name,phone,email,date_of_birth")
+    .single();
+  console.log("[createCustomer]", { status, error });
+  if (error) throw error;
+  return data as Customer;
+}
