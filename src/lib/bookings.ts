@@ -1,12 +1,10 @@
 import { supabase } from "./supabase";
-import type { ServiceId } from "./domain";
-
 export type DbBooking = {
   id: string;
   date: string;
   start: string;
   end: string;
-  service: ServiceId;
+  service: string;
   barber: string;
   customer_id?: string | null;
 };
@@ -52,7 +50,7 @@ export async function createBooking(payload: {
   date: string;
   start: string;
   end: string;
-  service: ServiceId;
+  service: string;
   barber: string;
   customer_id?: string | null;
 }) {

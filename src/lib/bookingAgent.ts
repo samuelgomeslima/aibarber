@@ -1,5 +1,4 @@
 import {
-  SERVICES,
   BARBERS,
   BARBER_MAP,
   openingHour,
@@ -9,6 +8,7 @@ import {
   addMinutes,
   overlap,
   pad,
+  type Service,
 } from "./domain";
 import {
   getBookings,
@@ -31,140 +31,148 @@ export type AgentRunOptions = {
   contextSummary: string;
   conversation: ConversationMessage[];
   onBookingsMutated?: () => Promise<void> | void;
+  services: Service[];
 };
 
-const TOOL_DEFINITIONS = [
-  {
-    type: "function",
-    function: {
-      name: "list_bookings",
-      description:
-        "Return the existing bookings. If a date is provided, only return bookings for that day. Always include the booking id, service id, barber id, and timeslot.",
-      parameters: {
-        type: "object",
-        properties: {
-          date: {
-            type: "string",
-            description: "Date in YYYY-MM-DD format",
+function buildToolDefinitions(services: Service[]) {
+  const serviceIds = services.map((s) => s.id);
+  const serviceIdProperty =
+    serviceIds.length > 0
+      ? {
+          type: "string" as const,
+          enum: serviceIds,
+          description: "ID of the requested service",
+        }
+      : {
+          type: "string" as const,
+          description: "ID of the requested service",
+        };
+
+  return [
+    {
+      type: "function" as const,
+      function: {
+        name: "list_bookings",
+        description:
+          "Return the existing bookings. If a date is provided, only return bookings for that day. Always include the booking id, service id, barber id, and timeslot.",
+        parameters: {
+          type: "object",
+          properties: {
+            date: {
+              type: "string",
+              description: "Date in YYYY-MM-DD format",
+            },
           },
-        },
-        required: ["date"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "get_availability",
-      description:
-        "Return available start times for a specific date, service, and barber. Only include options that do not conflict with existing bookings and stay inside opening hours.",
-      parameters: {
-        type: "object",
-        properties: {
-          date: { type: "string", description: "Date in YYYY-MM-DD format" },
-          service_id: {
-            type: "string",
-            enum: SERVICES.map((s) => s.id),
-            description: "ID of the requested service",
-          },
-          barber_id: {
-            type: "string",
-            enum: BARBERS.map((b) => b.id),
-            description: "ID of the requested barber",
-          },
-        },
-        required: ["date", "service_id", "barber_id"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "book_service",
-      description:
-        "Create a booking for the user. Confirm there are no conflicts before creating the booking.",
-      parameters: {
-        type: "object",
-        properties: {
-          date: { type: "string", description: "Date in YYYY-MM-DD format" },
-          start: { type: "string", description: "Start time in HH:MM format" },
-          service_id: {
-            type: "string",
-            enum: SERVICES.map((s) => s.id),
-            description: "ID of the service to book",
-          },
-          barber_id: {
-            type: "string",
-            enum: BARBERS.map((b) => b.id),
-            description: "ID of the barber to book",
-          },
-          customer_id: {
-            type: "string",
-            description: "ID of the customer making the booking",
-          },
-          customer_name: {
-            type: "string",
-            description: "Optional name of the customer for reference",
-          },
-        },
-        required: ["date", "start", "service_id", "barber_id", "customer_id"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "cancel_booking",
-      description:
-        "Cancel an existing booking. The booking can be referenced by its id or by date/start/barber combination.",
-      parameters: {
-        type: "object",
-        properties: {
-          booking_id: { type: "string", description: "Existing booking id" },
-          date: { type: "string", description: "Date in YYYY-MM-DD format" },
-          start: { type: "string", description: "Start time in HH:MM format" },
-          barber_id: {
-            type: "string",
-            enum: BARBERS.map((b) => b.id),
-            description: "ID of the barber handling the booking",
-          },
+          required: ["date"],
         },
       },
     },
-  },
-  {
-    type: "function",
-    function: {
-      name: "find_customer",
-      description:
-        "Check if a customer is already registered by phone number. Provide digits only; do not include formatting characters.",
-      parameters: {
-        type: "object",
-        properties: {
-          phone: { type: "string", description: "Phone number digits" },
+    {
+      type: "function" as const,
+      function: {
+        name: "get_availability",
+        description:
+          "Return available start times for a specific date, service, and barber. Only include options that do not conflict with existing bookings and stay inside opening hours.",
+        parameters: {
+          type: "object",
+          properties: {
+            date: { type: "string", description: "Date in YYYY-MM-DD format" },
+            service_id: serviceIdProperty,
+            barber_id: {
+              type: "string",
+              enum: BARBERS.map((b) => b.id),
+              description: "ID of the requested barber",
+            },
+          },
+          required: ["date", "service_id", "barber_id"],
         },
-        required: ["phone"],
       },
     },
-  },
-  {
-    type: "function",
-    function: {
-      name: "create_customer",
-      description:
-        "Register a new customer when they are not found. Always include the first name, last name, and phone digits.",
-      parameters: {
-        type: "object",
-        properties: {
-          first_name: { type: "string" },
-          last_name: { type: "string" },
-          phone: { type: "string", description: "Phone number digits" },
+    {
+      type: "function" as const,
+      function: {
+        name: "book_service",
+        description:
+          "Create a booking for the user. Confirm there are no conflicts before creating the booking.",
+        parameters: {
+          type: "object",
+          properties: {
+            date: { type: "string", description: "Date in YYYY-MM-DD format" },
+            start: { type: "string", description: "Start time in HH:MM format" },
+            service_id: serviceIdProperty,
+            barber_id: {
+              type: "string",
+              enum: BARBERS.map((b) => b.id),
+              description: "ID of the barber to book",
+            },
+            customer_id: {
+              type: "string",
+              description: "ID of the customer making the booking",
+            },
+            customer_name: {
+              type: "string",
+              description: "Optional name of the customer for reference",
+            },
+          },
+          required: ["date", "start", "service_id", "barber_id", "customer_id"],
         },
-        required: ["first_name", "last_name", "phone"],
       },
     },
-  },
-] as const;
+    {
+      type: "function" as const,
+      function: {
+        name: "cancel_booking",
+        description:
+          "Cancel an existing booking. The booking can be referenced by its id or by date/start/barber combination.",
+        parameters: {
+          type: "object",
+          properties: {
+            booking_id: { type: "string", description: "Existing booking id" },
+            date: { type: "string", description: "Date in YYYY-MM-DD format" },
+            start: { type: "string", description: "Start time in HH:MM format" },
+            barber_id: {
+              type: "string",
+              enum: BARBERS.map((b) => b.id),
+              description: "ID of the barber handling the booking",
+            },
+          },
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "find_customer",
+        description:
+          "Check if a customer is already registered by phone number. Provide digits only; do not include formatting characters.",
+        parameters: {
+          type: "object",
+          properties: {
+            phone: { type: "string", description: "Phone number digits" },
+          },
+          required: ["phone"],
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "create_customer",
+        description:
+          "Register a new customer when they are not found. Always include the first name, last name, and phone digits.",
+        parameters: {
+          type: "object",
+          properties: {
+            first_name: { type: "string" },
+            last_name: { type: "string" },
+            phone: { type: "string", description: "Phone number digits" },
+          },
+          required: ["first_name", "last_name", "phone"],
+        },
+      },
+    },
+  ];
+}
 
 type ChatCompletionMessage = {
   role: "system" | "user" | "assistant" | "tool";
@@ -178,15 +186,15 @@ type ChatCompletionMessage = {
   }[];
 };
 
-async function listBookings(args: { date?: string }): Promise<unknown> {
+async function listBookings(args: { date?: string }, serviceMap: Map<string, Service>): Promise<unknown> {
   if (!args?.date) {
     return { error: "date is required" };
   }
   const rows = await getBookings(args.date);
-  return rows.map((b) => serializeBooking(b));
+  return rows.map((b) => serializeBooking(b, serviceMap));
 }
 
-function serializeBooking(b: BookingWithCustomer) {
+function serializeBooking(b: BookingWithCustomer, serviceMap: Map<string, Service>) {
   return {
     id: b.id,
     date: b.date,
@@ -195,7 +203,7 @@ function serializeBooking(b: BookingWithCustomer) {
     service_id: b.service,
     barber_id: b.barber,
     customer_id: b.customer_id ?? null,
-    service_name: SERVICES.find((s) => s.id === b.service)?.name ?? b.service,
+    service_name: serviceMap.get(b.service)?.name ?? b.service,
     barber_name: BARBER_MAP[b.barber as keyof typeof BARBER_MAP]?.name ?? b.barber,
     customer_name: b._customer
       ? `${b._customer.first_name}${b._customer.last_name ? ` ${b._customer.last_name}` : ""}`
@@ -203,15 +211,18 @@ function serializeBooking(b: BookingWithCustomer) {
   };
 }
 
-async function getAvailability(args: {
+async function getAvailability(
+  args: {
   date: string;
   service_id: string;
   barber_id: string;
-}) {
+  },
+  services: Map<string, Service>,
+) {
   if (!args?.date || !args?.service_id || !args?.barber_id) {
     return { error: "Missing date, service_id, or barber_id" };
   }
-  const service = SERVICES.find((s) => s.id === args.service_id);
+  const service = services.get(args.service_id);
   if (!service) return { error: `Unknown service ${args.service_id}` };
 
   const startMinutes = openingHour * 60;
@@ -220,9 +231,9 @@ async function getAvailability(args: {
   const relevant = dayBookings.filter((b) => b.barber === args.barber_id);
 
   const slots: { start: string; end: string }[] = [];
-  for (let t = startMinutes; t <= endMinutes - service.minutes; t += 30) {
+  for (let t = startMinutes; t <= endMinutes - service.estimated_minutes; t += 30) {
     const start = minutesToTime(t);
-    const end = addMinutes(start, service.minutes);
+    const end = addMinutes(start, service.estimated_minutes);
     if (timeToMinutes(end) > endMinutes) continue;
     const hasConflict = relevant.some((b) => overlap(start, end, b.start, b.end));
     if (!hasConflict) slots.push({ start, end });
@@ -244,13 +255,14 @@ async function bookService(
     customer_id: string;
     customer_name?: string;
   },
+  services: Map<string, Service>,
   onMutated?: () => Promise<void> | void,
 ) {
   const { date, start, service_id, barber_id, customer_id } = args || {};
   if (!date || !start || !service_id || !barber_id || !customer_id) {
     return { error: "Missing date, start, service_id, barber_id, or customer_id" };
   }
-  const service = SERVICES.find((s) => s.id === service_id);
+  const service = services.get(service_id);
   if (!service) return { error: `Unknown service ${service_id}` };
 
   const customer = await getCustomerById(customer_id);
@@ -260,7 +272,7 @@ async function bookService(
 
   const startMinutes = timeToMinutes(start);
   if (startMinutes < openingHour * 60) return { error: "Start time is before opening hours" };
-  const end = addMinutes(start, service.minutes);
+  const end = addMinutes(start, service.estimated_minutes);
   if (timeToMinutes(end) > closingHour * 60) return { error: "Selected time exceeds closing hours" };
 
   const dayBookings = await getBookings(date);
@@ -268,7 +280,7 @@ async function bookService(
   if (conflict) {
     return {
       error: "conflict",
-      conflicting_booking: serializeBooking(conflict),
+      conflicting_booking: serializeBooking(conflict, services),
     };
   }
 
@@ -376,7 +388,9 @@ export async function runBookingAgent(options: AgentRunOptions): Promise<string>
     throw new Error("OpenAI API key is not configured. Set EXPO_PUBLIC_OPENAI_API_KEY in your environment.");
   }
 
-  const { systemPrompt, contextSummary, conversation, onBookingsMutated } = options;
+  const { systemPrompt, contextSummary, conversation, onBookingsMutated, services } = options;
+  const serviceMap = new Map(services.map((s) => [s.id, s]));
+  const toolDefinitions = buildToolDefinitions(services);
 
   const messages: ChatCompletionMessage[] = [
     {
@@ -394,9 +408,9 @@ export async function runBookingAgent(options: AgentRunOptions): Promise<string>
   ];
 
   const toolHandlers: Record<string, (args: any) => Promise<unknown>> = {
-    list_bookings: (args: any) => listBookings(args),
-    get_availability: (args: any) => getAvailability(args),
-    book_service: (args: any) => bookService(args, onBookingsMutated),
+    list_bookings: (args: any) => listBookings(args, serviceMap),
+    get_availability: (args: any) => getAvailability(args, serviceMap),
+    book_service: (args: any) => bookService(args, serviceMap, onBookingsMutated),
     cancel_booking: (args: any) => cancelService(args, onBookingsMutated),
     find_customer: (args: any) => findCustomer(args),
     create_customer: (args: any) => createCustomer(args),
@@ -405,7 +419,7 @@ export async function runBookingAgent(options: AgentRunOptions): Promise<string>
   for (let attempt = 0; attempt < 6; attempt++) {
     const response = await callOpenAIChatCompletion({
       messages,
-      tools: TOOL_DEFINITIONS,
+      tools: toolDefinitions,
       model: "gpt-4o-mini",
       temperature: 0,
     });

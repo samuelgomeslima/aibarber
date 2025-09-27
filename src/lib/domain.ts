@@ -1,11 +1,13 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
-export type ServiceId = "cut" | "cutshave";
+export type ServiceId = string;
 export type Service = {
   id: ServiceId;
   name: string;
-  minutes: number;
+  estimated_minutes: number;
+  price_cents: number;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  created_at?: string | null;
 };
 
 export type BarberId = "joao" | "maria" | "carlos";
@@ -14,11 +16,6 @@ export type Barber = {
   name: string;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
 };
-
-export const SERVICES: Service[] = [
-  { id: "cut", name: "Cut", minutes: 30, icon: "content-cut" },
-  { id: "cutshave", name: "Cut & Shave", minutes: 60, icon: "razor-double-edge" },
-];
 
 export const BARBERS: Barber[] = [
   { id: "joao", name: "João", icon: "account" },
@@ -32,6 +29,16 @@ export const openingHour = 9;
 export const closingHour = 18;
 
 export const pad = (n: number) => n.toString().padStart(2, "0");
+
+export function formatPrice(cents: number) {
+  if (Number.isNaN(cents)) return "—";
+  const value = cents / 100;
+  return value.toLocaleString(undefined, {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+  });
+}
 
 export function toDateKey(d: Date) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
