@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { isOpenAiConfigured } from "../lib/openai";
 import { runBookingAgent } from "../lib/bookingAgent";
+import type { Service } from "../lib/domain";
 
 type DisplayMessage = {
   role: "assistant" | "user";
@@ -34,12 +35,13 @@ type AssistantChatProps = {
   systemPrompt: string;
   contextSummary: string;
   onBookingsMutated?: () => Promise<void> | void;
+  services: Service[];
 };
 
 const INITIAL_ASSISTANT_MESSAGE =
   "Hi! I'm your AIBarber agent. I can check availability, book services, and cancel existing appointments for you.";
 
-export default function AssistantChat({ colors, systemPrompt, contextSummary, onBookingsMutated }: AssistantChatProps) {
+export default function AssistantChat({ colors, systemPrompt, contextSummary, onBookingsMutated, services }: AssistantChatProps) {
   const [messages, setMessages] = useState<DisplayMessage[]>([
     { role: "assistant", content: INITIAL_ASSISTANT_MESSAGE },
   ]);
@@ -73,6 +75,7 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
         contextSummary,
         conversation: nextMessages,
         onBookingsMutated,
+        services,
       });
       setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
     } catch (e: any) {

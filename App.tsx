@@ -15,7 +15,6 @@ import { supabase } from "./src/lib/supabase";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 
 import {
-  SERVICES,
   BARBERS,
   BARBER_MAP,
   type Service,
@@ -28,6 +27,7 @@ import {
   addMinutes,
   overlap,
   humanDate,
+  formatPrice,
 } from "./src/lib/domain";
 import {
   getBookings,
@@ -37,6 +37,7 @@ import {
   type BookingWithCustomer,
   type Customer,
 } from "./src/lib/bookings";
+import { listServices } from "./src/lib/services";
 
 /* Components (mantidos) */
 import DateSelector from "./src/components/DateSelector";
@@ -44,13 +45,16 @@ import RecurrenceModal from "./src/components/RecurrenceModal"; // recebe fixedD
 import OccurrencePreviewModal, { PreviewItem } from "./src/components/OccurrencePreviewModal";
 import BarberSelector, { Barber } from "./src/components/BarberSelector";
 import AssistantChat from "./src/components/AssistantChat";
+import ServiceForm from "./src/components/ServiceForm";
 
 /* Novo: formulário de usuário (com date_of_birth e salvando no Supabase) */
 import UserForm from "./src/components/UserForm";
 
 /** ========== App ========== */
 export default function App() {
-  const [selectedService, setSelectedService] = useState<Service>(SERVICES[0]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(false);
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [activeScreen, setActiveScreen] = useState<"home" | "booking" | "assistant">("home");
 
   // Cliente -> obrigatório antes do barbeiro
@@ -76,6 +80,34 @@ export default function App() {
 
   // Horário selecionado (só cria ao clicar "Book service")
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+
+  const loadServices = useCallback(async () => {
+    setServicesLoading(true);
+    try {
+      const rows = await listServices();
+      setServices(rows);
+      setSelectedServiceId((prev) => {
+        if (prev && rows.some((s) => s.id === prev)) return prev;
+        return rows[0]?.id ?? null;
+      });
+    } catch (e: any) {
+      console.error(e);
+      Alert.alert("Services", e?.message ?? String(e));
+      setServices([]);
+      setSelectedServiceId(null);
+    } finally {
+      setServicesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadServices(); }, [loadServices]);
+
+  const selectedService = useMemo(
+    () => services.find((s) => s.id === selectedServiceId) ?? null,
+    [services, selectedServiceId],
+  );
+
+  const serviceMap = useMemo(() => new Map(services.map((s) => [s.id, s])), [services]);
 
   const load = useCallback(async () => {
     try {
@@ -120,14 +152,15 @@ export default function App() {
   }, []);
 
   const availableSlots = useMemo(() => {
+    if (!selectedService) return [];
     const safe = Array.isArray(bookings) ? bookings : [];
     return allSlots.filter((start) => {
-      const end = addMinutes(start, selectedService.minutes);
+      const end = addMinutes(start, selectedService.estimated_minutes);
       if (timeToMinutes(end) > closingHour * 60) return false;
       // conflito só conta para o MESMO barbeiro
       return !safe.some((b) => b.barber === selectedBarber.id && overlap(start, end, b.start, b.end));
     });
-  }, [allSlots, bookings, selectedService, selectedBarber]);
+  }, [allSlots, bookings, selectedBarber, selectedService]);
 
   // Se o slot selecionado sair da lista (mudou dia/serviço/barbeiro ou ficou indisponível), limpa
   useEffect(() => {
@@ -137,11 +170,15 @@ export default function App() {
   }, [availableSlots, selectedSlot, selectedService, selectedBarber, dateKey]);
 
   const book = async (start: string) => {
+    if (!selectedService) {
+      Alert.alert("Select service", "Create or choose a service before booking.");
+      return;
+    }
     if (!selectedCustomer) {
       Alert.alert("Select client", "You need to choose/create a client first.");
       return;
     }
-    const end = addMinutes(start, selectedService.minutes);
+    const end = addMinutes(start, selectedService.estimated_minutes);
     try {
       setLoading(true);
       await createBooking({
@@ -183,7 +220,12 @@ export default function App() {
       return;
     }
 
-    const minutes = selectedService.minutes;
+    if (!selectedService) {
+      Alert.alert("Select service", "Create or choose a service before repeating bookings.");
+      return;
+    }
+
+    const minutes = selectedService.estimated_minutes;
     const [hh, mm] = opts.time.split(":").map(Number);
     const first = new Date(opts.startFrom);
     first.setHours(hh, mm, 0, 0);
@@ -242,13 +284,19 @@ export default function App() {
       return;
     }
 
+    if (!selectedService) {
+      setPreviewOpen(false);
+      Alert.alert("Select service", "Create or choose a service before inserting repeated bookings.");
+      return;
+    }
+
     const toInsert = previewItems
       .filter((i) => i.ok)
       .map((i) => ({
         date: i.date,
         start: i.start,
         end: i.end,
-        service: selectedService.id as "cut" | "cutshave",
+        service: selectedService.id,
         barber: selectedBarber.id,
         customer_id: selectedCustomer.id,
       }));
@@ -289,10 +337,10 @@ export default function App() {
   }, [day]);
 
   const assistantContextSummary = useMemo(() => {
-    const serviceList = SERVICES.map((s) => `${s.name} (${s.minutes}m)`).join(", ");
+    const serviceList = services.map((s) => `${s.name} (${s.estimated_minutes}m)`).join(", ");
     const barberList = BARBERS.map((b) => b.name).join(", ");
     const bookingLines = bookings.slice(0, 6).map((b) => {
-      const serviceName = b.service === "cut" ? "Cut" : "Cut & Shave";
+      const serviceName = serviceMap.get(b.service)?.name ?? b.service;
       const barberName = BARBER_MAP[b.barber]?.name ?? b.barber;
       const customerName = b._customer
         ? ` for ${b._customer.first_name}${b._customer.last_name ? ` ${b._customer.last_name}` : ""}`
@@ -311,14 +359,16 @@ export default function App() {
       summary += "\nBookings: none scheduled yet.";
     }
     return summary;
-  }, [bookings]);
+  }, [bookings, serviceMap, services]);
 
   const assistantSystemPrompt = useMemo(() => {
-    const serviceLines = SERVICES.map((s) => `• ${s.name} (${s.minutes} minutes)`).join("\n");
+    const serviceLines = services
+      .map((s) => `• ${s.name} (${s.estimated_minutes} minutes • ${formatPrice(s.price_cents)})`)
+      .join("\n");
     const barberLines = BARBERS.map((b) => `• ${b.name}`).join("\n");
     const bookingLines = bookings
       .map((b) => {
-        const serviceName = b.service === "cut" ? "Cut" : "Cut & Shave";
+        const serviceName = serviceMap.get(b.service)?.name ?? b.service;
         const barberName = BARBER_MAP[b.barber]?.name ?? b.barber;
         const customerName = b._customer
           ? ` for ${b._customer.first_name}${b._customer.last_name ? ` ${b._customer.last_name}` : ""}`
@@ -347,7 +397,7 @@ export default function App() {
       "Call get_availability before committing to a new booking, and explain any conflicts you find.",
       "After performing a booking or cancellation, confirm the action and summarize the result for the user.",
     ].join("\n");
-  }, [bookings]);
+  }, [bookings, serviceMap, services]);
 
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
@@ -416,21 +466,27 @@ export default function App() {
 
           {/* Service chips */}
           <View style={styles.chipsRow}>
-            {SERVICES.map((s) => {
-              const active = s.id === selectedService.id;
-              return (
-                <Pressable
-                  key={s.id}
-                  onPress={() => setSelectedService(s)}
-                  style={[styles.chip, active && styles.chipActive]}
-                >
-                  <MaterialCommunityIcons name={s.icon} size={16} color={active ? COLORS.accentFgOn : COLORS.subtext} />
-                  <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                    {s.name} · {s.minutes}m
-                  </Text>
-                </Pressable>
-              );
-            })}
+            {services.length === 0 ? (
+              <View style={[styles.chip, { opacity: 0.7 }]}>
+                <Text style={[styles.chipText, { color: COLORS.subtext }]}>Create your first service below.</Text>
+              </View>
+            ) : (
+              services.map((s) => {
+                const active = s.id === selectedServiceId;
+                return (
+                  <Pressable
+                    key={s.id}
+                    onPress={() => setSelectedServiceId(s.id)}
+                    style={[styles.chip, active && styles.chipActive]}
+                  >
+                    <MaterialCommunityIcons name={s.icon} size={16} color={active ? COLORS.accentFgOn : COLORS.subtext} />
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                      {s.name} · {s.estimated_minutes}m
+                    </Text>
+                  </Pressable>
+                );
+              })
+            )}
           </View>
 
           {/* Client picker (novo, antes do barbeiro) */}
@@ -477,58 +533,62 @@ export default function App() {
           {/* Slots */}
           <Text style={styles.sectionLabel}>Available slots · {humanDate(dateKey)}</Text>
           <View style={styles.card}>
-          <View style={styles.grid}>
-    {allSlots.map((t) => {
-      const isAvailable = availableSlots.includes(t);
-      const isSelected = selectedSlot === t;
+            {selectedService ? (
+              <View style={styles.grid}>
+                {allSlots.map((t) => {
+                  const isAvailable = availableSlots.includes(t);
+                  const isSelected = selectedSlot === t;
 
-      if (!isAvailable) {
-        const conflict = bookings.find(
-          (b) =>
-            b.barber === selectedBarber.id &&
-            overlap(t, addMinutes(t, selectedService.minutes), b.start, b.end)
-        );
-        return (
-          <Pressable
-            key={t}
-            onPress={() =>
-              Alert.alert(
-                "Já ocupado",
-                conflict
-                  ? `${conflict.service === "cut" ? "Cut" : "Cut & Shave"} com ${
-                      BARBER_MAP[conflict.barber]?.name
-                    } • ${conflict.start}–${conflict.end}`
-                  : "Este horário não está disponível."
-              )
-            }
-            style={[styles.slot, styles.slotBusy]}
-          >
-            <Ionicons name="close-circle-outline" size={16} color={COLORS.danger} />
-            <Text style={styles.slotBusyText}>{t}</Text>
-          </Pressable>
-        );
-      }
+                  if (!isAvailable) {
+                    const conflict = bookings.find(
+                      (b) =>
+                        b.barber === selectedBarber.id &&
+                        overlap(t, addMinutes(t, selectedService.estimated_minutes), b.start, b.end),
+                    );
+                    const conflictService = conflict ? serviceMap.get(conflict.service) : null;
+                    return (
+                      <Pressable
+                        key={t}
+                        onPress={() =>
+                          Alert.alert(
+                            "Já ocupado",
+                            conflict
+                              ? `${conflictService?.name ?? conflict.service} com ${
+                                  BARBER_MAP[conflict.barber]?.name ?? conflict.barber
+                                } • ${conflict.start}–${conflict.end}`
+                              : "Este horário não está disponível.",
+                          )
+                        }
+                        style={[styles.slot, styles.slotBusy]}
+                      >
+                        <Ionicons name="close-circle-outline" size={16} color={COLORS.danger} />
+                        <Text style={styles.slotBusyText}>{t}</Text>
+                      </Pressable>
+                    );
+                  }
 
-      return (
-        <Pressable
-          key={t}
-          onPress={() => setSelectedSlot(t)}
-          style={[styles.slot, isSelected && styles.slotActive]}
-        >
-          <Ionicons
-            name="time-outline"
-            size={16}
-            color={isSelected ? COLORS.accentFgOn : COLORS.subtext}
-          />
-          <Text style={[styles.slotText, isSelected && styles.slotTextActive]}>{t}</Text>
-        </Pressable>
-      );
-    })}
-  </View>
-
+                  return (
+                    <Pressable
+                      key={t}
+                      onPress={() => setSelectedSlot(t)}
+                      style={[styles.slot, isSelected && styles.slotActive]}
+                    >
+                      <Ionicons
+                        name="time-outline"
+                        size={16}
+                        color={isSelected ? COLORS.accentFgOn : COLORS.subtext}
+                      />
+                      <Text style={[styles.slotText, isSelected && styles.slotTextActive]}>{t}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : (
+              <Text style={styles.empty}>Create a service to see availability.</Text>
+            )}
 
             {/* Resumo fixo */}
-            {selectedSlot && (
+            {selectedSlot && selectedService && (
               <Text style={styles.summaryText}>
                 {selectedService.name} • {BARBER_MAP[selectedBarber.id]?.name} • {selectedSlot} • {humanDate(dateKey)}
                 {selectedCustomer ? ` • ${selectedCustomer.first_name}` : ""}
@@ -583,12 +643,14 @@ export default function App() {
               <View style={styles.card}><Text style={styles.empty}>— none yet —</Text></View>
             ) : (
               bookings.map((b) => {
-                const svc = b.service === "cut" ? "Cut" : "Cut & Shave";
+                const service = serviceMap.get(b.service);
+                const svc = service?.name ?? b.service;
                 const barber = BARBER_MAP[b.barber] ?? { name: b.barber, icon: "account" as const };
+                const serviceIcon = (service?.icon ?? "content-cut") as keyof typeof MaterialCommunityIcons.glyphMap;
                 return (
                   <View key={b.id} style={styles.bookingCard}>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                      <MaterialCommunityIcons name={b.service === "cut" ? "content-cut" : "razor-double-edge"} size={20} color="#93c5fd" />
+                      <MaterialCommunityIcons name={serviceIcon} size={20} color="#93c5fd" />
                       <MaterialCommunityIcons name={barber.icon} size={18} color="#cbd5e1" />
                       <Text style={styles.bookingText}>
                         {svc} • {b.start}–{b.end} • {barber.name}
@@ -615,7 +677,7 @@ export default function App() {
           onSubmit={handleRecurrenceSubmit}
           fixedDate={day}
           fixedTime={selectedSlot || "00:00"}
-          fixedService={selectedService.name}
+          fixedService={selectedService?.name ?? ""}
           fixedBarber={BARBER_MAP[selectedBarber.id]?.name || selectedBarber.id}
           colors={{ text: COLORS.text, subtext: COLORS.subtext, surface: COLORS.surface, border: COLORS.border, accent: COLORS.accent, bg: "#0c1017" }}
         />
@@ -659,23 +721,79 @@ export default function App() {
         systemPrompt={assistantSystemPrompt}
         contextSummary={assistantContextSummary}
         onBookingsMutated={load}
+        services={services}
       />
     ) : (
-      <View style={styles.defaultScreen}>
-        <MaterialCommunityIcons name="calendar-month-outline" size={48} color={COLORS.accent} />
-        <Text style={styles.defaultTitle}>Welcome to AIBarber</Text>
-        <Text style={styles.defaultSubtitle}>
-          Keep track of your barbershop schedule and manage recurring bookings with ease.
-        </Text>
-        <Pressable
-          onPress={() => setActiveScreen("booking")}
-          style={styles.defaultCta}
-          accessibilityRole="button"
-          accessibilityLabel="Open the booking screen"
-        >
-          <Text style={styles.defaultCtaText}>Start booking</Text>
-        </Pressable>
-      </View>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 20, gap: 16 }}
+        refreshControl={<RefreshControl refreshing={servicesLoading} onRefresh={loadServices} />}
+      >
+        <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 12 }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <MaterialCommunityIcons name="briefcase-outline" size={22} color={COLORS.accent} />
+            <Text style={[styles.title, { color: COLORS.text }]}>Manage services</Text>
+          </View>
+          <Text style={{ color: COLORS.subtext, fontSize: 13, fontWeight: "600" }}>
+            Create services to control booking durations and prices. These appear in the booking screen and AI assistant.
+          </Text>
+        </View>
+
+        <ServiceForm
+          onCreated={() => {
+            void loadServices();
+          }}
+          colors={{
+            text: COLORS.text,
+            subtext: COLORS.subtext,
+            border: COLORS.border,
+            surface: COLORS.surface,
+            accent: COLORS.accent,
+            accentFgOn: COLORS.accentFgOn,
+            danger: COLORS.danger,
+          }}
+        />
+
+        <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 12 }]}>
+          <Text style={[styles.title, { color: COLORS.text }]}>Existing services</Text>
+          {services.length === 0 ? (
+            <Text style={[styles.empty, { marginVertical: 8 }]}>— none registered yet —</Text>
+          ) : (
+            services.map((svc) => (
+              <View key={svc.id} style={styles.serviceRow}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                  <MaterialCommunityIcons name={svc.icon} size={22} color={COLORS.accent} />
+                  <View>
+                    <Text style={{ color: COLORS.text, fontWeight: "800" }}>{svc.name}</Text>
+                    <Text style={{ color: COLORS.subtext, fontSize: 12 }}>
+                      {svc.estimated_minutes} minutes • {formatPrice(svc.price_cents)}
+                    </Text>
+                  </View>
+                </View>
+                <Pressable
+                  onPress={() => setSelectedServiceId(svc.id)}
+                  style={[
+                    styles.smallBtn,
+                    {
+                      borderColor: COLORS.accent,
+                      backgroundColor: selectedServiceId === svc.id ? COLORS.accent : "transparent",
+                    },
+                  ]}
+                >
+                  <Text
+                    style={{
+                      color: selectedServiceId === svc.id ? COLORS.accentFgOn : COLORS.accent,
+                      fontWeight: "800",
+                    }}
+                  >
+                    {selectedServiceId === svc.id ? "Selected" : "Select"}
+                  </Text>
+                </Pressable>
+              </View>
+            ))
+          )}
+        </View>
+      </ScrollView>
     )}
   </View>
 );
@@ -910,4 +1028,16 @@ const styles = StyleSheet.create({
   listRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 8 },
   cardRow: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderRadius: 14, padding: 12 },
   smallBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1 },
+  serviceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#ffffff12",
+    backgroundColor: "rgba(255,255,255,0.035)",
+  },
 });
