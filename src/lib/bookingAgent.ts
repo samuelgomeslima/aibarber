@@ -392,6 +392,8 @@ export async function runBookingAgent(options: AgentRunOptions): Promise<string>
   const serviceMap = new Map(services.map((s) => [s.id, s]));
   const toolDefinitions = buildToolDefinitions(services);
 
+  const today = new Date();
+  const currentDate = today.toISOString().split("T")[0];
   const messages: ChatCompletionMessage[] = [
     {
       role: "system",
@@ -399,6 +401,7 @@ export async function runBookingAgent(options: AgentRunOptions): Promise<string>
         systemPrompt,
         "You have tool access to manage the booking agenda.",
         "Use the provided functions to check availability before confirming a booking.",
+        `Today's date: ${currentDate}.`,
         `Opening hours: ${pad(openingHour)}:00-${pad(closingHour)}:00.`,
         "Context summary:",
         contextSummary,
