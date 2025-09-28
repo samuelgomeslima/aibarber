@@ -51,6 +51,7 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
   const [voiceTranscribing, setVoiceTranscribing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [suggestionsVisible, setSuggestionsVisible] = useState(true);
 
   const quickReplies = useMemo(() => {
     const replies = [
@@ -291,6 +292,7 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
     (suggestion: string) => {
       if (!suggestion) return;
       setInput("");
+      setSuggestionsVisible(false);
       void sendMessage(suggestion);
     },
     [sendMessage],
@@ -340,33 +342,57 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
           <Text style={[styles.errorText, { color: colors.danger }]}>{error}</Text>
         ) : null}
 
-        {quickReplies.length > 0 && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={[styles.quickReplies, { borderColor: colors.border, backgroundColor: colors.surface }]}
+        {quickReplies.length > 0 && suggestionsVisible ? (
+          <View
+            style={[styles.quickRepliesContainer, { borderColor: colors.border, backgroundColor: colors.surface }]}
           >
-            {quickReplies.map((suggestion) => (
+            <View style={styles.quickRepliesHeader}>
+              <Text style={[styles.quickRepliesTitle, { color: colors.subtext }]}>Suggested prompts</Text>
               <Pressable
-                key={suggestion}
-                onPress={() => handleQuickReply(suggestion)}
-                disabled={pending || voiceTranscribing || !isOpenAiConfigured}
-                style={[
-                  styles.quickReplyChip,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                    opacity: pending || voiceTranscribing || !isOpenAiConfigured ? 0.5 : 1,
-                  },
-                ]}
+                onPress={() => setSuggestionsVisible(false)}
                 accessibilityRole="button"
-                accessibilityLabel={`Send quick message: ${suggestion}`}
+                accessibilityLabel="Hide quick suggestions"
+                hitSlop={8}
               >
-                <Text style={[styles.quickReplyText, { color: colors.text }]}>{suggestion}</Text>
+                <Ionicons name="close" size={18} color={colors.subtext} />
               </Pressable>
-            ))}
-          </ScrollView>
-        )}
+            </View>
+            <View style={styles.quickRepliesGrid}>
+              {quickReplies.map((suggestion) => (
+                <Pressable
+                  key={suggestion}
+                  onPress={() => handleQuickReply(suggestion)}
+                  disabled={pending || voiceTranscribing || !isOpenAiConfigured}
+                  style={[
+                    styles.quickReplyCard,
+                    {
+                      borderColor: colors.border,
+                      backgroundColor: colors.surface,
+                      opacity: pending || voiceTranscribing || !isOpenAiConfigured ? 0.5 : 1,
+                    },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Send quick message: ${suggestion}`}
+                >
+                  <View style={[styles.quickReplyIcon, { backgroundColor: colors.accent }]}>
+                    <Ionicons name="sparkles-outline" size={16} color={colors.accentFgOn} />
+                  </View>
+                  <Text style={[styles.quickReplyText, { color: colors.text }]}>{suggestion}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : quickReplies.length > 0 ? (
+          <Pressable
+            onPress={() => setSuggestionsVisible(true)}
+            style={[styles.quickRepliesToggle, { borderColor: colors.border, backgroundColor: colors.surface }]}
+            accessibilityRole="button"
+            accessibilityLabel="Show quick suggestions"
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.subtext} />
+            <Text style={[styles.quickRepliesToggleText, { color: colors.subtext }]}>Show suggestions</Text>
+          </Pressable>
+        ) : null}
 
         <View style={[styles.inputRow, { borderColor: colors.border, backgroundColor: colors.surface }]}>
           <Pressable
@@ -433,24 +459,65 @@ const styles = StyleSheet.create({
   },
   messageText: { fontSize: 14, fontWeight: "600", lineHeight: 20 },
   errorText: { fontSize: 12, fontWeight: "700" },
-  quickReplies: {
-    flexDirection: "row",
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 16,
+  quickRepliesContainer: {
+    borderRadius: 18,
     borderWidth: 1,
+    padding: 12,
+    gap: 12,
   },
-  quickReplyChip: {
-    borderRadius: 999,
-    borderWidth: 1,
+  quickRepliesHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  quickRepliesTitle: {
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  quickRepliesGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  quickReplyCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 10,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginRight: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    flexShrink: 1,
+    minWidth: 160,
+  },
+  quickReplyIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
   },
   quickReplyText: {
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: "700",
+    flexShrink: 1,
+  },
+  quickRepliesToggle: {
+    marginTop: 4,
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  quickRepliesToggleText: {
+    fontSize: 13,
+    fontWeight: "700",
   },
   inputRow: {
     flexDirection: "row",
