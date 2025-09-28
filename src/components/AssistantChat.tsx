@@ -268,10 +268,30 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
           setError("No audio captured. Try again.");
           return;
         }
+        const mimeType = blob.type || "audio/webm";
+        const extension = (() => {
+          if (!mimeType) return "webm";
+          if (mimeType.includes("mp4") || mimeType.includes("m4a")) {
+            return "m4a";
+          }
+          if (mimeType.includes("ogg")) {
+            return "ogg";
+          }
+          if (mimeType.includes("wav")) {
+            return "wav";
+          }
+          if (mimeType.includes("mp3")) {
+            return "mp3";
+          }
+          if (mimeType.includes("webm")) {
+            return "webm";
+          }
+          return "webm";
+        })();
         const transcript = await transcribeAudio({
           blob,
-          fileName: "voice-message.webm",
-          mimeType: blob.type || "audio/webm",
+          fileName: `voice-message.${extension}`,
+          mimeType,
         });
         await sendMessage(transcript);
       } catch (e: any) {
