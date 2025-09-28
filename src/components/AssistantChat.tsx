@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-import { isOpenAiConfigured } from "../lib/openai";
+import { isOpenAiConfigured, transcribeAudio } from "../lib/openai";
 import { runBookingAgent } from "../lib/bookingAgent";
 import type { Service } from "../lib/domain";
 
@@ -47,44 +47,175 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
   ]);
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
+  const [voiceTranscribing, setVoiceTranscribing] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const scrollRef = useRef<ScrollView>(null);
+  const messagesRef = useRef(messages);
+  const mediaRecorderRef = useRef<any>(null);
+  const recordedChunksRef = useRef<any[]>([]);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
   useEffect(() => {
     scrollRef.current?.scrollToEnd({ animated: true });
   }, [messages]);
 
+  useEffect(() => {
+    return () => {
+      if (mediaRecorderRef.current) {
+        try {
+          mediaRecorderRef.current.stop();
+        } catch (e) {
+          // ignore cleanup errors
+        }
+      }
+    };
+  }, []);
+
+  const voiceSupported = Platform.OS === "web";
+
   const canSend = useMemo(() => {
-    return Boolean(input.trim()) && !pending && isOpenAiConfigured;
-  }, [input, pending]);
+    return Boolean(input.trim()) && !pending && isOpenAiConfigured && !voiceTranscribing;
+  }, [input, pending, voiceTranscribing]);
 
-  const handleSend = async () => {
-    const trimmed = input.trim();
-    if (!trimmed) return;
-
-    const userMessage: DisplayMessage = { role: "user", content: trimmed };
-    const nextMessages = [...messages, userMessage];
-    setMessages(nextMessages);
-    setInput("");
-    setPending(true);
-    setError(null);
+  const startVoiceRecording = useCallback(async () => {
+    if (!isOpenAiConfigured) {
+      setError("Set EXPO_PUBLIC_OPENAI_API_KEY to enable voice input.");
+      return;
+    }
+    const globalNavigator: any = Platform.OS === "web" ? (globalThis as any).navigator : null;
+    if (!globalNavigator?.mediaDevices?.getUserMedia) {
+      setError("Voice capture is currently supported on the web experience only.");
+      return;
+    }
 
     try {
-      const reply = await runBookingAgent({
-        systemPrompt,
-        contextSummary,
-        conversation: nextMessages,
-        onBookingsMutated,
-        services,
-      });
-      setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+      const RecorderCtor = (globalThis as any).MediaRecorder;
+      if (typeof RecorderCtor !== "function") {
+        setError("Voice capture is not supported in this browser.");
+        return;
+      }
+
+      const stream = await globalNavigator.mediaDevices.getUserMedia({ audio: true });
+      recordedChunksRef.current = [];
+      const recorder = new RecorderCtor(stream);
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          recordedChunksRef.current.push(event.data);
+        }
+      };
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setError(null);
+      setIsRecording(true);
     } catch (e: any) {
-      const message = e?.message ? String(e.message) : "Something went wrong.";
+      const message = e?.message ? String(e.message) : "Unable to start voice recording.";
       setError(message);
-    } finally {
-      setPending(false);
+      setIsRecording(false);
     }
-  };
+  }, []);
+
+  const stopVoiceRecording = useCallback(async () => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder) return null;
+
+    return new Promise<any>((resolve, reject) => {
+      recorder.onstop = () => {
+        try {
+          const chunks = recordedChunksRef.current;
+          const BlobCtor = (globalThis as any).Blob;
+          const blob = chunks.length && typeof BlobCtor === "function"
+            ? new BlobCtor(chunks, { type: recorder.mimeType || "audio/webm" })
+            : null;
+          recorder.stream.getTracks().forEach((track) => track.stop());
+          mediaRecorderRef.current = null;
+          recordedChunksRef.current = [];
+          resolve(blob);
+        } catch (err) {
+          reject(err);
+        }
+      };
+
+      try {
+        recorder.stop();
+      } catch (err) {
+        mediaRecorderRef.current = null;
+        reject(err);
+      }
+    });
+  }, []);
+
+  const sendMessage = useCallback(
+    async (rawText: string) => {
+      const trimmed = rawText.trim();
+      if (!trimmed || pending) return;
+
+      const userMessage: DisplayMessage = { role: "user", content: trimmed };
+      const nextMessages = [...messagesRef.current, userMessage];
+      setMessages(nextMessages);
+      setPending(true);
+      setError(null);
+
+      try {
+        const reply = await runBookingAgent({
+          systemPrompt,
+          contextSummary,
+          conversation: nextMessages,
+          onBookingsMutated,
+          services,
+        });
+        setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+      } catch (e: any) {
+        const message = e?.message ? String(e.message) : "Something went wrong.";
+        setError(message);
+      } finally {
+        setPending(false);
+      }
+    },
+    [contextSummary, onBookingsMutated, pending, services, systemPrompt],
+  );
+
+  const handleSend = useCallback(() => {
+    const trimmed = input.trim();
+    if (!trimmed) return;
+    setInput("");
+    void sendMessage(trimmed);
+  }, [input, sendMessage]);
+
+  const handleVoicePress = useCallback(async () => {
+    if (pending || voiceTranscribing) return;
+
+    if (isRecording) {
+      setIsRecording(false);
+      setVoiceTranscribing(true);
+      try {
+        const blob = await stopVoiceRecording();
+        if (!blob) {
+          setError("No audio captured. Try again.");
+          return;
+        }
+        const transcript = await transcribeAudio({
+          blob,
+          fileName: "voice-message.webm",
+          mimeType: blob.type || "audio/webm",
+        });
+        await sendMessage(transcript);
+      } catch (e: any) {
+        const message = e?.message ? String(e.message) : "Failed to process voice message.";
+        setError(message);
+      } finally {
+        setVoiceTranscribing(false);
+      }
+    } else {
+      await startVoiceRecording();
+    }
+  }, [isRecording, pending, sendMessage, startVoiceRecording, stopVoiceRecording, voiceTranscribing]);
+
+  const voiceButtonDisabled =
+    !isOpenAiConfigured || pending || voiceTranscribing || (!voiceSupported && !isRecording);
 
   return (
     <KeyboardAvoidingView
@@ -139,6 +270,30 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
         ) : null}
 
         <View style={[styles.inputRow, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+          <Pressable
+            onPress={handleVoicePress}
+            disabled={voiceButtonDisabled}
+            style={[
+              styles.voiceButton,
+              {
+                borderColor: isRecording ? colors.danger : colors.border,
+                backgroundColor: isRecording ? colors.danger : colors.surface,
+                opacity: voiceButtonDisabled ? 0.4 : 1,
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={isRecording ? "Stop voice input" : "Start voice input"}
+          >
+            {voiceTranscribing ? (
+              <ActivityIndicator size="small" color={isRecording ? colors.surface : colors.subtext} />
+            ) : (
+              <Ionicons
+                name={isRecording ? "stop" : "mic"}
+                size={18}
+                color={isRecording ? colors.surface : colors.subtext}
+              />
+            )}
+          </Pressable>
           <TextInput
             value={input}
             onChangeText={setInput}
@@ -146,7 +301,7 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
             placeholderTextColor={colors.subtext}
             multiline
             style={[styles.input, { color: colors.text }]}
-            editable={!pending && isOpenAiConfigured}
+            editable={!pending && isOpenAiConfigured && !voiceTranscribing}
           />
           <Pressable
             onPress={handleSend}
@@ -197,6 +352,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     maxHeight: 100,
+  },
+  voiceButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   sendButton: {
     width: 40,
