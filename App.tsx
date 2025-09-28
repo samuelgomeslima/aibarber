@@ -61,6 +61,7 @@ export default function App() {
   const [activeScreen, setActiveScreen] = useState<
     "home" | "bookings" | "bookService" | "services" | "assistant"
   >("home");
+  const [sidebarExpanded, setSidebarExpanded] = useState(true);
 
   // Cliente -> obrigatório antes do barbeiro
   const [clientModalOpen, setClientModalOpen] = useState(false);
@@ -413,27 +414,14 @@ export default function App() {
   const assistantContextSummary = useMemo(() => {
     const serviceList = services.map((s) => `${s.name} (${s.estimated_minutes}m)`).join(", ");
     const barberList = BARBERS.map((b) => b.name).join(", ");
-    const bookingLines = bookings.slice(0, 6).map((b) => {
-      const serviceName = serviceMap.get(b.service)?.name ?? b.service;
-      const barberName = BARBER_MAP[b.barber]?.name ?? b.barber;
-      const customerName = b._customer
-        ? ` for ${b._customer.first_name}${b._customer.last_name ? ` ${b._customer.last_name}` : ""}`
-        : "";
-      return `${humanDate(b.date)} ${b.start}–${b.end} • ${serviceName} • ${barberName}${customerName}`;
-    });
+    const bookingCount = bookings.length;
 
     let summary = `Hours: ${pad(openingHour)}:00–${pad(closingHour)}:00\nServices: ${serviceList}\nBarbers: ${barberList}`;
-    if (bookingLines.length) {
-      summary += `\nBookings:\n${bookingLines.join("\n")}`;
-      if (bookings.length > bookingLines.length) {
-        const remaining = bookings.length - bookingLines.length;
-        summary += `\n…and ${remaining} more booking${remaining === 1 ? "" : "s"}.`;
-      }
-    } else {
-      summary += "\nBookings: none scheduled yet.";
-    }
+    summary += bookingCount
+      ? `\nBookings: ${bookingCount} scheduled.`
+      : "\nBookings: none scheduled yet.";
     return summary;
-  }, [bookings, serviceMap, services]);
+  }, [bookings, services]);
 
   const assistantSystemPrompt = useMemo(() => {
     const serviceLines = services
@@ -581,69 +569,114 @@ export default function App() {
   const bookingsNavActive = activeScreen === "bookings" || activeScreen === "bookService";
 
   return (
-    <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
-      <View style={styles.navBar}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <MaterialCommunityIcons name="content-cut" size={22} color="#fff" />
-          <Text style={styles.navBrand}>AIBarber</Text>
+    <View style={[styles.appShell, { backgroundColor: COLORS.bg }]}>
+      <View
+        style={[
+          styles.sidebar,
+          { borderColor: COLORS.border, backgroundColor: COLORS.surface },
+          sidebarExpanded ? styles.sidebarExpanded : styles.sidebarCollapsed,
+        ]}
+      >
+        <View style={styles.sidebarHeader}>
+          <View style={styles.sidebarBrand}>
+            <MaterialCommunityIcons name="content-cut" size={22} color="#fff" />
+            {sidebarExpanded && <Text style={styles.navBrand}>AIBarber</Text>}
+          </View>
+          <Pressable
+            onPress={() => setSidebarExpanded((prev) => !prev)}
+            style={[styles.sidebarToggle, { borderColor: COLORS.border }]}
+            accessibilityRole="button"
+            accessibilityLabel={sidebarExpanded ? "Collapse navigation" : "Expand navigation"}
+          >
+            <Ionicons
+              name={sidebarExpanded ? "chevron-back" : "chevron-forward"}
+              size={18}
+              color={COLORS.subtext}
+            />
+          </Pressable>
         </View>
-        <View style={styles.navActions}>
+        <View style={styles.sidebarItems}>
           <Pressable
             onPress={() => setActiveScreen("home")}
-            style={[styles.navItem, activeScreen === "home" && styles.navItemActive]}
+            style={[
+              styles.sidebarItem,
+              !sidebarExpanded && styles.sidebarItemCollapsed,
+              activeScreen === "home" && styles.sidebarItemActive,
+            ]}
             accessibilityRole="button"
             accessibilityLabel="Go to overview"
           >
             <MaterialCommunityIcons
               name="view-dashboard-outline"
-              size={18}
+              size={20}
               color={activeScreen === "home" ? COLORS.accentFgOn : COLORS.subtext}
             />
-            <Text style={[styles.navItemText, activeScreen === "home" && styles.navItemTextActive]}>Overview</Text>
+            {sidebarExpanded && (
+              <Text style={[styles.sidebarItemText, activeScreen === "home" && styles.sidebarItemTextActive]}>Overview</Text>
+            )}
           </Pressable>
           <Pressable
             onPress={() => setActiveScreen("bookings")}
-            style={[styles.navItem, bookingsNavActive && styles.navItemActive]}
+            style={[
+              styles.sidebarItem,
+              !sidebarExpanded && styles.sidebarItemCollapsed,
+              bookingsNavActive && styles.sidebarItemActive,
+            ]}
             accessibilityRole="button"
             accessibilityLabel="Go to bookings"
           >
             <MaterialCommunityIcons
               name="calendar-clock"
-              size={18}
+              size={20}
               color={bookingsNavActive ? COLORS.accentFgOn : COLORS.subtext}
             />
-            <Text style={[styles.navItemText, bookingsNavActive && styles.navItemTextActive]}>Bookings</Text>
+            {sidebarExpanded && (
+              <Text style={[styles.sidebarItemText, bookingsNavActive && styles.sidebarItemTextActive]}>Bookings</Text>
+            )}
           </Pressable>
           <Pressable
             onPress={() => setActiveScreen("services")}
-            style={[styles.navItem, activeScreen === "services" && styles.navItemActive]}
+            style={[
+              styles.sidebarItem,
+              !sidebarExpanded && styles.sidebarItemCollapsed,
+              activeScreen === "services" && styles.sidebarItemActive,
+            ]}
             accessibilityRole="button"
             accessibilityLabel="Manage services"
           >
             <MaterialCommunityIcons
               name="briefcase-outline"
-              size={18}
+              size={20}
               color={activeScreen === "services" ? COLORS.accentFgOn : COLORS.subtext}
             />
-            <Text style={[styles.navItemText, activeScreen === "services" && styles.navItemTextActive]}>Services</Text>
+            {sidebarExpanded && (
+              <Text style={[styles.sidebarItemText, activeScreen === "services" && styles.sidebarItemTextActive]}>Services</Text>
+            )}
           </Pressable>
           <Pressable
             onPress={() => setActiveScreen("assistant")}
-            style={[styles.navItem, activeScreen === "assistant" && styles.navItemActive]}
+            style={[
+              styles.sidebarItem,
+              !sidebarExpanded && styles.sidebarItemCollapsed,
+              activeScreen === "assistant" && styles.sidebarItemActive,
+            ]}
             accessibilityRole="button"
             accessibilityLabel="Open the AI assistant"
           >
             <Ionicons
               name="sparkles-outline"
-              size={18}
+              size={20}
               color={activeScreen === "assistant" ? COLORS.accentFgOn : COLORS.subtext}
             />
-            <Text style={[styles.navItemText, activeScreen === "assistant" && styles.navItemTextActive]}>Assistant</Text>
+            {sidebarExpanded && (
+              <Text style={[styles.sidebarItemText, activeScreen === "assistant" && styles.sidebarItemTextActive]}>Assistant</Text>
+            )}
           </Pressable>
         </View>
       </View>
 
-      {activeScreen === "bookService" ? (
+      <View style={styles.mainArea}>
+        {activeScreen === "bookService" ? (
         <>
             {/* Header */}
         <View style={styles.header}>
@@ -1251,8 +1284,9 @@ export default function App() {
         </View>
       </ScrollView>
     )}
-  </View>
-);
+      </View>
+    </View>
+  );
 }
 
 function startOfWeek(date: Date) {
@@ -1398,35 +1432,58 @@ const SHADOW = Platform.select({
 });
 
 const styles = StyleSheet.create({
-  navBar: {
+  appShell: { flex: 1, flexDirection: "row" },
+  sidebar: {
     paddingTop: Platform.select({ ios: 52, android: 40, default: 24 }),
-    paddingBottom: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderColor: "#11151c",
-    backgroundColor: "#0c1017",
+    paddingBottom: 24,
+    paddingHorizontal: 12,
+    borderRightWidth: 1,
+    alignItems: "stretch",
+    gap: 16,
+  },
+  sidebarExpanded: { width: 240 },
+  sidebarCollapsed: { width: 84, alignItems: "center" },
+  sidebarHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
-    flexWrap: "wrap",
   },
+  sidebarBrand: { flexDirection: "row", alignItems: "center", gap: 10 },
   navBrand: { color: "#fff", fontSize: 18, fontWeight: "800", letterSpacing: 0.3 },
-  navActions: { flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" },
-  navItem: {
+  sidebarToggle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  sidebarItems: {
+    flex: 1,
+    gap: 8,
+    width: "100%",
+  },
+  sidebarItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 999,
+    gap: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: "#ffffff12",
-    backgroundColor: "rgba(255,255,255,0.045)",
+    borderColor: "transparent",
+    backgroundColor: "transparent",
   },
-  navItemActive: { backgroundColor: COLORS.accent, borderColor: COLORS.accent },
-  navItemText: { color: COLORS.subtext, fontWeight: "700" },
-  navItemTextActive: { color: COLORS.accentFgOn },
+  sidebarItemCollapsed: {
+    justifyContent: "center",
+    paddingHorizontal: 8,
+  },
+  sidebarItemActive: { backgroundColor: COLORS.accent, borderColor: COLORS.accent },
+  sidebarItemText: { color: COLORS.subtext, fontWeight: "700" },
+  sidebarItemTextActive: { color: COLORS.accentFgOn },
+  mainArea: { flex: 1 },
 
   defaultScreen: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 16 },
   defaultTitle: { color: COLORS.text, fontSize: 24, fontWeight: "800", textAlign: "center", letterSpacing: 0.3 },
