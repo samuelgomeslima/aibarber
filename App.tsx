@@ -61,6 +61,7 @@ export default function App() {
   const [activeScreen, setActiveScreen] = useState<
     "home" | "bookings" | "bookService" | "services" | "assistant"
   >("home");
+  const [navCollapsed, setNavCollapsed] = useState(false);
 
   // Cliente -> obrigatório antes do barbeiro
   const [clientModalOpen, setClientModalOpen] = useState(false);
@@ -411,29 +412,19 @@ export default function App() {
   }, [day]);
 
   const assistantContextSummary = useMemo(() => {
-    const serviceList = services.map((s) => `${s.name} (${s.estimated_minutes}m)`).join(", ");
-    const barberList = BARBERS.map((b) => b.name).join(", ");
-    const bookingLines = bookings.slice(0, 6).map((b) => {
-      const serviceName = serviceMap.get(b.service)?.name ?? b.service;
-      const barberName = BARBER_MAP[b.barber]?.name ?? b.barber;
-      const customerName = b._customer
-        ? ` for ${b._customer.first_name}${b._customer.last_name ? ` ${b._customer.last_name}` : ""}`
-        : "";
-      return `${humanDate(b.date)} ${b.start}–${b.end} • ${serviceName} • ${barberName}${customerName}`;
-    });
+    const servicesLine =
+      services.length > 0
+        ? services.map((s) => `${s.name} (${s.estimated_minutes}m)`).join(", ")
+        : "No services registered yet.";
+    const barberLine = BARBERS.length > 0 ? BARBERS.map((b) => b.name).join(", ") : "No barbers configured.";
 
-    let summary = `Hours: ${pad(openingHour)}:00–${pad(closingHour)}:00\nServices: ${serviceList}\nBarbers: ${barberList}`;
-    if (bookingLines.length) {
-      summary += `\nBookings:\n${bookingLines.join("\n")}`;
-      if (bookings.length > bookingLines.length) {
-        const remaining = bookings.length - bookingLines.length;
-        summary += `\n…and ${remaining} more booking${remaining === 1 ? "" : "s"}.`;
-      }
-    } else {
-      summary += "\nBookings: none scheduled yet.";
-    }
-    return summary;
-  }, [bookings, serviceMap, services]);
+    return [
+      `Hours: ${pad(openingHour)}:00–${pad(closingHour)}:00`,
+      `Services: ${servicesLine}`,
+      `Barbers: ${barberLine}`,
+      "Booking details are available on request.",
+    ].join("\n");
+  }, [services]);
 
   const assistantSystemPrompt = useMemo(() => {
     const serviceLines = services
@@ -580,72 +571,10 @@ export default function App() {
 
   const bookingsNavActive = activeScreen === "bookings" || activeScreen === "bookService";
 
-  return (
-    <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
-      <View style={styles.navBar}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <MaterialCommunityIcons name="content-cut" size={22} color="#fff" />
-          <Text style={styles.navBrand}>AIBarber</Text>
-        </View>
-        <View style={styles.navActions}>
-          <Pressable
-            onPress={() => setActiveScreen("home")}
-            style={[styles.navItem, activeScreen === "home" && styles.navItemActive]}
-            accessibilityRole="button"
-            accessibilityLabel="Go to overview"
-          >
-            <MaterialCommunityIcons
-              name="view-dashboard-outline"
-              size={18}
-              color={activeScreen === "home" ? COLORS.accentFgOn : COLORS.subtext}
-            />
-            <Text style={[styles.navItemText, activeScreen === "home" && styles.navItemTextActive]}>Overview</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setActiveScreen("bookings")}
-            style={[styles.navItem, bookingsNavActive && styles.navItemActive]}
-            accessibilityRole="button"
-            accessibilityLabel="Go to bookings"
-          >
-            <MaterialCommunityIcons
-              name="calendar-clock"
-              size={18}
-              color={bookingsNavActive ? COLORS.accentFgOn : COLORS.subtext}
-            />
-            <Text style={[styles.navItemText, bookingsNavActive && styles.navItemTextActive]}>Bookings</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setActiveScreen("services")}
-            style={[styles.navItem, activeScreen === "services" && styles.navItemActive]}
-            accessibilityRole="button"
-            accessibilityLabel="Manage services"
-          >
-            <MaterialCommunityIcons
-              name="briefcase-outline"
-              size={18}
-              color={activeScreen === "services" ? COLORS.accentFgOn : COLORS.subtext}
-            />
-            <Text style={[styles.navItemText, activeScreen === "services" && styles.navItemTextActive]}>Services</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setActiveScreen("assistant")}
-            style={[styles.navItem, activeScreen === "assistant" && styles.navItemActive]}
-            accessibilityRole="button"
-            accessibilityLabel="Open the AI assistant"
-          >
-            <Ionicons
-              name="sparkles-outline"
-              size={18}
-              color={activeScreen === "assistant" ? COLORS.accentFgOn : COLORS.subtext}
-            />
-            <Text style={[styles.navItemText, activeScreen === "assistant" && styles.navItemTextActive]}>Assistant</Text>
-          </Pressable>
-        </View>
-      </View>
-
-      {activeScreen === "bookService" ? (
-        <>
-            {/* Header */}
+  let screenContent: React.ReactNode;
+  if (activeScreen === "bookService") {
+    screenContent = (
+      <>
         <View style={styles.header}>
           <View style={styles.headerRow}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -714,7 +643,6 @@ export default function App() {
           </View>
         </View>
 
-        {/* Content */}
         <ScrollView contentContainerStyle={styles.container} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
           {/* Date selector */}
           <Text style={styles.sectionLabel}>Pick a day</Text>
@@ -864,7 +792,6 @@ export default function App() {
           <Text style={styles.note}>Tip: selecione/crie o cliente antes do barbeiro; conflitos são por barbeiro.</Text>
         </ScrollView>
 
-        {/* Modals: Recorrência e Preview (mantidos) */}
         <RecurrenceModal
           visible={recurrenceOpen}
           onClose={() => setRecurrenceOpen(false)}
@@ -883,7 +810,6 @@ export default function App() {
           colors={{ text: COLORS.text, subtext: COLORS.subtext, surface: COLORS.surface, border: COLORS.border, accent: COLORS.accent, bg: "#0b0d13", danger: COLORS.danger }}
         />
 
-        {/* Modal de clientes (lista + criar via UserForm) */}
         <ClientModal
           visible={clientModalOpen}
           onClose={() => setClientModalOpen(false)}
@@ -894,13 +820,15 @@ export default function App() {
           onSaved={(c) => { setSelectedCustomer(c); refreshCustomers(); }}
         />
 
-          {loading && (
-            <View style={styles.loadingOverlay} pointerEvents="none">
-              <ActivityIndicator size="large" />
-            </View>
-          )}
+        {loading && (
+          <View style={styles.loadingOverlay} pointerEvents="none">
+            <ActivityIndicator size="large" />
+          </View>
+        )}
       </>
-    ) : activeScreen === "bookings" ? (
+    );
+  } else if (activeScreen === "bookings") {
+    screenContent = (
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: 20, gap: 16 }}
@@ -1076,7 +1004,9 @@ export default function App() {
           )}
         </View>
       </ScrollView>
-    ) : activeScreen === "services" ? (
+    );
+  } else if (activeScreen === "services") {
+    screenContent = (
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: 20, gap: 16 }}
@@ -1147,24 +1077,30 @@ export default function App() {
           )}
         </View>
       </ScrollView>
-    ) : activeScreen === "assistant" ? (
-      <AssistantChat
-        colors={{
-          text: COLORS.text,
-          subtext: COLORS.subtext,
-          surface: COLORS.surface,
-          border: COLORS.border,
-          accent: COLORS.accent,
-          accentFgOn: COLORS.accentFgOn,
-          danger: COLORS.danger,
-          bg: COLORS.bg,
-        }}
-        systemPrompt={assistantSystemPrompt}
-        contextSummary={assistantContextSummary}
-        onBookingsMutated={handleBookingsMutated}
-        services={services}
-      />
-    ) : (
+    );
+  } else if (activeScreen === "assistant") {
+    screenContent = (
+      <View style={{ flex: 1 }}>
+        <AssistantChat
+          colors={{
+            text: COLORS.text,
+            subtext: COLORS.subtext,
+            surface: COLORS.surface,
+            border: COLORS.border,
+            accent: COLORS.accent,
+            accentFgOn: COLORS.accentFgOn,
+            danger: COLORS.danger,
+            bg: COLORS.bg,
+          }}
+          systemPrompt={assistantSystemPrompt}
+          contextSummary={assistantContextSummary}
+          onBookingsMutated={handleBookingsMutated}
+          services={services}
+        />
+      </View>
+    );
+  } else {
+    screenContent = (
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: 20, gap: 16 }}
@@ -1250,9 +1186,116 @@ export default function App() {
           ))}
         </View>
       </ScrollView>
-    )}
-  </View>
-);
+    );
+  }
+
+  return (
+    <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
+      <View style={styles.appShell}>
+        <View style={[styles.sidebar, navCollapsed && styles.sidebarCollapsed]}>
+          <View style={styles.sidebarHeader}>
+            <View style={styles.brandRow}>
+              <MaterialCommunityIcons name="content-cut" size={navCollapsed ? 24 : 28} color="#fff" />
+              {!navCollapsed && <Text style={styles.navBrand}>AIBarber</Text>}
+            </View>
+            <Pressable
+              onPress={() => setNavCollapsed((prev) => !prev)}
+              style={styles.sidebarToggle}
+              accessibilityRole="button"
+              accessibilityLabel={navCollapsed ? "Expand navigation" : "Collapse navigation"}
+            >
+              <Ionicons
+                name={navCollapsed ? "chevron-forward" : "chevron-back"}
+                size={18}
+                color={COLORS.subtext}
+              />
+            </Pressable>
+          </View>
+
+          <View style={styles.sidebarNav}>
+            <Pressable
+              onPress={() => setActiveScreen("home")}
+              style={[
+                styles.sidebarItem,
+                activeScreen === "home" && styles.sidebarItemActive,
+                navCollapsed && styles.sidebarItemCollapsed,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Go to overview"
+            >
+              <MaterialCommunityIcons
+                name="view-dashboard-outline"
+                size={20}
+                color={activeScreen === "home" ? COLORS.accentFgOn : COLORS.subtext}
+              />
+              {!navCollapsed && (
+                <Text style={[styles.sidebarItemLabel, activeScreen === "home" && styles.sidebarItemLabelActive]}>Overview</Text>
+              )}
+            </Pressable>
+            <Pressable
+              onPress={() => setActiveScreen("bookings")}
+              style={[
+                styles.sidebarItem,
+                bookingsNavActive && styles.sidebarItemActive,
+                navCollapsed && styles.sidebarItemCollapsed,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Go to bookings"
+            >
+              <MaterialCommunityIcons
+                name="calendar-clock"
+                size={20}
+                color={bookingsNavActive ? COLORS.accentFgOn : COLORS.subtext}
+              />
+              {!navCollapsed && (
+                <Text style={[styles.sidebarItemLabel, bookingsNavActive && styles.sidebarItemLabelActive]}>Bookings</Text>
+              )}
+            </Pressable>
+            <Pressable
+              onPress={() => setActiveScreen("services")}
+              style={[
+                styles.sidebarItem,
+                activeScreen === "services" && styles.sidebarItemActive,
+                navCollapsed && styles.sidebarItemCollapsed,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Manage services"
+            >
+              <MaterialCommunityIcons
+                name="briefcase-outline"
+                size={20}
+                color={activeScreen === "services" ? COLORS.accentFgOn : COLORS.subtext}
+              />
+              {!navCollapsed && (
+                <Text style={[styles.sidebarItemLabel, activeScreen === "services" && styles.sidebarItemLabelActive]}>Services</Text>
+              )}
+            </Pressable>
+            <Pressable
+              onPress={() => setActiveScreen("assistant")}
+              style={[
+                styles.sidebarItem,
+                activeScreen === "assistant" && styles.sidebarItemActive,
+                navCollapsed && styles.sidebarItemCollapsed,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Open the AI assistant"
+            >
+              <Ionicons
+                name="sparkles-outline"
+                size={20}
+                color={activeScreen === "assistant" ? COLORS.accentFgOn : COLORS.subtext}
+              />
+              {!navCollapsed && (
+                <Text style={[styles.sidebarItemLabel, activeScreen === "assistant" && styles.sidebarItemLabelActive]}>Assistant</Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={styles.contentArea}>{screenContent}</View>
+      </View>
+    </View>
+  );
 }
 
 function startOfWeek(date: Date) {
@@ -1398,35 +1441,53 @@ const SHADOW = Platform.select({
 });
 
 const styles = StyleSheet.create({
-  navBar: {
-    paddingTop: Platform.select({ ios: 52, android: 40, default: 24 }),
-    paddingBottom: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
+  appShell: { flex: 1, flexDirection: "row" },
+  sidebar: {
+    width: 260,
+    flexShrink: 0,
+    borderRightWidth: 1,
     borderColor: "#11151c",
     backgroundColor: "#0c1017",
+    paddingTop: Platform.select({ ios: 52, android: 40, default: 32 }),
+    paddingBottom: 24,
+    paddingHorizontal: 16,
+    gap: 24,
+  },
+  sidebarCollapsed: { width: 88, paddingHorizontal: 12 },
+  sidebarHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 12,
-    flexWrap: "wrap",
   },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   navBrand: { color: "#fff", fontSize: 18, fontWeight: "800", letterSpacing: 0.3 },
-  navActions: { flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" },
-  navItem: {
+  sidebarToggle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#ffffff12",
+    backgroundColor: "rgba(255,255,255,0.045)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sidebarNav: { flex: 1, gap: 8, marginTop: 24 },
+  sidebarItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    paddingVertical: 8,
+    gap: 12,
+    paddingVertical: 10,
     paddingHorizontal: 14,
-    borderRadius: 999,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: "#ffffff12",
     backgroundColor: "rgba(255,255,255,0.045)",
   },
-  navItemActive: { backgroundColor: COLORS.accent, borderColor: COLORS.accent },
-  navItemText: { color: COLORS.subtext, fontWeight: "700" },
-  navItemTextActive: { color: COLORS.accentFgOn },
+  sidebarItemCollapsed: { justifyContent: "center", paddingHorizontal: 12 },
+  sidebarItemActive: { backgroundColor: COLORS.accent, borderColor: COLORS.accent },
+  sidebarItemLabel: { color: COLORS.subtext, fontWeight: "700" },
+  sidebarItemLabelActive: { color: COLORS.accentFgOn },
+  contentArea: { flex: 1, minHeight: 0 },
 
   defaultScreen: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 16 },
   defaultTitle: { color: COLORS.text, fontSize: 24, fontWeight: "800", textAlign: "center", letterSpacing: 0.3 },

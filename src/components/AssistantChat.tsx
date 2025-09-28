@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { Audio } from "expo-av";
 
 import { isOpenAiConfigured, transcribeAudio } from "../lib/openai";
 import { runBookingAgent } from "../lib/bookingAgent";
@@ -51,6 +52,7 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
   const [voiceTranscribing, setVoiceTranscribing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showQuickReplies, setShowQuickReplies] = useState(true);
 
   const quickReplies = useMemo(() => {
     const replies = [
@@ -72,7 +74,8 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
   const scrollRef = useRef<ScrollView>(null);
   const messagesRef = useRef(messages);
   const mediaRecorderRef = useRef<any>(null);
-  const recordedChunksRef = useRef<any[]>([]);
+  const recordedChunksRef = useRef<Blob[]>([]);
+  const nativeRecordingRef = useRef<Audio.Recording | null>(null);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -135,17 +138,24 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
 
   useEffect(() => {
     return () => {
-      if (mediaRecorderRef.current) {
-        try {
-          mediaRecorderRef.current.stop();
-        } catch (e) {
-          // ignore cleanup errors
+      if (Platform.OS === "web") {
+        if (mediaRecorderRef.current) {
+          try {
+            mediaRecorderRef.current.stop();
+          } catch (e) {
+            // ignore cleanup errors
+          }
+          mediaRecorderRef.current = null;
         }
+      } else if (nativeRecordingRef.current) {
+        const recording = nativeRecordingRef.current;
+        nativeRecordingRef.current = null;
+        void recording.stopAndUnloadAsync().catch(() => {});
       }
     };
   }, []);
 
-  const voiceSupported = Platform.OS === "web";
+  const voiceSupported = Platform.OS === "web" || Platform.OS === "ios" || Platform.OS === "android";
 
   const canSend = useMemo(() => {
     return Boolean(input.trim()) && !pending && isOpenAiConfigured && !voiceTranscribing;
@@ -156,66 +166,144 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
       setError("Set EXPO_PUBLIC_OPENAI_API_KEY to enable voice input.");
       return;
     }
-    const globalNavigator: any = Platform.OS === "web" ? (globalThis as any).navigator : null;
-    if (!globalNavigator?.mediaDevices?.getUserMedia) {
-      setError("Voice capture is currently supported on the web experience only.");
+    if (!voiceSupported) {
+      setError("Voice capture is not supported on this device yet.");
       return;
     }
 
-    try {
-      const RecorderCtor = (globalThis as any).MediaRecorder;
-      if (typeof RecorderCtor !== "function") {
+    if (Platform.OS === "web") {
+      const globalNavigator: any = (globalThis as any).navigator;
+      if (!globalNavigator?.mediaDevices?.getUserMedia) {
         setError("Voice capture is not supported in this browser.");
         return;
       }
 
-      const stream = await globalNavigator.mediaDevices.getUserMedia({ audio: true });
-      recordedChunksRef.current = [];
-      const recorder = new RecorderCtor(stream);
-      recorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) {
-          recordedChunksRef.current.push(event.data);
+      try {
+        const RecorderCtor = (globalThis as any).MediaRecorder;
+        if (typeof RecorderCtor !== "function") {
+          setError("Voice capture is not supported in this browser.");
+          return;
         }
-      };
-      mediaRecorderRef.current = recorder;
-      recorder.start();
+
+        const stream = await globalNavigator.mediaDevices.getUserMedia({ audio: true });
+        recordedChunksRef.current = [];
+        const recorder = new RecorderCtor(stream);
+        recorder.ondataavailable = (event: any) => {
+          if (event.data && event.data.size > 0) {
+            recordedChunksRef.current.push(event.data);
+          }
+        };
+        mediaRecorderRef.current = recorder;
+        recorder.start();
+        setError(null);
+        setIsRecording(true);
+      } catch (e: any) {
+        const message = e?.message ? String(e.message) : "Unable to start voice recording.";
+        setError(message);
+        setIsRecording(false);
+      }
+      return;
+    }
+
+    try {
+      const permission = await Audio.requestPermissionsAsync();
+      if (!permission.granted) {
+        setError("Microphone permission is required to use voice input.");
+        return;
+      }
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+        interruptionModeIOS: Audio.INTERRUPTION_MODE_IOS_DO_NOT_MIX,
+        interruptionModeAndroid: Audio.INTERRUPTION_MODE_ANDROID_DO_NOT_MIX,
+        shouldDuckAndroid: true,
+        staysActiveInBackground: false,
+      });
+
+      const recording = new Audio.Recording();
+      await recording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+      await recording.startAsync();
+      nativeRecordingRef.current = recording;
       setError(null);
       setIsRecording(true);
     } catch (e: any) {
       const message = e?.message ? String(e.message) : "Unable to start voice recording.";
       setError(message);
       setIsRecording(false);
+      nativeRecordingRef.current = null;
+      try {
+        await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: false });
+      } catch {
+        // ignore
+      }
     }
-  }, []);
+  }, [voiceSupported]);
 
-  const stopVoiceRecording = useCallback(async () => {
-    const recorder = mediaRecorderRef.current;
-    if (!recorder) return null;
+  type VoiceRecordingResult =
+    | { kind: "web"; blob: Blob; mimeType: string; fileName: string }
+    | { kind: "native"; uri: string; mimeType: string; fileName: string };
 
-    return new Promise<any>((resolve, reject) => {
-      recorder.onstop = () => {
+  const stopVoiceRecording = useCallback(async (): Promise<VoiceRecordingResult | null> => {
+    if (Platform.OS === "web") {
+      const recorder = mediaRecorderRef.current;
+      if (!recorder) return null;
+
+      return new Promise<VoiceRecordingResult | null>((resolve, reject) => {
+        recorder.onstop = () => {
+          try {
+            const chunks = recordedChunksRef.current;
+            const BlobCtor = (globalThis as any).Blob;
+            const blob = chunks.length && typeof BlobCtor === "function"
+              ? new BlobCtor(chunks, { type: recorder.mimeType || "audio/webm" })
+              : null;
+            recorder.stream.getTracks().forEach((track) => track.stop());
+            mediaRecorderRef.current = null;
+            recordedChunksRef.current = [];
+            if (!blob) {
+              resolve(null);
+              return;
+            }
+            resolve({ kind: "web", blob, mimeType: recorder.mimeType || "audio/webm", fileName: "voice-message.webm" });
+          } catch (err) {
+            reject(err);
+          }
+        };
+
         try {
-          const chunks = recordedChunksRef.current;
-          const BlobCtor = (globalThis as any).Blob;
-          const blob = chunks.length && typeof BlobCtor === "function"
-            ? new BlobCtor(chunks, { type: recorder.mimeType || "audio/webm" })
-            : null;
-          recorder.stream.getTracks().forEach((track) => track.stop());
-          mediaRecorderRef.current = null;
-          recordedChunksRef.current = [];
-          resolve(blob);
+          recorder.stop();
         } catch (err) {
+          mediaRecorderRef.current = null;
           reject(err);
         }
-      };
+      });
+    }
 
-      try {
-        recorder.stop();
-      } catch (err) {
-        mediaRecorderRef.current = null;
-        reject(err);
-      }
-    });
+    const recording = nativeRecordingRef.current;
+    if (!recording) return null;
+
+    try {
+      await recording.stopAndUnloadAsync();
+    } catch (err) {
+      nativeRecordingRef.current = null;
+      throw err;
+    }
+
+    const uri = recording.getURI();
+    nativeRecordingRef.current = null;
+
+    try {
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: false });
+    } catch {
+      // ignore reset errors
+    }
+
+    if (!uri) {
+      return null;
+    }
+
+    const fileName = Platform.select({ ios: "voice-message.m4a", android: "voice-message.m4a", default: "voice-message.m4a" });
+    return { kind: "native", uri, mimeType: "audio/m4a", fileName: fileName ?? "voice-message.m4a" };
   }, []);
 
   const sendMessage = useCallback(
@@ -262,16 +350,24 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
       setIsRecording(false);
       setVoiceTranscribing(true);
       try {
-        const blob = await stopVoiceRecording();
-        if (!blob) {
+        const recording = await stopVoiceRecording();
+        if (!recording) {
           setError("No audio captured. Try again.");
           return;
         }
-        const transcript = await transcribeAudio({
-          blob,
-          fileName: "voice-message.webm",
-          mimeType: blob.type || "audio/webm",
-        });
+        const transcript = await transcribeAudio(
+          recording.kind === "web"
+            ? {
+                blob: recording.blob,
+                fileName: recording.fileName,
+                mimeType: recording.mimeType,
+              }
+            : {
+                uri: recording.uri,
+                fileName: recording.fileName,
+                mimeType: recording.mimeType,
+              },
+        );
         await sendMessage(transcript);
       } catch (e: any) {
         const message = e?.message ? String(e.message) : "Failed to process voice message.";
@@ -291,6 +387,7 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
     (suggestion: string) => {
       if (!suggestion) return;
       setInput("");
+      setShowQuickReplies(false);
       void sendMessage(suggestion);
     },
     [sendMessage],
@@ -341,31 +438,62 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
         ) : null}
 
         {quickReplies.length > 0 && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={[styles.quickReplies, { borderColor: colors.border, backgroundColor: colors.surface }]}
+          <View
+            style={[
+              styles.quickRepliesContainer,
+              { borderColor: colors.border, backgroundColor: colors.surface },
+            ]}
           >
-            {quickReplies.map((suggestion) => (
+            {showQuickReplies ? (
+              <>
+                <View style={styles.quickRepliesHeader}>
+                  <View style={styles.quickRepliesHeaderContent}>
+                    <Ionicons name="sparkles-outline" size={16} color={colors.subtext} />
+                    <Text style={[styles.quickRepliesTitle, { color: colors.text }]}>Suggestions</Text>
+                  </View>
+                  <Pressable
+                    onPress={() => setShowQuickReplies(false)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Hide suggestions"
+                  >
+                    <Ionicons name="close" size={16} color={colors.subtext} />
+                  </Pressable>
+                </View>
+                <View style={styles.quickReplyList}>
+                  {quickReplies.map((suggestion) => (
+                    <Pressable
+                      key={suggestion}
+                      onPress={() => handleQuickReply(suggestion)}
+                      disabled={pending || voiceTranscribing || !isOpenAiConfigured}
+                      style={[
+                        styles.quickReplyChip,
+                        {
+                          borderColor: colors.border,
+                          backgroundColor: colors.bg,
+                          opacity: pending || voiceTranscribing || !isOpenAiConfigured ? 0.5 : 1,
+                        },
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Send quick message: ${suggestion}`}
+                    >
+                      <Ionicons name="chatbubble-ellipses-outline" size={14} color={colors.subtext} />
+                      <Text style={[styles.quickReplyText, { color: colors.text }]}>{suggestion}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            ) : (
               <Pressable
-                key={suggestion}
-                onPress={() => handleQuickReply(suggestion)}
-                disabled={pending || voiceTranscribing || !isOpenAiConfigured}
-                style={[
-                  styles.quickReplyChip,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                    opacity: pending || voiceTranscribing || !isOpenAiConfigured ? 0.5 : 1,
-                  },
-                ]}
+                style={styles.quickRepliesToggle}
+                onPress={() => setShowQuickReplies(true)}
                 accessibilityRole="button"
-                accessibilityLabel={`Send quick message: ${suggestion}`}
+                accessibilityLabel="Show suggestions"
               >
-                <Text style={[styles.quickReplyText, { color: colors.text }]}>{suggestion}</Text>
+                <Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.subtext} />
+                <Text style={[styles.quickRepliesToggleText, { color: colors.text }]}>Show suggestions</Text>
               </Pressable>
-            ))}
-          </ScrollView>
+            )}
+          </View>
         )}
 
         <View style={[styles.inputRow, { borderColor: colors.border, backgroundColor: colors.surface }]}>
@@ -433,22 +561,54 @@ const styles = StyleSheet.create({
   },
   messageText: { fontSize: 14, fontWeight: "600", lineHeight: 20 },
   errorText: { fontSize: 12, fontWeight: "700" },
-  quickReplies: {
-    flexDirection: "row",
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+  quickRepliesContainer: {
     borderRadius: 16,
     borderWidth: 1,
+    padding: 12,
+    gap: 12,
+  },
+  quickRepliesHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  quickRepliesHeaderContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  quickRepliesTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
+  quickReplyList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
   },
   quickReplyChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     borderRadius: 999,
     borderWidth: 1,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginRight: 8,
+    paddingVertical: 6,
   },
   quickReplyText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  quickRepliesToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 8,
+  },
+  quickRepliesToggleText: {
     fontSize: 13,
     fontWeight: "600",
   },
