@@ -1,9 +1,9 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, TextInput, Pressable, StyleSheet, Alert } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import type { Service } from "../lib/domain";
-import { createService } from "../lib/services";
+import { createService, updateService } from "../lib/services";
 
 const DEFAULT_COLORS = {
   text: "#e5e7eb",
@@ -16,16 +16,47 @@ const DEFAULT_COLORS = {
 };
 
 type Props = {
+  mode?: "create" | "edit";
+  service?: Service | null;
   onCreated?: (service: Service) => void;
+  onUpdated?: (service: Service) => void;
+  onCancel?: () => void;
   colors?: typeof DEFAULT_COLORS;
 };
 
-export default function ServiceForm({ onCreated, colors = DEFAULT_COLORS }: Props) {
-  const [name, setName] = useState("");
-  const [minutesText, setMinutesText] = useState("30");
-  const [priceText, setPriceText] = useState("30.00");
-  const [iconName, setIconName] = useState("content-cut");
+export default function ServiceForm({
+  mode = "create",
+  service = null,
+  onCreated,
+  onUpdated,
+  onCancel,
+  colors = DEFAULT_COLORS,
+}: Props) {
+  const isEditMode = mode === "edit";
+
+  const [name, setName] = useState(() => (isEditMode && service ? service.name : ""));
+  const [minutesText, setMinutesText] = useState(() =>
+    isEditMode && service ? String(service.estimated_minutes) : "30",
+  );
+  const [priceText, setPriceText] = useState(() =>
+    isEditMode && service ? centsToInput(service.price_cents) : "30.00",
+  );
+  const [iconName, setIconName] = useState(() => (isEditMode && service ? service.icon : "content-cut"));
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (isEditMode && service) {
+      setName(service.name);
+      setMinutesText(String(service.estimated_minutes));
+      setPriceText(centsToInput(service.price_cents));
+      setIconName(service.icon);
+    } else if (!isEditMode) {
+      setName("");
+      setMinutesText("30");
+      setPriceText("30.00");
+      setIconName("content-cut");
+    }
+  }, [isEditMode, service]);
 
   const minutes = useMemo(() => {
     const numeric = Number(minutesText);
@@ -33,7 +64,9 @@ export default function ServiceForm({ onCreated, colors = DEFAULT_COLORS }: Prop
   }, [minutesText]);
 
   const priceCents = useMemo(() => parsePrice(priceText), [priceText]);
-  const iconValid = useMemo(() => !!MaterialCommunityIcons.glyphMap[iconName as keyof typeof MaterialCommunityIcons.glyphMap], [iconName]);
+  const iconValid = useMemo(() => !!MaterialCommunityIcons.glyphMap[iconName as keyof typeof MaterialCommunityIcons.glyphMap], [
+    iconName,
+  ]);
 
   const errors = useMemo(() => {
     const errs: Record<string, string> = {};
@@ -44,26 +77,41 @@ export default function ServiceForm({ onCreated, colors = DEFAULT_COLORS }: Prop
     return errs;
   }, [name, minutes, priceCents, iconValid]);
 
-  const valid = Object.keys(errors).length === 0 && !saving;
+  const valid = Object.keys(errors).length === 0 && !saving && (!isEditMode || !!service);
 
   const handleSubmit = async () => {
     if (!valid) return;
     setSaving(true);
     try {
-      const created = await createService({
-        name: name.trim(),
-        estimated_minutes: minutes,
-        price_cents: priceCents,
-        icon: iconName as keyof typeof MaterialCommunityIcons.glyphMap,
-      });
-      Alert.alert("Service created", `${created.name} (${created.estimated_minutes} min)`);
-      setName("");
-      setMinutesText("30");
-      setPriceText("30.00");
-      setIconName("content-cut");
-      onCreated?.(created);
+      if (isEditMode && service) {
+        const updated = await updateService(service.id, {
+          name: name.trim(),
+          estimated_minutes: minutes,
+          price_cents: priceCents,
+          icon: iconName as keyof typeof MaterialCommunityIcons.glyphMap,
+        });
+        Alert.alert("Service updated", `${updated.name} (${updated.estimated_minutes} min)`);
+        setName(updated.name);
+        setMinutesText(String(updated.estimated_minutes));
+        setPriceText(centsToInput(updated.price_cents));
+        setIconName(updated.icon);
+        onUpdated?.(updated);
+      } else {
+        const created = await createService({
+          name: name.trim(),
+          estimated_minutes: minutes,
+          price_cents: priceCents,
+          icon: iconName as keyof typeof MaterialCommunityIcons.glyphMap,
+        });
+        Alert.alert("Service created", `${created.name} (${created.estimated_minutes} min)`);
+        setName("");
+        setMinutesText("30");
+        setPriceText("30.00");
+        setIconName("content-cut");
+        onCreated?.(created);
+      }
     } catch (err: any) {
-      Alert.alert("Create service failed", err?.message ?? String(err));
+      Alert.alert(isEditMode ? "Update service failed" : "Create service failed", err?.message ?? String(err));
     } finally {
       setSaving(false);
     }
@@ -71,8 +119,12 @@ export default function ServiceForm({ onCreated, colors = DEFAULT_COLORS }: Prop
 
   return (
     <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-      <Text style={[styles.title, { color: colors.text }]}>Register a service</Text>
-      <Text style={[styles.subtitle, { color: colors.subtext }]}>Services define the duration and price of each booking.</Text>
+      <Text style={[styles.title, { color: colors.text }]}>{isEditMode ? "Edit service" : "Register a service"}</Text>
+      <Text style={[styles.subtitle, { color: colors.subtext }]}>
+        {isEditMode
+          ? "Adjust the duration, price, or icon for this service."
+          : "Services define the duration and price of each booking."}
+      </Text>
 
       <FormField
         label="Name"
@@ -136,12 +188,25 @@ export default function ServiceForm({ onCreated, colors = DEFAULT_COLORS }: Prop
           },
         ]}
         accessibilityRole="button"
-        accessibilityLabel="Create service"
+        accessibilityLabel={isEditMode ? "Save service changes" : "Create service"}
       >
         <Text style={[styles.buttonText, { color: valid ? colors.accentFgOn : colors.subtext }]}>
-          {saving ? "Saving…" : "Create service"}
+          {saving ? "Saving…" : isEditMode ? "Save changes" : "Create service"}
         </Text>
       </Pressable>
+
+      {onCancel ? (
+        <Pressable
+          onPress={() => {
+            if (!saving) onCancel();
+          }}
+          style={[styles.secondaryButton, { borderColor: colors.border }]}
+          accessibilityRole="button"
+          accessibilityLabel="Cancel service form"
+        >
+          <Text style={[styles.secondaryButtonText, { color: colors.subtext }]}>Cancel</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -171,6 +236,11 @@ function parsePrice(input: string): number {
   const value = Number.parseFloat(normalized);
   if (!Number.isFinite(value)) return NaN;
   return Math.round(value * 100);
+}
+
+function centsToInput(cents: number) {
+  if (!Number.isFinite(cents)) return "0.00";
+  return (Math.round(cents) / 100).toFixed(2);
 }
 
 const styles = StyleSheet.create({
@@ -203,4 +273,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   buttonText: { fontSize: 14, fontWeight: "800" },
+  secondaryButton: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  secondaryButtonText: { fontSize: 13, fontWeight: "800" },
 });
