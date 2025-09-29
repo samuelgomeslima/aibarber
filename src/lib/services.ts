@@ -132,3 +132,10 @@ export async function updateService(
     created_at: data.created_at ?? null,
   };
 }
+
+export async function deleteService(id: string): Promise<void> {
+  if (!id) throw new Error("Service ID is required");
+
+  const { error } = await supabase.from("services").delete().eq("id", id);
+  if (error) throw error;
+}

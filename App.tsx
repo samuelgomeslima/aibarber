@@ -40,7 +40,7 @@ import {
   type BookingWithCustomer,
   type Customer,
 } from "./src/lib/bookings";
-import { listServices } from "./src/lib/services";
+import { deleteService, listServices } from "./src/lib/services";
 
 /* Components (mantidos) */
 import DateSelector from "./src/components/DateSelector";
@@ -157,6 +157,35 @@ export default function App() {
       void loadServices();
     },
     [handleServiceFormClose, loadServices],
+  );
+
+  const handleDeleteService = useCallback(
+    (svc: Service) => {
+      if (!svc?.id) return;
+
+      const confirm = () => {
+        void (async () => {
+          try {
+            await deleteService(svc.id);
+            setSelectedServiceId((prev) => (prev === svc.id ? null : prev));
+            void loadServices();
+          } catch (e: any) {
+            console.error(e);
+            Alert.alert("Delete service", e?.message ?? String(e));
+          }
+        })();
+      };
+
+      Alert.alert(
+        "Delete service",
+        `Are you sure you want to remove "${svc.name}"?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Delete", style: "destructive", onPress: confirm },
+        ],
+      );
+    },
+    [loadServices],
   );
 
   const selectedService = useMemo(
@@ -1262,25 +1291,18 @@ export default function App() {
                     <Text style={{ color: COLORS.subtext, fontWeight: "800" }}>Edit</Text>
                   </Pressable>
                   <Pressable
-                    onPress={() => setSelectedServiceId(svc.id)}
+                    onPress={() => handleDeleteService(svc)}
                     style={[
                       styles.smallBtn,
                       {
-                        borderColor: COLORS.accent,
-                        backgroundColor: selectedServiceId === svc.id ? COLORS.accent : "transparent",
+                        borderColor: COLORS.danger,
+                        backgroundColor: "rgba(239,68,68,0.1)",
                       },
                     ]}
                     accessibilityRole="button"
-                    accessibilityLabel={`Select ${svc.name}`}
+                    accessibilityLabel={`Delete ${svc.name}`}
                   >
-                    <Text
-                      style={{
-                        color: selectedServiceId === svc.id ? COLORS.accentFgOn : COLORS.accent,
-                        fontWeight: "800",
-                      }}
-                    >
-                      {selectedServiceId === svc.id ? "Selected" : "Select"}
-                    </Text>
+                    <Text style={{ color: COLORS.danger, fontWeight: "800" }}>Delete</Text>
                   </Pressable>
                 </View>
               </View>
