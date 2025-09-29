@@ -24,7 +24,7 @@ describe("booking service functional flow", () => {
       date: "2024-05-01",
       start: "09:00",
       end: "09:30",
-      service: "cut",
+      service_id: "cut",
       barber: "Mina",
       customer_id: customerRecord.id,
     };
@@ -54,7 +54,7 @@ describe("booking service functional flow", () => {
         date: bookingRecord.date,
         start: bookingRecord.start,
         end: bookingRecord.end,
-        service: bookingRecord.service,
+        service_id: bookingRecord.service_id,
         barber: bookingRecord.barber,
         customer_id: bookingRecord.customer_id,
       });
@@ -84,7 +84,7 @@ describe("booking service functional flow", () => {
       date: bookingRecord.date,
       start: bookingRecord.start,
       end: bookingRecord.end,
-      service: bookingRecord.service,
+      service_id: bookingRecord.service_id,
       barber: bookingRecord.barber,
       customer_id: bookingRecord.customer_id,
     });

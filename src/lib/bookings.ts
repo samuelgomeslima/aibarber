@@ -5,7 +5,7 @@ export type DbBooking = {
   date: string;
   start: string;
   end: string;
-  service: string;
+  service_id: string;
   barber: string;
   customer_id?: string | null;
 };
@@ -40,7 +40,7 @@ async function attachCustomers(rows: DbBooking[]): Promise<BookingWithCustomer[]
 export async function getBookings(dateKey: string): Promise<BookingWithCustomer[]> {
   const { data, error, status } = await supabase
     .from("bookings")
-    .select('id,date,start,"end",service,barber,customer_id')
+    .select('id,date,start,"end",service_id,barber,customer_id')
     .eq("date", dateKey)
     .order("start");
 
@@ -59,7 +59,7 @@ export async function getBookingsForRange(
 
   const { data, error, status } = await supabase
     .from("bookings")
-    .select('id,date,start,"end",service,barber,customer_id')
+    .select('id,date,start,"end",service_id,barber,customer_id')
     .gte("date", startDate)
     .lte("date", endDate)
     .order("date")
@@ -75,7 +75,7 @@ export async function getBookingsForRange(
 export async function listRecentBookings(limit = 200): Promise<BookingWithCustomer[]> {
   const { data, error, status } = await supabase
     .from("bookings")
-    .select('id,date,start,"end",service,barber,customer_id')
+    .select('id,date,start,"end",service_id,barber,customer_id')
     .order("date", { ascending: true })
     .order("start", { ascending: true })
     .limit(limit);
@@ -91,7 +91,7 @@ export async function createBooking(payload: {
   date: string;
   start: string;
   end: string;
-  service: string;
+  service_id: string;
   barber: string;
   customer_id?: string | null;
 }) {
