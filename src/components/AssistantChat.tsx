@@ -51,7 +51,7 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
   const [voiceTranscribing, setVoiceTranscribing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [suggestionsVisible, setSuggestionsVisible] = useState(true);
+  const [suggestionsVisible, setSuggestionsVisible] = useState(false);
 
   const quickReplies = useMemo(() => {
     const replies = [
