@@ -61,7 +61,7 @@ export default function App() {
   const [activeScreen, setActiveScreen] = useState<
     "home" | "bookings" | "bookService" | "services" | "assistant"
   >("home");
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Cliente -> obrigatório antes do barbeiro
   const [clientModalOpen, setClientModalOpen] = useState(false);
@@ -568,41 +568,71 @@ export default function App() {
 
   const bookingsNavActive = activeScreen === "bookings" || activeScreen === "bookService";
 
+  const handleNavigate = useCallback(
+    (screen: "home" | "bookings" | "bookService" | "services" | "assistant") => {
+      setActiveScreen(screen);
+      setSidebarOpen(false);
+    },
+    [],
+  );
+
+  const menuButtonTop = Platform.select({ ios: 52, android: 40, default: 24 });
+
   return (
     <View style={[styles.appShell, { backgroundColor: COLORS.bg }]}>
+      {!sidebarOpen && (
+        <Pressable
+          onPress={() => setSidebarOpen(true)}
+          style={[
+            styles.menuFab,
+            {
+              top: menuButtonTop,
+              borderColor: COLORS.border,
+              backgroundColor: COLORS.surface,
+            },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Open navigation menu"
+        >
+          <MaterialCommunityIcons name="menu" size={20} color="#fff" />
+        </Pressable>
+      )}
+
+      {sidebarOpen && (
+        <Pressable
+          onPress={() => setSidebarOpen(false)}
+          style={styles.sidebarBackdrop}
+          accessibilityRole="button"
+          accessibilityLabel="Close navigation menu"
+        />
+      )}
+
       <View
         style={[
           styles.sidebar,
           { borderColor: COLORS.border, backgroundColor: COLORS.surface },
-          sidebarExpanded ? styles.sidebarExpanded : styles.sidebarCollapsed,
+          sidebarOpen ? styles.sidebarOpen : styles.sidebarClosed,
         ]}
+        pointerEvents={sidebarOpen ? "auto" : "none"}
       >
         <View style={styles.sidebarHeader}>
           <View style={styles.sidebarBrand}>
             <MaterialCommunityIcons name="content-cut" size={22} color="#fff" />
-            {sidebarExpanded && <Text style={styles.navBrand}>AIBarber</Text>}
+            <Text style={styles.navBrand}>AIBarber</Text>
           </View>
           <Pressable
-            onPress={() => setSidebarExpanded((prev) => !prev)}
-            style={[styles.sidebarToggle, { borderColor: COLORS.border }]}
+            onPress={() => setSidebarOpen(false)}
+            style={styles.sidebarClose}
             accessibilityRole="button"
-            accessibilityLabel={sidebarExpanded ? "Collapse navigation" : "Expand navigation"}
+            accessibilityLabel="Close navigation menu"
           >
-            <Ionicons
-              name={sidebarExpanded ? "chevron-back" : "chevron-forward"}
-              size={18}
-              color={COLORS.subtext}
-            />
+            <Ionicons name="close" size={18} color={COLORS.subtext} />
           </Pressable>
         </View>
         <View style={styles.sidebarItems}>
           <Pressable
-            onPress={() => setActiveScreen("home")}
-            style={[
-              styles.sidebarItem,
-              !sidebarExpanded && styles.sidebarItemCollapsed,
-              activeScreen === "home" && styles.sidebarItemActive,
-            ]}
+            onPress={() => handleNavigate("home")}
+            style={[styles.sidebarItem, activeScreen === "home" && styles.sidebarItemActive]}
             accessibilityRole="button"
             accessibilityLabel="Go to overview"
           >
@@ -611,17 +641,11 @@ export default function App() {
               size={20}
               color={activeScreen === "home" ? COLORS.accentFgOn : COLORS.subtext}
             />
-            {sidebarExpanded && (
-              <Text style={[styles.sidebarItemText, activeScreen === "home" && styles.sidebarItemTextActive]}>Overview</Text>
-            )}
+            <Text style={[styles.sidebarItemText, activeScreen === "home" && styles.sidebarItemTextActive]}>Overview</Text>
           </Pressable>
           <Pressable
-            onPress={() => setActiveScreen("bookings")}
-            style={[
-              styles.sidebarItem,
-              !sidebarExpanded && styles.sidebarItemCollapsed,
-              bookingsNavActive && styles.sidebarItemActive,
-            ]}
+            onPress={() => handleNavigate("bookings")}
+            style={[styles.sidebarItem, bookingsNavActive && styles.sidebarItemActive]}
             accessibilityRole="button"
             accessibilityLabel="Go to bookings"
           >
@@ -630,17 +654,11 @@ export default function App() {
               size={20}
               color={bookingsNavActive ? COLORS.accentFgOn : COLORS.subtext}
             />
-            {sidebarExpanded && (
-              <Text style={[styles.sidebarItemText, bookingsNavActive && styles.sidebarItemTextActive]}>Bookings</Text>
-            )}
+            <Text style={[styles.sidebarItemText, bookingsNavActive && styles.sidebarItemTextActive]}>Bookings</Text>
           </Pressable>
           <Pressable
-            onPress={() => setActiveScreen("services")}
-            style={[
-              styles.sidebarItem,
-              !sidebarExpanded && styles.sidebarItemCollapsed,
-              activeScreen === "services" && styles.sidebarItemActive,
-            ]}
+            onPress={() => handleNavigate("services")}
+            style={[styles.sidebarItem, activeScreen === "services" && styles.sidebarItemActive]}
             accessibilityRole="button"
             accessibilityLabel="Manage services"
           >
@@ -649,17 +667,11 @@ export default function App() {
               size={20}
               color={activeScreen === "services" ? COLORS.accentFgOn : COLORS.subtext}
             />
-            {sidebarExpanded && (
-              <Text style={[styles.sidebarItemText, activeScreen === "services" && styles.sidebarItemTextActive]}>Services</Text>
-            )}
+            <Text style={[styles.sidebarItemText, activeScreen === "services" && styles.sidebarItemTextActive]}>Services</Text>
           </Pressable>
           <Pressable
-            onPress={() => setActiveScreen("assistant")}
-            style={[
-              styles.sidebarItem,
-              !sidebarExpanded && styles.sidebarItemCollapsed,
-              activeScreen === "assistant" && styles.sidebarItemActive,
-            ]}
+            onPress={() => handleNavigate("assistant")}
+            style={[styles.sidebarItem, activeScreen === "assistant" && styles.sidebarItemActive]}
             accessibilityRole="button"
             accessibilityLabel="Open the AI assistant"
           >
@@ -668,9 +680,7 @@ export default function App() {
               size={20}
               color={activeScreen === "assistant" ? COLORS.accentFgOn : COLORS.subtext}
             />
-            {sidebarExpanded && (
-              <Text style={[styles.sidebarItemText, activeScreen === "assistant" && styles.sidebarItemTextActive]}>Assistant</Text>
-            )}
+            <Text style={[styles.sidebarItemText, activeScreen === "assistant" && styles.sidebarItemTextActive]}>Assistant</Text>
           </Pressable>
         </View>
       </View>
@@ -1432,17 +1442,45 @@ const SHADOW = Platform.select({
 });
 
 const styles = StyleSheet.create({
-  appShell: { flex: 1, flexDirection: "row" },
+  appShell: { flex: 1 },
+  menuFab: {
+    position: "absolute",
+    left: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 40,
+    ...(SHADOW as object),
+  },
+  sidebarBackdrop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    zIndex: 20,
+  },
   sidebar: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: 260,
     paddingTop: Platform.select({ ios: 52, android: 40, default: 24 }),
     paddingBottom: 24,
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     borderRightWidth: 1,
     alignItems: "stretch",
     gap: 16,
+    zIndex: 30,
+    ...(SHADOW as object),
   },
-  sidebarExpanded: { width: 240 },
-  sidebarCollapsed: { width: 84, alignItems: "center" },
+  sidebarOpen: { transform: [{ translateX: 0 }] },
+  sidebarClosed: { transform: [{ translateX: -320 }] },
   sidebarHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -1451,11 +1489,12 @@ const styles = StyleSheet.create({
   },
   sidebarBrand: { flexDirection: "row", alignItems: "center", gap: 10 },
   navBrand: { color: "#fff", fontSize: 18, fontWeight: "800", letterSpacing: 0.3 },
-  sidebarToggle: {
+  sidebarClose: {
     width: 34,
     height: 34,
     borderRadius: 17,
     borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.04)",
@@ -1475,10 +1514,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "transparent",
     backgroundColor: "transparent",
-  },
-  sidebarItemCollapsed: {
-    justifyContent: "center",
-    paddingHorizontal: 8,
   },
   sidebarItemActive: { backgroundColor: COLORS.accent, borderColor: COLORS.accent },
   sidebarItemText: { color: COLORS.subtext, fontWeight: "700" },
