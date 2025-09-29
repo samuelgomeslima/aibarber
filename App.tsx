@@ -58,6 +58,9 @@ export default function App() {
   const [services, setServices] = useState<Service[]>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+  const [serviceFormVisible, setServiceFormVisible] = useState(false);
+  const [serviceFormMode, setServiceFormMode] = useState<"create" | "edit">("create");
+  const [serviceBeingEdited, setServiceBeingEdited] = useState<Service | null>(null);
   const [activeScreen, setActiveScreen] = useState<
     "home" | "bookings" | "bookService" | "services" | "assistant"
   >("home");
@@ -119,6 +122,42 @@ export default function App() {
   }, []);
 
   useEffect(() => { loadServices(); }, [loadServices]);
+
+  const handleServiceFormClose = useCallback(() => {
+    setServiceFormVisible(false);
+    setServiceBeingEdited(null);
+    setServiceFormMode("create");
+  }, []);
+
+  const handleOpenCreateService = useCallback(() => {
+    setServiceFormMode("create");
+    setServiceBeingEdited(null);
+    setServiceFormVisible(true);
+  }, []);
+
+  const handleOpenEditService = useCallback((svc: Service) => {
+    setServiceFormMode("edit");
+    setServiceBeingEdited(svc);
+    setServiceFormVisible(true);
+  }, []);
+
+  const handleServiceCreated = useCallback(
+    (svc: Service) => {
+      setSelectedServiceId((prev) => prev ?? svc.id);
+      handleServiceFormClose();
+      void loadServices();
+    },
+    [handleServiceFormClose, loadServices],
+  );
+
+  const handleServiceUpdated = useCallback(
+    (svc: Service) => {
+      setSelectedServiceId((prev) => prev ?? svc.id);
+      handleServiceFormClose();
+      void loadServices();
+    },
+    [handleServiceFormClose, loadServices],
+  );
 
   const selectedService = useMemo(
     () => services.find((s) => s.id === selectedServiceId) ?? null,
@@ -1126,29 +1165,42 @@ export default function App() {
         refreshControl={<RefreshControl refreshing={servicesLoading} onRefresh={loadServices} />}
       >
         <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 12 }]}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <MaterialCommunityIcons name="briefcase-outline" size={22} color={COLORS.accent} />
-            <Text style={[styles.title, { color: COLORS.text }]}>Manage services</Text>
+          <View style={styles.listHeaderRow}>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={[styles.title, { color: COLORS.text }]}>Services</Text>
+              <Text style={{ color: COLORS.subtext, fontSize: 13, fontWeight: "600" }}>
+                Manage what clients can book and adjust existing options as needed.
+              </Text>
+            </View>
+            <Pressable
+              onPress={handleOpenCreateService}
+              style={[styles.defaultCta, { marginTop: 0 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Open create service form"
+            >
+              <Text style={styles.defaultCtaText}>Create service</Text>
+            </Pressable>
           </View>
-          <Text style={{ color: COLORS.subtext, fontSize: 13, fontWeight: "600" }}>
-            Create services to control booking durations and prices. These appear in the booking screen and AI assistant.
-          </Text>
         </View>
 
-        <ServiceForm
-          onCreated={() => {
-            void loadServices();
-          }}
-          colors={{
-            text: COLORS.text,
-            subtext: COLORS.subtext,
-            border: COLORS.border,
-            surface: COLORS.surface,
-            accent: COLORS.accent,
-            accentFgOn: COLORS.accentFgOn,
-            danger: COLORS.danger,
-          }}
-        />
+        {serviceFormVisible ? (
+          <ServiceForm
+            mode={serviceFormMode}
+            service={serviceFormMode === "edit" ? serviceBeingEdited : null}
+            onCreated={handleServiceCreated}
+            onUpdated={handleServiceUpdated}
+            onCancel={handleServiceFormClose}
+            colors={{
+              text: COLORS.text,
+              subtext: COLORS.subtext,
+              border: COLORS.border,
+              surface: COLORS.surface,
+              accent: COLORS.accent,
+              accentFgOn: COLORS.accentFgOn,
+              danger: COLORS.danger,
+            }}
+          />
+        ) : null}
 
         <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 12 }]}>
           <Text style={[styles.title, { color: COLORS.text }]}>Existing services</Text>
@@ -1157,7 +1209,7 @@ export default function App() {
           ) : (
             services.map((svc) => (
               <View key={svc.id} style={styles.serviceRow}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
                   <MaterialCommunityIcons name={svc.icon} size={22} color={COLORS.accent} />
                   <View>
                     <Text style={{ color: COLORS.text, fontWeight: "800" }}>{svc.name}</Text>
@@ -1166,25 +1218,37 @@ export default function App() {
                     </Text>
                   </View>
                 </View>
-                <Pressable
-                  onPress={() => setSelectedServiceId(svc.id)}
-                  style={[
-                    styles.smallBtn,
-                    {
-                      borderColor: COLORS.accent,
-                      backgroundColor: selectedServiceId === svc.id ? COLORS.accent : "transparent",
-                    },
-                  ]}
-                >
-                  <Text
-                    style={{
-                      color: selectedServiceId === svc.id ? COLORS.accentFgOn : COLORS.accent,
-                      fontWeight: "800",
-                    }}
+                <View style={styles.serviceActions}>
+                  <Pressable
+                    onPress={() => handleOpenEditService(svc)}
+                    style={[styles.smallBtn, { borderColor: COLORS.border }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Edit ${svc.name}`}
                   >
-                    {selectedServiceId === svc.id ? "Selected" : "Select"}
-                  </Text>
-                </Pressable>
+                    <Text style={{ color: COLORS.subtext, fontWeight: "800" }}>Edit</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setSelectedServiceId(svc.id)}
+                    style={[
+                      styles.smallBtn,
+                      {
+                        borderColor: COLORS.accent,
+                        backgroundColor: selectedServiceId === svc.id ? COLORS.accent : "transparent",
+                      },
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Select ${svc.name}`}
+                  >
+                    <Text
+                      style={{
+                        color: selectedServiceId === svc.id ? COLORS.accentFgOn : COLORS.accent,
+                        fontWeight: "800",
+                      }}
+                    >
+                      {selectedServiceId === svc.id ? "Selected" : "Select"}
+                    </Text>
+                  </Pressable>
+                </View>
               </View>
             ))
           )}
@@ -1637,6 +1701,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#ffffff12",
     backgroundColor: "rgba(255,255,255,0.035)",
+  },
+  serviceActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   statsGrid: {
     flexDirection: "row",
