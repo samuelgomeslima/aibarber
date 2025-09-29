@@ -617,6 +617,40 @@ export default function App() {
 
   const menuButtonTop = Platform.select({ ios: 52, android: 40, default: 24 });
 
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof document === "undefined") return;
+
+    const html = document.documentElement;
+    const body = document.body;
+
+    const previous = {
+      htmlBg: html.style.backgroundColor,
+      bodyBg: body.style.backgroundColor,
+      htmlOverflowX: html.style.overflowX,
+      bodyOverflowX: body.style.overflowX,
+      htmlOverscroll: html.style.getPropertyValue("overscroll-behavior"),
+      bodyOverscroll: body.style.getPropertyValue("overscroll-behavior"),
+    };
+
+    html.style.backgroundColor = COLORS.bg;
+    body.style.backgroundColor = COLORS.bg;
+    html.style.overflowX = "hidden";
+    body.style.overflowX = "hidden";
+    html.style.setProperty("overscroll-behavior", "contain");
+    body.style.setProperty("overscroll-behavior", "contain");
+
+    return () => {
+      html.style.backgroundColor = previous.htmlBg;
+      body.style.backgroundColor = previous.bodyBg;
+      html.style.overflowX = previous.htmlOverflowX;
+      body.style.overflowX = previous.bodyOverflowX;
+      if (previous.htmlOverscroll) html.style.setProperty("overscroll-behavior", previous.htmlOverscroll);
+      else html.style.removeProperty("overscroll-behavior");
+      if (previous.bodyOverscroll) body.style.setProperty("overscroll-behavior", previous.bodyOverscroll);
+      else body.style.removeProperty("overscroll-behavior");
+    };
+  }, []);
+
   return (
     <View style={[styles.appShell, { backgroundColor: COLORS.bg }]}>
       {!sidebarOpen && (
