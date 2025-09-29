@@ -40,7 +40,8 @@ type AssistantChatProps = {
 
 const INITIAL_ASSISTANT_MESSAGE =
   "Hi! I'm your AIBarber agent. I can check availability, book services, and cancel existing appointments for you.";
-const API_KEY_WARNING_MESSAGE = "Set EXPO_PUBLIC_OPENAI_API_KEY to enable the assistant.";
+const BACKEND_WARNING_MESSAGE =
+  "Set EXPO_PUBLIC_ASSISTANT_API_URL to enable the assistant.";
 
 export default function AssistantChat({ colors, systemPrompt, contextSummary, onBookingsMutated, services }: AssistantChatProps) {
   const [messages, setMessages] = useState<DisplayMessage[]>([
@@ -113,7 +114,7 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
     if (isOpenAiConfigured) {
       setMessages((prev) => {
         const index = prev.findIndex(
-          (msg) => msg.role === "assistant" && msg.content === API_KEY_WARNING_MESSAGE,
+          (msg) => msg.role === "assistant" && msg.content === BACKEND_WARNING_MESSAGE,
         );
         if (index === -1) return prev;
         const next = [...prev];
@@ -124,10 +125,10 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
     }
 
     setMessages((prev) => {
-      if (prev.some((msg) => msg.role === "assistant" && msg.content === API_KEY_WARNING_MESSAGE)) {
+      if (prev.some((msg) => msg.role === "assistant" && msg.content === BACKEND_WARNING_MESSAGE)) {
         return prev;
       }
-      return [...prev, { role: "assistant", content: API_KEY_WARNING_MESSAGE }];
+      return [...prev, { role: "assistant", content: BACKEND_WARNING_MESSAGE }];
     });
   }, [isOpenAiConfigured]);
   useEffect(() => {
@@ -154,7 +155,7 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
 
   const startVoiceRecording = useCallback(async () => {
     if (!isOpenAiConfigured) {
-      setError("Set EXPO_PUBLIC_OPENAI_API_KEY to enable voice input.");
+      setError("Set EXPO_PUBLIC_ASSISTANT_API_URL to enable voice input.");
       return;
     }
     const globalNavigator: any = Platform.OS === "web" ? (globalThis as any).navigator : null;

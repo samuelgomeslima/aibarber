@@ -8,7 +8,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "test": "vitest run"
+    "test": "vitest run",
+    "start:assistant-proxy": "npm --prefix server start"
   },
   "dependencies": {
     "@expo/metro-runtime": "~5.0.4",

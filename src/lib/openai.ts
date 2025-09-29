@@ -1,13 +1,30 @@
-const API_URL = "https://api.openai.com/v1/chat/completions";
-const AUDIO_TRANSCRIPTION_URL = "https://api.openai.com/v1/audio/transcriptions";
-const API_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+const RAW_ASSISTANT_API_URL = process.env.EXPO_PUBLIC_ASSISTANT_API_URL;
+
+const ASSISTANT_API_URL =
+  typeof RAW_ASSISTANT_API_URL === "string"
+    ? RAW_ASSISTANT_API_URL.replace(/\/+$/, "")
+    : "";
+
+const CHAT_COMPLETIONS_PATH = "/assistant/chat-completions";
+const AUDIO_TRANSCRIPTION_PATH = "/assistant/audio-transcriptions";
 
 export type ChatMessage = {
   role: "system" | "user" | "assistant";
   content: string;
 };
 
-export const isOpenAiConfigured = typeof API_KEY === "string" && API_KEY.length > 0;
+export const isOpenAiConfigured =
+  typeof ASSISTANT_API_URL === "string" && ASSISTANT_API_URL.length > 0;
+
+function getAssistantApiUrl(): string {
+  if (!isOpenAiConfigured) {
+    throw new Error(
+      "Assistant backend is not configured. Set EXPO_PUBLIC_ASSISTANT_API_URL in your environment.",
+    );
+  }
+
+  return ASSISTANT_API_URL;
+}
 
 function buildErrorMessage(status: number, body: any) {
   if (body && typeof body === "object" && "error" in body) {
@@ -17,14 +34,12 @@ function buildErrorMessage(status: number, body: any) {
     }
   }
   if (status >= 400 && status < 500) return `Request failed with status ${status}.`;
-  if (status >= 500) return "OpenAI service is currently unavailable.";
-  return "Unexpected error calling OpenAI.";
+  if (status >= 500) return "Assistant service is currently unavailable.";
+  return "Unexpected error calling the assistant service.";
 }
 
 export async function callOpenAIChatCompletion(payload: Record<string, any>) {
-  if (!isOpenAiConfigured) {
-    throw new Error("OpenAI API key is not configured. Set EXPO_PUBLIC_OPENAI_API_KEY in your environment.");
-  }
+  const baseUrl = getAssistantApiUrl();
 
   const bodyPayload = {
     model: "gpt-4o-mini",
@@ -32,11 +47,10 @@ export async function callOpenAIChatCompletion(payload: Record<string, any>) {
     ...payload,
   };
 
-  const response = await fetch(API_URL, {
+  const response = await fetch(`${baseUrl}${CHAT_COMPLETIONS_PATH}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${API_KEY}`,
     },
     body: JSON.stringify(bodyPayload),
   });
@@ -53,7 +67,7 @@ export async function fetchAssistantReply(messages: ChatMessage[]): Promise<stri
   const body = await callOpenAIChatCompletion({ messages });
   const content = body?.choices?.[0]?.message?.content;
   if (typeof content !== "string" || !content.trim()) {
-    throw new Error("OpenAI assistant did not return any content.");
+    throw new Error("Assistant did not return any content.");
   }
 
   return content.trim();
@@ -66,9 +80,7 @@ type TranscribeAudioInput =
   | { blob: BlobLike; fileName?: string; mimeType?: string };
 
 export async function transcribeAudio(input: TranscribeAudioInput) {
-  if (!isOpenAiConfigured) {
-    throw new Error("OpenAI API key is not configured. Set EXPO_PUBLIC_OPENAI_API_KEY in your environment.");
-  }
+  const baseUrl = getAssistantApiUrl();
 
   const formData = new FormData();
   formData.append("model", "gpt-4o-mini-transcribe");
@@ -92,11 +104,8 @@ export async function transcribeAudio(input: TranscribeAudioInput) {
     );
   }
 
-  const response = await fetch(AUDIO_TRANSCRIPTION_URL, {
+  const response = await fetch(`${baseUrl}${AUDIO_TRANSCRIPTION_PATH}`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${API_KEY}`,
-    },
     body: formData,
   });
 
