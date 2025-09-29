@@ -588,7 +588,7 @@ export default function App() {
             {
               top: menuButtonTop,
               borderColor: COLORS.border,
-              backgroundColor: COLORS.surface,
+              backgroundColor: COLORS.sidebarBg,
             },
           ]}
           accessibilityRole="button"
@@ -610,7 +610,7 @@ export default function App() {
       <View
         style={[
           styles.sidebar,
-          { borderColor: COLORS.border, backgroundColor: COLORS.surface },
+          { borderColor: COLORS.border, backgroundColor: COLORS.sidebarBg },
           sidebarOpen ? styles.sidebarOpen : styles.sidebarClosed,
         ]}
         pointerEvents={sidebarOpen ? "auto" : "none"}
@@ -1427,6 +1427,7 @@ function ClientModal({
 const COLORS = {
   bg: "#0b0d13",
   surface: "rgba(255,255,255,0.045)",
+  sidebarBg: "#111827",
   border: "rgba(255,255,255,0.07)",
   text: "#e5e7eb",
   subtext: "#cbd5e1",
@@ -1445,7 +1446,7 @@ const styles = StyleSheet.create({
   appShell: { flex: 1 },
   menuFab: {
     position: "absolute",
-    left: 16,
+    right: 16,
     width: 44,
     height: 44,
     borderRadius: 22,
@@ -1468,19 +1469,19 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 0,
     bottom: 0,
-    left: 0,
+    right: 0,
     width: 260,
     paddingTop: Platform.select({ ios: 52, android: 40, default: 24 }),
     paddingBottom: 24,
     paddingHorizontal: 16,
-    borderRightWidth: 1,
+    borderLeftWidth: 1,
     alignItems: "stretch",
     gap: 16,
     zIndex: 30,
     ...(SHADOW as object),
   },
   sidebarOpen: { transform: [{ translateX: 0 }] },
-  sidebarClosed: { transform: [{ translateX: -320 }] },
+  sidebarClosed: { transform: [{ translateX: 320 }] },
   sidebarHeader: {
     flexDirection: "row",
     alignItems: "center",
