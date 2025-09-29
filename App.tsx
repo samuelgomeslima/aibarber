@@ -294,7 +294,7 @@ export default function App() {
         date: dateKey,
         start,
         end,
-        service: selectedService.id,
+        service_id: selectedService.id,
         barber: selectedBarber.id,
         customer_id: selectedCustomer.id, // salva o cliente
       });
@@ -362,7 +362,7 @@ export default function App() {
       const dates = Array.from(new Set(raw.map((r) => r.date)));
       const { data: existingAll, error } = await supabase
         .from("bookings")
-        .select('id,date,start,"end",service,barber')
+        .select('id,date,start,"end",service_id,barber')
         .in("date", dates);
       if (error) throw error;
 
@@ -409,7 +409,7 @@ export default function App() {
         date: i.date,
         start: i.start,
         end: i.end,
-        service: selectedService.id,
+        service_id: selectedService.id,
         barber: selectedBarber.id,
         customer_id: selectedCustomer.id,
       }));
@@ -469,7 +469,7 @@ export default function App() {
     const barberLines = BARBERS.map((b) => `• ${b.name}`).join("\n");
     const bookingLines = bookings
       .map((b) => {
-        const serviceName = serviceMap.get(b.service)?.name ?? b.service;
+        const serviceName = serviceMap.get(b.service_id)?.name ?? b.service_id;
         const barberName = BARBER_MAP[b.barber]?.name ?? b.barber;
         const customerName = b._customer
           ? ` for ${b._customer.first_name}${b._customer.last_name ? ` ${b._customer.last_name}` : ""}`
@@ -510,7 +510,7 @@ export default function App() {
     return [...allBookings]
       .filter((booking) => {
         if (barber && booking.barber !== barber) return false;
-        if (service && booking.service !== service) return false;
+        if (service && booking.service_id !== service) return false;
         if (date && booking.date !== date) return false;
         if (time) {
           const start = (booking.start ?? "").toLowerCase();
@@ -559,7 +559,7 @@ export default function App() {
 
     weekBookings.forEach((booking) => {
       barberCounts.set(booking.barber, (barberCounts.get(booking.barber) ?? 0) + 1);
-      const service = serviceMap.get(booking.service);
+      const service = serviceMap.get(booking.service_id);
       const duration = service?.estimated_minutes ?? Math.max(timeToMinutes(booking.end) - timeToMinutes(booking.start), 0);
       totalMinutes += duration;
       if (service?.price_cents) {
@@ -855,7 +855,7 @@ export default function App() {
                         b.barber === selectedBarber.id &&
                         overlap(t, addMinutes(t, selectedService.estimated_minutes), b.start, b.end),
                     );
-                    const conflictService = conflict ? serviceMap.get(conflict.service) : null;
+                    const conflictService = conflict ? serviceMap.get(conflict.service_id) : null;
                     return (
                       <Pressable
                         key={t}
@@ -863,7 +863,7 @@ export default function App() {
                           Alert.alert(
                             "Já ocupado",
                             conflict
-                              ? `${conflictService?.name ?? conflict.service} com ${
+                              ? `${conflictService?.name ?? conflict.service_id} com ${
                                   BARBER_MAP[conflict.barber]?.name ?? conflict.barber
                                 } • ${conflict.start}–${conflict.end}`
                               : "Este horário não está disponível.",
@@ -953,8 +953,8 @@ export default function App() {
               <View style={styles.card}><Text style={styles.empty}>— none yet —</Text></View>
             ) : (
               bookings.map((b) => {
-                const service = serviceMap.get(b.service);
-                const svc = service?.name ?? b.service;
+                const service = serviceMap.get(b.service_id);
+                const svc = service?.name ?? b.service_id;
                 const barber = BARBER_MAP[b.barber] ?? { name: b.barber, icon: "account" as const };
                 const serviceIcon = (service?.icon ?? "content-cut") as keyof typeof MaterialCommunityIcons.glyphMap;
                 return (
@@ -1167,7 +1167,7 @@ export default function App() {
             <Text style={styles.empty}>No bookings match your filters.</Text>
           ) : (
             filteredBookingsList.map((booking) => {
-              const service = serviceMap.get(booking.service);
+              const service = serviceMap.get(booking.service_id);
               const barber = BARBER_MAP[booking.barber];
               const customerName = booking._customer
                 ? `${booking._customer.first_name}${booking._customer.last_name ? ` ${booking._customer.last_name}` : ""}`
@@ -1181,7 +1181,7 @@ export default function App() {
                     </Text>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.bookingListTitle}>{service?.name ?? booking.service}</Text>
+                    <Text style={styles.bookingListTitle}>{service?.name ?? booking.service_id}</Text>
                     <Text style={styles.bookingListMeta}>
                       {(barber?.name ?? booking.barber) + (customerName ? ` • ${customerName}` : "")}
                     </Text>
@@ -1366,7 +1366,7 @@ export default function App() {
                 <Text style={[styles.empty, { marginLeft: 2 }]}>No bookings</Text>
               ) : (
                 bookings.map((b) => {
-                  const svc = serviceMap.get(b.service);
+                  const svc = serviceMap.get(b.service_id);
                   const barberName = BARBER_MAP[b.barber]?.name ?? b.barber;
                   const customerName = b._customer
                     ? `${b._customer.first_name}${b._customer.last_name ? ` ${b._customer.last_name}` : ""}`
@@ -1376,7 +1376,7 @@ export default function App() {
                       <MaterialCommunityIcons name={svc?.icon ?? "calendar"} size={18} color={COLORS.accent} />
                       <View style={{ flex: 1 }}>
                         <Text style={[styles.dayBookingText, { color: COLORS.text }]}>
-                          {b.start} – {b.end} • {svc?.name ?? b.service}
+                          {b.start} – {b.end} • {svc?.name ?? b.service_id}
                         </Text>
                         <Text style={[styles.dayBookingMeta, { color: COLORS.subtext }]}>
                           {barberName}

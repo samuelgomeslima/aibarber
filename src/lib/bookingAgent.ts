@@ -200,10 +200,10 @@ function serializeBooking(b: BookingWithCustomer, serviceMap: Map<string, Servic
     date: b.date,
     start: b.start,
     end: b.end,
-    service_id: b.service,
+    service_id: b.service_id,
     barber_id: b.barber,
     customer_id: b.customer_id ?? null,
-    service_name: serviceMap.get(b.service)?.name ?? b.service,
+    service_name: serviceMap.get(b.service_id)?.name ?? b.service_id,
     barber_name: BARBER_MAP[b.barber as keyof typeof BARBER_MAP]?.name ?? b.barber,
     customer_name: b._customer
       ? `${b._customer.first_name}${b._customer.last_name ? ` ${b._customer.last_name}` : ""}`
@@ -288,7 +288,7 @@ async function bookService(
     date,
     start,
     end,
-    service: service.id,
+    service_id: service.id,
     barber: barber_id,
     customer_id,
   });
