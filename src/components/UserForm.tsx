@@ -1,319 +1,223 @@
-import React, { useMemo, useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  StyleSheet,
-  Platform,
-  KeyboardAvoidingView,
-  ActivityIndicator,
-  Alert,
-} from "react-native";
-import { supabase } from "../lib/supabase";
+import { useEffect, useState } from "react";
+import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
-/* ========= Types ========= */
-export type NewUser = {
-  firstName: string;
-  lastName: string;
-  phone: string;        // digits
-  email: string;
-  date_of_birth: Date;  // <-- renamed
+import type { Tables } from "../types/database";
+import { getSupabaseClient } from "../lib/supabase";
+
+type Props = {
+  visible: boolean;
+  onClose: () => void;
+  onSave: () => void;
+  userId?: number;
 };
 
-/* ========= Component ========= */
-export default function UserForm({
-  initial,
-  onSaved,        // optional callback after successful save
-  onCancel,
-  colors = DEFAULT_COLORS,
-  table = "customers",
-}: {
-  initial?: Partial<NewUser>;
-  onSaved?: (row: { id: string } & Record<string, any>) => void;
-  onCancel?: () => void;
-  colors?: typeof DEFAULT_COLORS;
-  table?: string;
-}) {
-  const [firstName, setFirstName]     = useState(initial?.firstName ?? "");
-  const [lastName, setLastName]       = useState(initial?.lastName ?? "");
-  const [phoneRaw, setPhoneRaw]       = useState(initial?.phone ?? "");
-  const [email, setEmail]             = useState(initial?.email ?? "");
-  const [dateOfBirth, setDateOfBirth] = useState<Date>(initial?.date_of_birth ?? todayMinusYears(18));
-  const [saving, setSaving]           = useState(false);
+type Customer = Tables<"customers">;
 
-  // phone mask (store digits)
-  const phoneDigits = phoneRaw.replace(/\D/g, "");
-  const phoneMasked = useMemo(() => formatPhone(phoneDigits), [phoneDigits]);
+type CustomerForm = Pick<
+  Customer,
+  "first_name" | "last_name" | "email" | "phone" | "notes"
+>;
 
-  // validation
-  const errs = useMemo(() => {
-    const e: Record<string, string> = {};
-    if (!firstName.trim()) e.firstName = "Required";
-    if (!lastName.trim())  e.lastName = "Required";
-    if (phoneDigits.length < 10 || phoneDigits.length > 15) e.phone = "Enter a valid phone";
-    if (!EMAIL_RE.test(email.toLowerCase())) e.email = "Enter a valid email";
-    if (!dateOfBirth || isNaN(dateOfBirth.getTime())) e.date_of_birth = "Select a valid date";
-    const now = new Date();
-    if (dateOfBirth > now) e.date_of_birth = "Date of birth cannot be in the future";
-    if (yearsBetween(dateOfBirth, now) < 13) e.date_of_birth = "Minimum age is 13";
-    return e;
-  }, [firstName, lastName, phoneDigits, email, dateOfBirth]);
+const emptyForm: CustomerForm = {
+  first_name: "",
+  last_name: "",
+  email: "",
+  phone: "",
+  notes: "",
+};
 
-  const valid = Object.keys(errs).length === 0;
+export function UserForm({ visible, onClose, onSave, userId }: Props) {
+  const [form, setForm] = useState<CustomerForm>(emptyForm);
+  const [loading, setLoading] = useState(false);
 
-  const submit = async () => {
-    if (!valid || saving) return;
-    setSaving(true);
+  useEffect(() => {
+    if (!visible) {
+      setForm(emptyForm);
+      return;
+    }
+
+    if (!userId) {
+      setForm(emptyForm);
+      return;
+    }
+
+    let isMounted = true;
+
+    (async () => {
+      try {
+        setLoading(true);
+        const supabase = await getSupabaseClient();
+        const { data, error } = await supabase
+          .from("customers")
+          .select("id, first_name, last_name, email, phone, notes")
+          .eq("id", userId)
+          .single();
+
+        if (error) {
+          throw error;
+        }
+
+        if (data && isMounted) {
+          setForm({
+            first_name: data.first_name ?? "",
+            last_name: data.last_name ?? "",
+            email: data.email ?? "",
+            phone: data.phone ?? "",
+            notes: data.notes ?? "",
+          });
+        }
+      } catch (error) {
+        console.error("Failed to load customer", error);
+        Alert.alert("Error", "Failed to load the customer. Please try again.");
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [visible, userId]);
+
+  const handleSave = async () => {
     try {
-      const payload = {
-        first_name:    firstName.trim(),
-        last_name:     lastName.trim(),
-        phone:         phoneDigits,
-        email:         email.trim(),
-        date_of_birth: dateOfBirth.toISOString().slice(0, 10), // YYYY-MM-DD
-      };
+      setLoading(true);
+      const supabase = await getSupabaseClient();
 
-      const { data, error, status } = await supabase
-        .from(table)
-        .insert(payload)
-        .select("id, first_name, last_name, phone, email, date_of_birth")
-        .single();
+      if (userId) {
+        const { error } = await supabase
+          .from("customers")
+          .update(form)
+          .eq("id", userId);
 
-      if (error) throw new Error(error.message || `Insert failed (${status})`);
+        if (error) {
+          throw error;
+        }
+      } else {
+        const { error } = await supabase.from("customers").insert(form);
 
-      Alert.alert("User saved", `${payload.first_name} ${payload.last_name}`);
-      onSaved?.(data as any);
+        if (error) {
+          throw error;
+        }
+      }
 
-      // reset
-      setFirstName("");
-      setLastName("");
-      setPhoneRaw("");
-      setEmail("");
-      setDateOfBirth(todayMinusYears(18));
-    } catch (e: any) {
-      Alert.alert("Save failed", e?.message ?? String(e));
+      Alert.alert("Success", `Customer ${userId ? "updated" : "created"} successfully.`);
+      onSave();
+      onClose();
+    } catch (error) {
+      console.error("Failed to save customer", error);
+      Alert.alert("Error", "Failed to save the customer. Please try again.");
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-        <Text style={[styles.title, { color: colors.text }]}>Create user</Text>
+    <Modal animationType="slide" transparent={false} visible={visible} onRequestClose={onClose}>
+      <View style={styles.container}>
+        <Text style={styles.heading}>{userId ? "Edit Customer" : "New Customer"}</Text>
 
-        {/* First / Last */}
-        <View style={styles.rowGap}>
-          <FormField
-            label="First name"
-            value={firstName}
-            onChangeText={setFirstName}
-            placeholder="e.g., Ana"
-            error={errs.firstName}
-            colors={colors}
-          />
-          <FormField
-            label="Surname"
-            value={lastName}
-            onChangeText={setLastName}
-            placeholder="e.g., Silva"
-            error={errs.lastName}
-            colors={colors}
-          />
-        </View>
-
-        {/* Phone */}
-        <FormField
-          label="Cell phone"
-          value={phoneMasked}
-          onChangeText={setPhoneRaw}
-          keyboardType="phone-pad"
-          placeholder="(11) 99999-9999"
-          error={errs.phone}
-          colors={colors}
+        <TextInput
+          style={styles.input}
+          value={form.first_name}
+          onChangeText={(text) => setForm((prev) => ({ ...prev, first_name: text }))}
+          placeholder="First Name"
+          editable={!loading}
         />
 
-        {/* Email */}
-        <FormField
-          label="Email"
-          value={email}
-          onChangeText={setEmail}
+        <TextInput
+          style={styles.input}
+          value={form.last_name}
+          onChangeText={(text) => setForm((prev) => ({ ...prev, last_name: text }))}
+          placeholder="Last Name"
+          editable={!loading}
+        />
+
+        <TextInput
+          style={styles.input}
+          value={form.email}
+          onChangeText={(text) => setForm((prev) => ({ ...prev, email: text }))}
+          placeholder="Email"
           keyboardType="email-address"
           autoCapitalize="none"
-          placeholder="ana@email.com"
-          error={errs.email}
-          colors={colors}
+          editable={!loading}
         />
 
-        {/* Date of birth */}
-        <Text style={[styles.label, { color: colors.subtext }]}>Date of birth</Text>
-        <InlineDatePicker value={dateOfBirth} onChange={setDateOfBirth} colors={colors} />
-        {errs.date_of_birth ? <Text style={[styles.error, { color: colors.danger }]}>{errs.date_of_birth}</Text> : null}
+        <TextInput
+          style={styles.input}
+          value={form.phone}
+          onChangeText={(text) => setForm((prev) => ({ ...prev, phone: text }))}
+          placeholder="Phone"
+          keyboardType="phone-pad"
+          editable={!loading}
+        />
 
-        {/* Actions */}
-        <View style={styles.actions}>
-          {onCancel && (
-            <Pressable onPress={onCancel} style={[styles.btnGhost, { borderColor: colors.border }]}>
-              <Text style={[styles.btnGhostText, { color: colors.subtext }]}>Cancel</Text>
-            </Pressable>
-          )}
-          <Pressable
-            disabled={!valid || saving}
-            onPress={submit}
-            style={[
-              styles.btnPrimary,
-              { backgroundColor: valid && !saving ? colors.accent : "#334155", borderColor: valid && !saving ? colors.accent : "#334155" },
-            ]}
-            accessibilityLabel="Save user"
-          >
-            {saving ? (
-              <ActivityIndicator color={colors.accentFgOn} />
-            ) : (
-              <Text style={[styles.btnPrimaryText, { color: colors.accentFgOn }]}>Save user</Text>
-            )}
+        <TextInput
+          style={[styles.input, styles.notes]}
+          value={form.notes}
+          onChangeText={(text) => setForm((prev) => ({ ...prev, notes: text }))}
+          placeholder="Notes"
+          multiline
+          numberOfLines={3}
+          editable={!loading}
+        />
+
+        <View style={styles.buttonRow}>
+          <Pressable style={[styles.button, styles.cancelButton]} onPress={onClose} disabled={loading}>
+            <Text style={styles.buttonText}>Cancel</Text>
+          </Pressable>
+          <Pressable style={[styles.button, styles.saveButton]} onPress={handleSave} disabled={loading}>
+            <Text style={styles.buttonText}>{loading ? "Saving..." : "Save"}</Text>
           </Pressable>
         </View>
       </View>
-    </KeyboardAvoidingView>
+    </Modal>
   );
 }
-
-/* ========= Building blocks ========= */
-
-function FormField({
-  label,
-  error,
-  colors,
-  ...rest
-}: {
-  label: string;
-  error?: string;
-  colors: typeof DEFAULT_COLORS;
-} & React.ComponentProps<typeof TextInput>) {
-  return (
-    <View style={{ marginBottom: 10 }}>
-      <Text style={[styles.label, { color: colors.subtext }]}>{label}</Text>
-      <TextInput
-        {...rest}
-        placeholderTextColor="#94a3b8"
-        style={[
-          styles.input,
-          { borderColor: colors.border, backgroundColor: "rgba(255,255,255,0.06)", color: colors.text },
-          error && { borderColor: colors.danger },
-        ]}
-      />
-      {error ? <Text style={[styles.error, { color: colors.danger }]}>{error}</Text> : null}
-    </View>
-  );
-}
-
-function InlineDatePicker({
-  value,
-  onChange,
-  colors,
-}: {
-  value: Date;
-  onChange: (d: Date) => void;
-  colors: typeof DEFAULT_COLORS;
-}) {
-  if (Platform.OS === "web") {
-    const pad = (n: number) => n.toString().padStart(2, "0");
-    const toInput = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-    return (
-      <input
-        type="date"
-        value={toInput(value)}
-        onChange={(e: any) => {
-          const [y, m, day] = String(e.target.value).split("-").map(Number);
-          const d = new Date();
-          d.setFullYear(y, m - 1, day);
-          d.setHours(0, 0, 0, 0);
-          onChange(d);
-        }}
-        style={{
-          padding: 10,
-          borderRadius: 10,
-          border: `1px solid ${colors.border}`,
-          background: "rgba(255,255,255,0.06)",
-          color: colors.text,
-          outline: "none",
-          fontWeight: 700,
-          width: "100%",
-        }}
-      />
-    );
-  }
-
-  const RNDateTimePicker = require("@react-native-community/datetimepicker").default;
-  return (
-    <View style={{ marginBottom: 8 }}>
-      <RNDateTimePicker
-        mode="date"
-        value={value}
-        display={Platform.OS === "ios" ? "inline" : "calendar"}
-        onChange={(_evt: unknown, d?: Date) => d && onChange(d)}
-        themeVariant="dark"
-        // @ts-ignore iOS
-        textColor={colors.text}
-      />
-    </View>
-  );
-}
-
-/* ========= Utils & styles ========= */
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
-
-function todayMinusYears(n: number) {
-  const d = new Date();
-  d.setFullYear(d.getFullYear() - n, d.getMonth(), d.getDate());
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-function yearsBetween(a: Date, b: Date) {
-  let years = b.getFullYear() - a.getFullYear();
-  const m = b.getMonth() - a.getMonth();
-  if (m < 0 || (m === 0 && b.getDate() < a.getDate())) years--;
-  return years;
-}
-function formatPhone(value: string) {
-    // Remove tudo que não é número
-    const digits = value.replace(/\D/g, "");
-  
-    // (XX) XXXXX-XXXX
-    if (digits.length <= 2) {
-      return `(${digits}`;
-    }
-    if (digits.length <= 6) {
-      return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-    }
-    if (digits.length <= 10) {
-      return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
-    }
-    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
-  }
-
-const DEFAULT_COLORS = {
-  surface: "rgba(255,255,255,0.045)",
-  border: "rgba(255,255,255,0.07)",
-  text: "#e5e7eb",
-  subtext: "#cbd5e1",
-  accent: "#60a5fa",
-  accentFgOn: "#091016",
-  danger: "#ef4444",
-};
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 16, borderWidth: 1, padding: 14, gap: 10 },
-  title: { fontWeight: "800", fontSize: 16, marginBottom: 6 },
-  rowGap: { gap: 10 },
-  label: { fontSize: 12, fontWeight: "800", marginBottom: 6, letterSpacing: 0.3 },
-  input: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontWeight: "700" },
-  error: { marginTop: 4, fontSize: 12, fontWeight: "700" },
-  actions: { flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 6 },
-  btnGhost: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1 },
-  btnGhostText: { fontWeight: "800" },
-  btnPrimary: { paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1 },
-  btnPrimaryText: { fontWeight: "900", letterSpacing: 0.3 },
+  container: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: "#fff",
+  },
+  heading: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 20,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 5,
+    padding: 10,
+    marginBottom: 15,
+  },
+  notes: {
+    height: 100,
+    textAlignVertical: "top",
+  },
+  buttonRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  button: {
+    flex: 1,
+    padding: 15,
+    borderRadius: 5,
+    alignItems: "center",
+    marginHorizontal: 5,
+  },
+  cancelButton: {
+    backgroundColor: "#ccc",
+  },
+  saveButton: {
+    backgroundColor: "#4CAF50",
+  },
+  buttonText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
 });
