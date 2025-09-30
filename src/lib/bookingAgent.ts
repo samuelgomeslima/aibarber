@@ -385,7 +385,9 @@ async function cancelService(
 
 export async function runBookingAgent(options: AgentRunOptions): Promise<string> {
   if (!isOpenAiConfigured) {
-    throw new Error("OpenAI API key is not configured. Set EXPO_PUBLIC_OPENAI_API_KEY in your environment.");
+    throw new Error(
+      "The OpenAI assistant backend is disabled. Deploy the Azure Functions API and make sure EXPO_PUBLIC_DISABLE_OPENAI is not set to 'true'.",
+    );
   }
 
   const { systemPrompt, contextSummary, conversation, onBookingsMutated, services } = options;
