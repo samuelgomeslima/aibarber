@@ -1,0 +1,10 @@
+node_modules
+local.settings.json
+
+# Azure Functions artifacts
+bin
+obj
+
+# Logs
+log.txt
+
