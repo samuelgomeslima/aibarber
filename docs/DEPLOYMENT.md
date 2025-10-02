@@ -7,6 +7,7 @@ This guide walks through configuring the new Azure Functions backend under the `
 ```
 /
 ├─ api/                # Azure Functions app (Node.js)
+│  ├─ Assistant/       # HTTP trigger that proxies chat + transcription requests to OpenAI
 │  ├─ GenerateImage/   # HTTP trigger for OpenAI image generation
 │  ├─ host.json
 │  ├─ package.json
@@ -67,13 +68,14 @@ output_location: "dist"      # Vite build output
 
 ### Required Secrets in GitHub
 
-| Secret Name                   | Where to define                          | Purpose                                     |
-| ----------------------------- | ---------------------------------------- | ------------------------------------------- |
-| `AZURE_STATIC_WEB_APPS_API_TOKEN` | GitHub repository → Settings → Secrets    | Authentication for the SWA deployment task. |
-| `OPENAI_API_KEY`              | Azure Portal → Static Web App → Configuration | Used by the Azure Function at runtime.      |
-| `IMAGE_API_TOKEN`             | Azure Portal → Static Web App → Configuration | Shared secret between the client and API.   |
+| Secret Name                        | Where to define                                   | Purpose                                               |
+| ---------------------------------- | ------------------------------------------------- | ----------------------------------------------------- |
+| `AZURE_STATIC_WEB_APPS_API_TOKEN`  | GitHub repository → Settings → Secrets            | Authentication for the SWA deployment task.           |
+| `OPENAI_API_KEY`                   | Azure Portal → Static Web App → Configuration     | Used by the Azure Function at runtime.                |
+| `IMAGE_API_TOKEN`                  | Azure Portal → Static Web App → Configuration     | Shared secret between the client and API.             |
+| `EXPO_PUBLIC_ASSISTANT_API_TOKEN`  | GitHub repository → Settings → Secrets (optional) | Passed to the front-end build to call the Functions.  |
 
-> Do **not** store `OPENAI_API_KEY` or `IMAGE_API_TOKEN` as GitHub secrets unless you specifically need them for unit tests. They should stay in the Azure environment.
+> Do **not** store `OPENAI_API_KEY` or `IMAGE_API_TOKEN` as GitHub secrets unless you specifically need them for unit tests. They should stay in the Azure environment. The optional `EXPO_PUBLIC_ASSISTANT_API_TOKEN` can live in GitHub secrets because it is only used as a lightweight shared key between the static front-end and the Azure Function.
 
 ## 6. Configure Azure Static Web App
 
@@ -85,36 +87,37 @@ output_location: "dist"      # Vite build output
 
 ## 7. Consuming the API from the Assistant
 
-Example `fetch` call from the SWA front-end:
+Example `fetch` call from the SWA front-end (web build). When running the Expo native clients set `EXPO_PUBLIC_ASSISTANT_API_BASE_URL` to the full domain of your Static Web App so that `fetch` uses an absolute URL.
 
 ```ts
-const response = await fetch('/api/images/generate', {
+const response = await fetch('/api/assistant/chat', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
-    'x-api-key': import.meta.env.VITE_IMAGE_API_TOKEN,
+    'x-api-key': process.env.EXPO_PUBLIC_ASSISTANT_API_TOKEN!,
   },
   body: JSON.stringify({
-    prompt: 'High-resolution haircut design for a modern barber shop',
-    size: '1024x1024',
-    quality: 'high',
-    response_format: 'b64_json',
+    messages: [
+      { role: 'system', content: 'You are the AiBarber assistant.' },
+      { role: 'user', content: 'List my upcoming bookings.' },
+    ],
   }),
 });
 
 if (!response.ok) {
-  throw new Error('Failed to generate image');
+  throw new Error('Failed to reach the assistant function');
 }
 
 const data = await response.json();
 ```
 
-Define `VITE_IMAGE_API_TOKEN` as a build-time environment variable for the front-end using the SWA configuration or GitHub Actions if necessary.
+Define `EXPO_PUBLIC_ASSISTANT_API_TOKEN` as a build-time environment variable for the front-end using GitHub secrets (surfaced to the workflow) or via SWA configuration if you later switch to server-side rendering.
 
 ## 8. Verification Checklist
 
 - [ ] GitHub Actions workflow references `api_location: "api"`.
 - [ ] Azure Static Web App configuration includes `OPENAI_API_KEY` and `IMAGE_API_TOKEN`.
+- [ ] GitHub secret `EXPO_PUBLIC_ASSISTANT_API_TOKEN` is defined (or set locally for development).
 - [ ] Front-end requests include the `x-api-key` header.
 - [ ] Secrets are never committed to the repository.
 - [ ] `api/` folder is checked in so that SWA deploys the Functions app.
