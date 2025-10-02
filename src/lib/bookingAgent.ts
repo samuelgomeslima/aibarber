@@ -385,7 +385,7 @@ async function cancelService(
 
 export async function runBookingAgent(options: AgentRunOptions): Promise<string> {
   if (!isOpenAiConfigured) {
-    throw new Error("OpenAI API key is not configured. Set EXPO_PUBLIC_OPENAI_API_KEY in your environment.");
+    throw new Error("Assistant service is not configured. Set EXPO_PUBLIC_API_TOKEN in your environment.");
   }
 
   const { systemPrompt, contextSummary, conversation, onBookingsMutated, services } = options;

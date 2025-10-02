@@ -1,0 +1,13 @@
+{
+  "configurations": {
+    "dev": {
+      "appLocation": ".",
+      "apiLocation": "api",
+      "run": "npm run web",
+      "runApi": "npm run start --prefix api",
+      "devServerUrl": "http://localhost:19006",
+      "apiPort": 7071,
+      "port": 4280
+    }
+  }
+}

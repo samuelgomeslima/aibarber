@@ -40,7 +40,7 @@ type AssistantChatProps = {
 
 const INITIAL_ASSISTANT_MESSAGE =
   "Hi! I'm your AIBarber agent. I can check availability, book services, and cancel existing appointments for you.";
-const API_KEY_WARNING_MESSAGE = "Set EXPO_PUBLIC_OPENAI_API_KEY to enable the assistant.";
+const API_KEY_WARNING_MESSAGE = "Set EXPO_PUBLIC_API_TOKEN to enable the assistant.";
 
 export default function AssistantChat({ colors, systemPrompt, contextSummary, onBookingsMutated, services }: AssistantChatProps) {
   const [messages, setMessages] = useState<DisplayMessage[]>([
@@ -154,7 +154,7 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
 
   const startVoiceRecording = useCallback(async () => {
     if (!isOpenAiConfigured) {
-      setError("Set EXPO_PUBLIC_OPENAI_API_KEY to enable voice input.");
+      setError("Set EXPO_PUBLIC_API_TOKEN to enable voice input.");
       return;
     }
     const globalNavigator: any = Platform.OS === "web" ? (globalThis as any).navigator : null;

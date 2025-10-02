@@ -1,33 +1,12 @@
-const OpenAI = require('openai');
-
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const { ensureConfigured, ensureAuthorized, createOpenAIClient } = require('../_shared/openaiClient');
 
 module.exports = async function (context, req) {
   context.log('GenerateImage function processed a request.');
 
-  if (!process.env.OPENAI_API_KEY) {
-    context.log.error('Missing OPENAI_API_KEY configuration.');
-    context.res = {
-      status: 500,
-      body: {
-        error: 'Server misconfiguration: missing OpenAI credentials.',
-      },
-    };
+  if (ensureConfigured(context)) {
     return;
   }
-
-  const configuredToken = process.env.IMAGE_API_TOKEN;
-  const providedToken = req.headers['x-api-key'] || req.headers['x-functions-key'];
-
-  if (configuredToken && configuredToken !== providedToken) {
-    context.res = {
-      status: 401,
-      body: {
-        error: 'Unauthorized request.',
-      },
-    };
+  if (ensureAuthorized(context, req)) {
     return;
   }
 
@@ -42,6 +21,8 @@ module.exports = async function (context, req) {
     };
     return;
   }
+
+  const client = createOpenAIClient();
 
   try {
     const response = await client.images.generate({
