@@ -109,7 +109,7 @@ if (!response.ok) {
 const data = await response.json();
 ```
 
-Define `VITE_IMAGE_API_TOKEN` as a build-time environment variable for the front-end using the SWA configuration or GitHub Actions if necessary.
+Define `VITE_IMAGE_API_TOKEN` (Vite build) or `EXPO_PUBLIC_IMAGE_API_TOKEN` (Expo dev server) as a build-time environment variable for the front-end using the SWA configuration or GitHub Actions if necessary.
 
 ## 8. Verification Checklist
 
