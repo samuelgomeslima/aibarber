@@ -48,6 +48,7 @@ import RecurrenceModal from "./src/components/RecurrenceModal"; // recebe fixedD
 import OccurrencePreviewModal, { PreviewItem } from "./src/components/OccurrencePreviewModal";
 import BarberSelector, { Barber } from "./src/components/BarberSelector";
 import AssistantChat from "./src/components/AssistantChat";
+import ImageAssistant from "./src/components/ImageAssistant";
 import ServiceForm from "./src/components/ServiceForm";
 
 /* Novo: formulário de usuário (com date_of_birth e salvando no Supabase) */
@@ -62,7 +63,7 @@ export default function App() {
   const [serviceFormMode, setServiceFormMode] = useState<"create" | "edit">("create");
   const [serviceBeingEdited, setServiceBeingEdited] = useState<Service | null>(null);
   const [activeScreen, setActiveScreen] = useState<
-    "home" | "bookings" | "bookService" | "services" | "assistant"
+    "home" | "bookings" | "bookService" | "services" | "assistant" | "imageAssistant"
   >("home");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -637,7 +638,15 @@ export default function App() {
   const bookingsNavActive = activeScreen === "bookings" || activeScreen === "bookService";
 
   const handleNavigate = useCallback(
-    (screen: "home" | "bookings" | "bookService" | "services" | "assistant") => {
+    (
+      screen:
+        | "home"
+        | "bookings"
+        | "bookService"
+        | "services"
+        | "assistant"
+        | "imageAssistant",
+    ) => {
       setActiveScreen(screen);
       setSidebarOpen(false);
     },
@@ -783,6 +792,23 @@ export default function App() {
               color={activeScreen === "assistant" ? COLORS.accentFgOn : COLORS.subtext}
             />
             <Text style={[styles.sidebarItemText, activeScreen === "assistant" && styles.sidebarItemTextActive]}>Assistant</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => handleNavigate("imageAssistant")}
+            style={[styles.sidebarItem, activeScreen === "imageAssistant" && styles.sidebarItemActive]}
+            accessibilityRole="button"
+            accessibilityLabel="Open the image assistant"
+          >
+            <Ionicons
+              name="image-outline"
+              size={20}
+              color={activeScreen === "imageAssistant" ? COLORS.accentFgOn : COLORS.subtext}
+            />
+            <Text
+              style={[styles.sidebarItemText, activeScreen === "imageAssistant" && styles.sidebarItemTextActive]}
+            >
+              Image lab
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -1326,6 +1352,19 @@ export default function App() {
         contextSummary={assistantContextSummary}
         onBookingsMutated={handleBookingsMutated}
         services={services}
+      />
+    ) : activeScreen === "imageAssistant" ? (
+      <ImageAssistant
+        colors={{
+          text: COLORS.text,
+          subtext: COLORS.subtext,
+          surface: COLORS.surface,
+          border: COLORS.border,
+          accent: COLORS.accent,
+          accentFgOn: COLORS.accentFgOn,
+          danger: COLORS.danger,
+          bg: COLORS.bg,
+        }}
       />
     ) : (
       <ScrollView
