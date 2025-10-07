@@ -11,6 +11,7 @@ import {
   Platform,
   Modal,
   TextInput,
+  useWindowDimensions,
 } from "react-native";
 import { supabase } from "./src/lib/supabase";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
@@ -802,6 +803,12 @@ export default function App() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewItems, setPreviewItems] = useState<PreviewItem[]>([]);
 
+  const { width: windowWidth } = useWindowDimensions();
+  const screenWidth = windowWidth || 0;
+  const isCompactLayout = screenWidth < 768;
+  const isUltraCompactLayout = screenWidth < 560;
+  const sidebarWidth = Math.min(320, Math.max(240, screenWidth * 0.9));
+
   const [weekBookings, setWeekBookings] = useState<BookingWithCustomer[]>([]);
   const [weekDays, setWeekDays] = useState<{ date: Date; key: string }[]>([]);
   const [weekLoading, setWeekLoading] = useState(false);
@@ -1481,8 +1488,10 @@ export default function App() {
       <View
         style={[
           styles.sidebar,
-          { borderColor: COLORS.border, backgroundColor: COLORS.sidebarBg },
-          sidebarOpen ? styles.sidebarOpen : styles.sidebarClosed,
+          { borderColor: COLORS.border, backgroundColor: COLORS.sidebarBg, width: sidebarWidth },
+          sidebarOpen
+            ? styles.sidebarOpen
+            : [styles.sidebarClosed, { transform: [{ translateX: sidebarWidth + 40 }] }],
         ]}
         pointerEvents={sidebarOpen ? "auto" : "none"}
       >
@@ -1615,10 +1624,10 @@ export default function App() {
 
             {/* Content */}
             <ScrollView
-              contentContainerStyle={styles.container}
+              contentContainerStyle={[styles.container, isCompactLayout && styles.containerCompact]}
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
             >
-              <View style={{ gap: 20 }}>
+              <View style={{ gap: isCompactLayout ? 16 : 20 }}>
                 <View>
                   <Text style={styles.sectionLabel}>{bookServiceCopy.serviceSection.title}</Text>
                   <View style={styles.chipsRow}>
@@ -1658,7 +1667,7 @@ export default function App() {
                   <Text style={{ color: COLORS.subtext, fontWeight: "800", fontSize: 12 }}>
                     {bookServiceCopy.clientSection.title}
                   </Text>
-                  <View style={[styles.cardRow, { borderColor: COLORS.border }]}>
+                  <View style={[styles.cardRow, { borderColor: COLORS.border }, isCompactLayout && styles.cardRowStack]}>
                     <View style={{ flex: 1 }}>
                       <Text style={{ color: COLORS.text, fontWeight: "800" }}>
                         {selectedCustomer
@@ -1845,7 +1854,7 @@ export default function App() {
                 const serviceIcon = (displayService?.icon ?? rawService?.icon ?? "content-cut") as keyof typeof MaterialCommunityIcons.glyphMap;
                 return (
                   <View key={b.id} style={styles.bookingCard}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                       <MaterialCommunityIcons name={serviceIcon} size={20} color="#93c5fd" />
                       <MaterialCommunityIcons name={barber.icon} size={18} color="#cbd5e1" />
                       <Text style={styles.bookingText}>
@@ -1906,11 +1915,11 @@ export default function App() {
     ) : activeScreen === "bookings" ? (
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 20, gap: 16 }}
+        contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}
         refreshControl={<RefreshControl refreshing={allBookingsLoading} onRefresh={loadAllBookings} />}
       >
         <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 12 }]}>
-          <View style={styles.listHeaderRow}>
+          <View style={[styles.listHeaderRow, isCompactLayout && styles.listHeaderRowCompact]}>
             <View style={{ flex: 1, gap: 4 }}>
               <Text style={[styles.title, { color: COLORS.text }]}>{bookingsCopy.title}</Text>
               <Text style={{ color: COLORS.subtext, fontSize: 13, fontWeight: "600" }}>
@@ -1919,7 +1928,7 @@ export default function App() {
             </View>
             <Pressable
               onPress={() => setActiveScreen("bookService")}
-              style={[styles.defaultCta, { marginTop: 0 }]}
+              style={[styles.defaultCta, { marginTop: 0 }, isCompactLayout && styles.fullWidthButton]}
               accessibilityRole="button"
               accessibilityLabel={bookingsCopy.ctaAccessibility}
             >
@@ -2012,7 +2021,7 @@ export default function App() {
               />
             </View>
 
-            <View style={styles.filterRow}>
+            <View style={[styles.filterRow, isCompactLayout && styles.filterRowStack]}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.filterLabel}>{bookingsCopy.filters.startDate}</Text>
                 <TextInput
@@ -2037,7 +2046,7 @@ export default function App() {
               </View>
             </View>
 
-            <View style={styles.filterRow}>
+            <View style={[styles.filterRow, isCompactLayout && styles.filterRowStack]}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.filterLabel}>{bookingsCopy.filters.endDate}</Text>
                 <TextInput
@@ -2062,7 +2071,7 @@ export default function App() {
               </View>
             </View>
 
-            <View style={styles.filterActions}>
+            <View style={[styles.filterActions, isCompactLayout && styles.filterActionsCompact]}>
               <Pressable onPress={clearBookingFilters} style={[styles.smallBtn, { borderColor: COLORS.border }]}>
                 <Text style={{ color: COLORS.subtext, fontWeight: "800" }}>{bookingsCopy.filters.clear}</Text>
               </Pressable>
@@ -2071,7 +2080,7 @@ export default function App() {
         </View>
 
         <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 10 }]}>
-          <View style={styles.listHeaderRow}>
+          <View style={[styles.listHeaderRow, isCompactLayout && styles.listHeaderRowCompact]}>
             <Text style={[styles.title, { color: COLORS.text }]}>{bookingsCopy.results.title}</Text>
             <Text style={{ color: COLORS.subtext, fontWeight: "700" }}>
               {bookingsCopy.results.count(filteredBookingsList.length, allBookings.length)}
@@ -2091,8 +2100,11 @@ export default function App() {
                 ? `${booking._customer.first_name}${booking._customer.last_name ? ` ${booking._customer.last_name}` : ""}`
                 : bookingsCopy.results.walkIn;
               return (
-                <View key={booking.id} style={styles.bookingListRow}>
-                  <View style={styles.bookingListTime}>
+                <View
+                  key={booking.id}
+                  style={[styles.bookingListRow, isUltraCompactLayout && styles.bookingListRowCompact]}
+                >
+                  <View style={[styles.bookingListTime, isUltraCompactLayout && styles.bookingListTimeCompact]}>
                     <Text style={styles.bookingListDate}>{humanDate(booking.date)}</Text>
                     <Text style={styles.bookingListClock}>
                       {booking.start} – {booking.end}
@@ -2113,11 +2125,11 @@ export default function App() {
     ) : activeScreen === "services" ? (
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 20, gap: 16 }}
+        contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}
         refreshControl={<RefreshControl refreshing={servicesLoading} onRefresh={loadServices} />}
       >
         <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 12 }]}>
-          <View style={styles.listHeaderRow}>
+          <View style={[styles.listHeaderRow, isCompactLayout && styles.listHeaderRowCompact]}>
             <View style={{ flex: 1, gap: 4 }}>
               <Text style={[styles.title, { color: COLORS.text }]}>{copy.servicesPage.title}</Text>
               <Text style={{ color: COLORS.subtext, fontSize: 13, fontWeight: "600" }}>
@@ -2126,7 +2138,7 @@ export default function App() {
             </View>
             <Pressable
               onPress={handleOpenCreateService}
-              style={[styles.defaultCta, { marginTop: 0 }]}
+              style={[styles.defaultCta, { marginTop: 0 }, isCompactLayout && styles.fullWidthButton]}
               accessibilityRole="button"
               accessibilityLabel={copy.servicesPage.createCta.accessibility}
             >
@@ -2164,7 +2176,9 @@ export default function App() {
               const localized = localizedServiceMap.get(svc.id) ?? svc;
               return (
                 <View key={svc.id} style={styles.serviceRow}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
+                  <View
+                    style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1, flexWrap: "wrap" }}
+                  >
                     <MaterialCommunityIcons name={svc.icon} size={22} color={COLORS.accent} />
                     <View>
                       <Text style={{ color: COLORS.text, fontWeight: "800" }}>{localized.name}</Text>
@@ -2240,9 +2254,9 @@ export default function App() {
         copy={imageAssistantCopy}
       />
     ) : activeScreen === "settings" ? (
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, gap: 16 }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}>
         <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 12 }]}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <Ionicons name="settings-outline" size={22} color={COLORS.accent} />
             <Text style={[styles.title, { color: COLORS.text }]}>Settings</Text>
           </View>
@@ -2285,11 +2299,11 @@ export default function App() {
     ) : (
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 20, gap: 16 }}
+        contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}
         refreshControl={<RefreshControl refreshing={weekLoading} onRefresh={loadWeek} />}
       >
         <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 12 }]}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <MaterialCommunityIcons name="view-dashboard-outline" size={22} color={COLORS.accent} />
             <Text style={[styles.title, { color: COLORS.text }]}>{copy.weekTitle}</Text>
           </View>
@@ -2298,7 +2312,7 @@ export default function App() {
           </Text>
         </View>
 
-        <View style={styles.statsGrid}>
+        <View style={[styles.statsGrid, isCompactLayout && styles.statsGridCompact]}>
           <View style={[styles.statCard, { borderColor: COLORS.border, backgroundColor: COLORS.surface }]}>
             <Text style={[styles.statLabel, { color: COLORS.subtext }]}>{copy.stats.bookingsLabel}</Text>
             <Text style={[styles.statValue, { color: COLORS.text }]}>{weekSummary.total}</Text>
@@ -2628,12 +2642,12 @@ const styles = StyleSheet.create({
   defaultCtaText: { color: COLORS.accentFgOn, fontWeight: "800", fontSize: 14 },
 
   header: { paddingTop: 24, paddingBottom: 16, paddingHorizontal: 16, borderBottomWidth: 1, borderColor: "#11151c", backgroundColor: "#0c1017" },
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 },
   title: { color: "#fff", fontSize: 22, fontWeight: "800", letterSpacing: 0.3 },
   badge: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.06)" },
   badgeText: { color: "#cbd5e1", fontSize: 12, fontWeight: "600" },
 
-  chipsRow: { flexDirection: "row", gap: 10, marginTop: 12 },
+  chipsRow: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 12 },
   filterChipsRow: { flexDirection: "row", gap: 8, flexWrap: "wrap", marginTop: 8 },
   chip: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1, borderColor: "#ffffff12", backgroundColor: "rgba(255,255,255,0.045)", ...(SHADOW as object) },
   chipActive: { backgroundColor: "#60a5fa", borderColor: "#60a5fa" },
@@ -2641,6 +2655,7 @@ const styles = StyleSheet.create({
   chipTextActive: { color: "#091016", fontWeight: "800" },
 
   container: { padding: 16, gap: 14 },
+  containerCompact: { paddingHorizontal: 12, paddingVertical: 16, gap: 16 },
   sectionLabel: { color: "#e5e7eb", fontSize: 14, fontWeight: "700", letterSpacing: 0.3, marginTop: 8 },
   filterLabel: { color: COLORS.subtext, fontSize: 12, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.4 },
 
@@ -2672,8 +2687,11 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   filterRow: { flexDirection: "row", gap: 12, flexWrap: "wrap" },
+  filterRowStack: { flexDirection: "column" },
   filterActions: { flexDirection: "row", justifyContent: "flex-end" },
+  filterActionsCompact: { justifyContent: "flex-start" },
   listHeaderRow: { flexDirection: "row", alignItems: "center", gap: 12, justifyContent: "space-between" },
+  listHeaderRowCompact: { flexDirection: "column", alignItems: "stretch", gap: 12 },
   bookingListRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -2685,7 +2703,9 @@ const styles = StyleSheet.create({
     borderColor: "#ffffff12",
     backgroundColor: "rgba(255,255,255,0.03)",
   },
+  bookingListRowCompact: { flexDirection: "column", alignItems: "flex-start", gap: 8 },
   bookingListTime: { width: 140 },
+  bookingListTimeCompact: { width: "100%" },
   bookingListDate: { color: COLORS.text, fontWeight: "800", fontSize: 13 },
   bookingListClock: { color: COLORS.subtext, fontWeight: "700", fontSize: 12 },
   bookingListTitle: { color: COLORS.text, fontWeight: "800", fontSize: 15 },
@@ -2732,11 +2752,14 @@ const styles = StyleSheet.create({
   // linha lista
   listRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 8 },
   cardRow: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderRadius: 14, padding: 12 },
+  cardRowStack: { flexDirection: "column", alignItems: "stretch", gap: 12 },
   smallBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1 },
+  fullWidthButton: { alignSelf: "stretch", justifyContent: "center", alignItems: "center" },
   serviceRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    flexWrap: "wrap",
     gap: 12,
     paddingVertical: 10,
     paddingHorizontal: 12,
@@ -2755,6 +2778,7 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 12,
   },
+  statsGridCompact: { flexDirection: "column" },
   statCard: {
     flex: 1,
     minWidth: 180,
