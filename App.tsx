@@ -54,6 +54,58 @@ import ServiceForm from "./src/components/ServiceForm";
 /* Novo: formulário de usuário (com date_of_birth e salvando no Supabase) */
 import UserForm from "./src/components/UserForm";
 
+const OVERVIEW_COPY = {
+  en: {
+    languageLabel: "Language",
+    switchLanguage: "Switch language to",
+    weekTitle: "This week",
+    overviewSubtitle: (range?: string | null) =>
+      `Overview of bookings scheduled for ${range?.trim() ? range : "the current week"}.`,
+    stats: {
+      bookingsLabel: "Bookings",
+      averagePerDay: (avg: string) => `Avg. ${avg} per day`,
+      serviceHoursLabel: "Service hours",
+      serviceHoursDetail: "Hours booked",
+      revenueLabel: "Revenue",
+      revenueDetail: "Based on service prices",
+      busiestBarberLabel: "Busiest barber",
+      busiestDetail: (count: number) => `${count} booking${count === 1 ? "" : "s"}`,
+    },
+    bookingsByDayTitle: "Bookings by day",
+    dayBookingCount: (count: number) => `${count} booking${count === 1 ? "" : "s"}`,
+    noBookings: "No bookings",
+  },
+  pt: {
+    languageLabel: "Idioma",
+    switchLanguage: "Alterar idioma para",
+    weekTitle: "Esta semana",
+    overviewSubtitle: (range?: string | null) =>
+      `Visão geral dos agendamentos marcados para ${range?.trim() ? range : "a semana atual"}.`,
+    stats: {
+      bookingsLabel: "Agendamentos",
+      averagePerDay: (avg: string) => `Média de ${avg} por dia`,
+      serviceHoursLabel: "Horas de serviço",
+      serviceHoursDetail: "Horas reservadas",
+      revenueLabel: "Receita",
+      revenueDetail: "Baseado nos preços dos serviços",
+      busiestBarberLabel: "Barbeiro mais ativo",
+      busiestDetail: (count: number) =>
+        `${count} agendamento${count === 1 ? "" : "s"}`,
+    },
+    bookingsByDayTitle: "Agendamentos por dia",
+    dayBookingCount: (count: number) =>
+      `${count} agendamento${count === 1 ? "" : "s"}`,
+    noBookings: "Nenhum agendamento",
+  },
+} as const;
+
+type SupportedLanguage = keyof typeof OVERVIEW_COPY;
+
+const LANGUAGE_OPTIONS: { code: SupportedLanguage; label: string }[] = [
+  { code: "en", label: "English (US)" },
+  { code: "pt", label: "Português (BR)" },
+];
+
 /** ========== App ========== */
 export default function App() {
   const [services, setServices] = useState<Service[]>([]);
@@ -66,6 +118,7 @@ export default function App() {
     "home" | "bookings" | "bookService" | "services" | "assistant" | "imageAssistant"
   >("home");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [language, setLanguage] = useState<SupportedLanguage>("en");
 
   // Cliente -> obrigatório antes do barbeiro
   const [clientModalOpen, setClientModalOpen] = useState(false);
@@ -622,12 +675,15 @@ export default function App() {
     [weekDayMap, weekDays],
   );
 
+  const locale = language === "pt" ? "pt-BR" : "en-US";
+  const copy = useMemo(() => OVERVIEW_COPY[language], [language]);
+
   const weekRangeLabel = useMemo(() => {
     if (!weekDays.length) return "";
     const start = weekDays[0].date;
     const end = weekDays[weekDays.length - 1].date;
-    return `${formatRangeDate(start)} – ${formatRangeDate(end)}`;
-  }, [weekDays]);
+    return `${formatRangeDate(start, locale)} – ${formatRangeDate(end, locale)}`;
+  }, [locale, weekDays]);
 
   const topBarberEntry = useMemo(() => {
     const entries = Array.from(weekSummary.barberCounts.entries());
@@ -1393,56 +1449,97 @@ export default function App() {
         <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 12 }]}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
             <MaterialCommunityIcons name="view-dashboard-outline" size={22} color={COLORS.accent} />
-            <Text style={[styles.title, { color: COLORS.text }]}>This week</Text>
+            <Text style={[styles.title, { color: COLORS.text }]}>{copy.weekTitle}</Text>
           </View>
           <Text style={{ color: COLORS.subtext, fontSize: 13, fontWeight: "600" }}>
-            Overview of bookings scheduled for {weekRangeLabel || "the current week"}.
+            {copy.overviewSubtitle(weekRangeLabel)}
           </Text>
+        </View>
+
+        <View style={styles.languageControls}>
+          <Text style={[styles.languageLabel, { color: COLORS.subtext }]}>{copy.languageLabel}</Text>
+          <View style={styles.languageOptions}>
+            {LANGUAGE_OPTIONS.map((option) => {
+              const isActive = option.code === language;
+              return (
+                <Pressable
+                  key={option.code}
+                  onPress={() => setLanguage(option.code)}
+                  style={[
+                    styles.languageOption,
+                    { borderColor: COLORS.border, backgroundColor: COLORS.surface },
+                    isActive && { backgroundColor: COLORS.accent, borderColor: COLORS.accent },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${copy.switchLanguage} ${option.label}`}
+                >
+                  <Text
+                    style={[
+                      styles.languageOptionText,
+                      { color: isActive ? COLORS.accentFgOn : COLORS.subtext },
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
 
         <View style={styles.statsGrid}>
           <View style={[styles.statCard, { borderColor: COLORS.border, backgroundColor: COLORS.surface }]}>
-            <Text style={[styles.statLabel, { color: COLORS.subtext }]}>Bookings</Text>
+            <Text style={[styles.statLabel, { color: COLORS.subtext }]}>{copy.stats.bookingsLabel}</Text>
             <Text style={[styles.statValue, { color: COLORS.text }]}>{weekSummary.total}</Text>
-            <Text style={[styles.statDetail, { color: COLORS.subtext }]}>Avg. {(weekDays.length ? (weekSummary.total / weekDays.length).toFixed(1) : "0.0")} per day</Text>
+            <Text style={[styles.statDetail, { color: COLORS.subtext }]}>
+              {copy.stats.averagePerDay(
+                weekDays.length ? (weekSummary.total / weekDays.length).toFixed(1) : "0.0",
+              )}
+            </Text>
           </View>
           <View style={[styles.statCard, { borderColor: COLORS.border, backgroundColor: COLORS.surface }]}>
-            <Text style={[styles.statLabel, { color: COLORS.subtext }]}>Service hours</Text>
+            <Text style={[styles.statLabel, { color: COLORS.subtext }]}>{copy.stats.serviceHoursLabel}</Text>
             <Text style={[styles.statValue, { color: COLORS.text }]}>
               {(weekSummary.totalMinutes / 60).toFixed(weekSummary.totalMinutes / 60 >= 10 ? 0 : 1)}
             </Text>
-            <Text style={[styles.statDetail, { color: COLORS.subtext }]}>Hours booked</Text>
+            <Text style={[styles.statDetail, { color: COLORS.subtext }]}>
+              {copy.stats.serviceHoursDetail}
+            </Text>
           </View>
           <View style={[styles.statCard, { borderColor: COLORS.border, backgroundColor: COLORS.surface }]}>
-            <Text style={[styles.statLabel, { color: COLORS.subtext }]}>Revenue</Text>
+            <Text style={[styles.statLabel, { color: COLORS.subtext }]}>{copy.stats.revenueLabel}</Text>
             <Text style={[styles.statValue, { color: COLORS.text }]}>{formatPrice(weekSummary.totalRevenue)}</Text>
-            <Text style={[styles.statDetail, { color: COLORS.subtext }]}>Based on service prices</Text>
+            <Text style={[styles.statDetail, { color: COLORS.subtext }]}>
+              {copy.stats.revenueDetail}
+            </Text>
           </View>
           <View style={[styles.statCard, { borderColor: COLORS.border, backgroundColor: COLORS.surface }]}>
-            <Text style={[styles.statLabel, { color: COLORS.subtext }]}>Busiest barber</Text>
+            <Text style={[styles.statLabel, { color: COLORS.subtext }]}>{copy.stats.busiestBarberLabel}</Text>
             <Text style={[styles.statValue, { color: COLORS.text }]}>
               {topBarberEntry ? BARBER_MAP[topBarberEntry[0]]?.name ?? topBarberEntry[0] : "—"}
             </Text>
-            <Text style={[styles.statDetail, { color: COLORS.subtext }]}> 
-              {topBarberEntry ? `${topBarberEntry[1]} booking${topBarberEntry[1] === 1 ? "" : "s"}` : "No bookings"}
+            <Text style={[styles.statDetail, { color: COLORS.subtext }]}>
+              {topBarberEntry
+                ? copy.stats.busiestDetail(topBarberEntry[1])
+                : copy.noBookings}
             </Text>
           </View>
         </View>
 
         <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 12 }]}>
-          <Text style={[styles.title, { color: COLORS.text }]}>Bookings by day</Text>
+          <Text style={[styles.title, { color: COLORS.text }]}>{copy.bookingsByDayTitle}</Text>
           {weekDaySummaries.map(({ key, date, bookings }) => (
             <View key={key} style={styles.dayRow}>
               <View style={styles.dayHeader}>
-                <Text style={[styles.dayTitle, { color: COLORS.text }]}>{formatWeekday(date)}</Text>
+                <Text style={[styles.dayTitle, { color: COLORS.text }]}>{formatWeekday(date, locale)}</Text>
                 <View style={[styles.dayCountBadge, { borderColor: COLORS.border, backgroundColor: COLORS.bg }]}>
                   <Text style={[styles.dayCountText, { color: COLORS.subtext }]}>
-                    {bookings.length} booking{bookings.length === 1 ? "" : "s"}
+                    {copy.dayBookingCount(bookings.length)}
                   </Text>
                 </View>
               </View>
               {bookings.length === 0 ? (
-                <Text style={[styles.empty, { marginLeft: 2 }]}>No bookings</Text>
+                <Text style={[styles.empty, { marginLeft: 2 }]}>{copy.noBookings}</Text>
               ) : (
                 bookings.map((b) => {
                   const svc = serviceMap.get(b.service_id);
@@ -1485,12 +1582,12 @@ function startOfWeek(date: Date) {
   return d;
 }
 
-function formatRangeDate(date: Date) {
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+function formatRangeDate(date: Date, locale: string) {
+  return date.toLocaleDateString(locale, { month: "short", day: "numeric" });
 }
 
-function formatWeekday(date: Date) {
-  return date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+function formatWeekday(date: Date, locale: string) {
+  return date.toLocaleDateString(locale, { weekday: "short", month: "short", day: "numeric" });
 }
 
 /** ======== Modal de Cliente (lista + criar) ======== */
@@ -1730,6 +1827,21 @@ const styles = StyleSheet.create({
   filterLabel: { color: COLORS.subtext, fontSize: 12, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.4 },
 
   card: { backgroundColor: "rgba(255,255,255,0.045)", borderRadius: 18, borderWidth: 1, borderColor: "#ffffff12", padding: 12, ...(SHADOW as object) },
+  languageControls: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 12,
+  },
+  languageLabel: { fontSize: 12, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.6 },
+  languageOptions: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  languageOption: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  languageOptionText: { fontWeight: "700", fontSize: 12 },
   input: {
     paddingVertical: 10,
     paddingHorizontal: 12,
