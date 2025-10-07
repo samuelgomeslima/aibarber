@@ -322,7 +322,13 @@ export default function App() {
   const [serviceFormMode, setServiceFormMode] = useState<"create" | "edit">("create");
   const [serviceBeingEdited, setServiceBeingEdited] = useState<Service | null>(null);
   const [activeScreen, setActiveScreen] = useState<
-    "home" | "bookings" | "bookService" | "services" | "assistant" | "imageAssistant"
+    | "home"
+    | "bookings"
+    | "bookService"
+    | "services"
+    | "assistant"
+    | "imageAssistant"
+    | "settings"
   >("home");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [language, setLanguage] = useState<SupportedLanguage>(() => getInitialLanguage());
@@ -922,7 +928,8 @@ export default function App() {
         | "bookService"
         | "services"
         | "assistant"
-        | "imageAssistant",
+        | "imageAssistant"
+        | "settings",
     ) => {
       setActiveScreen(screen);
       setSidebarOpen(false);
@@ -1085,6 +1092,21 @@ export default function App() {
               style={[styles.sidebarItemText, activeScreen === "imageAssistant" && styles.sidebarItemTextActive]}
             >
               Image lab
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => handleNavigate("settings")}
+            style={[styles.sidebarItem, activeScreen === "settings" && styles.sidebarItemActive]}
+            accessibilityRole="button"
+            accessibilityLabel="Configure app settings"
+          >
+            <Ionicons
+              name="settings-outline"
+              size={20}
+              color={activeScreen === "settings" ? COLORS.accentFgOn : COLORS.subtext}
+            />
+            <Text style={[styles.sidebarItemText, activeScreen === "settings" && styles.sidebarItemTextActive]}>
+              Settings
             </Text>
           </Pressable>
         </View>
@@ -1692,23 +1714,19 @@ export default function App() {
           bg: COLORS.bg,
         }}
       />
-    ) : (
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 20, gap: 16 }}
-        refreshControl={<RefreshControl refreshing={weekLoading} onRefresh={loadWeek} />}
-      >
+    ) : activeScreen === "settings" ? (
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, gap: 16 }}>
         <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 12 }]}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <MaterialCommunityIcons name="view-dashboard-outline" size={22} color={COLORS.accent} />
-            <Text style={[styles.title, { color: COLORS.text }]}>{copy.weekTitle}</Text>
+            <Ionicons name="settings-outline" size={22} color={COLORS.accent} />
+            <Text style={[styles.title, { color: COLORS.text }]}>Settings</Text>
           </View>
           <Text style={{ color: COLORS.subtext, fontSize: 13, fontWeight: "600" }}>
-            {copy.overviewSubtitle(weekRangeLabel)}
+            Manage your preferences for the AIBarber dashboard.
           </Text>
         </View>
 
-        <View style={styles.languageControls}>
+        <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 16 }]}>
           <Text style={[styles.languageLabel, { color: COLORS.subtext }]}>{copy.languageLabel}</Text>
           <View style={styles.languageOptions}>
             {LANGUAGE_OPTIONS.map((option) => {
@@ -1737,6 +1755,22 @@ export default function App() {
               );
             })}
           </View>
+        </View>
+      </ScrollView>
+    ) : (
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 20, gap: 16 }}
+        refreshControl={<RefreshControl refreshing={weekLoading} onRefresh={loadWeek} />}
+      >
+        <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 12 }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <MaterialCommunityIcons name="view-dashboard-outline" size={22} color={COLORS.accent} />
+            <Text style={[styles.title, { color: COLORS.text }]}>{copy.weekTitle}</Text>
+          </View>
+          <Text style={{ color: COLORS.subtext, fontSize: 13, fontWeight: "600" }}>
+            {copy.overviewSubtitle(weekRangeLabel)}
+          </Text>
         </View>
 
         <View style={styles.statsGrid}>
