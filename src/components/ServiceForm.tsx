@@ -15,6 +15,88 @@ const DEFAULT_COLORS = {
   danger: "#ef4444",
 };
 
+type ServiceFormCopy = {
+  createTitle: string;
+  editTitle: string;
+  createSubtitle: string;
+  editSubtitle: string;
+  fields: {
+    nameLabel: string;
+    namePlaceholder: string;
+    nameError: string;
+    durationLabel: string;
+    durationPlaceholder: string;
+    durationError: string;
+    priceLabel: string;
+    pricePlaceholder: string;
+    priceError: string;
+    iconLabel: string;
+    iconPlaceholder: string;
+    iconError: string;
+    previewLabel: string;
+  };
+  buttons: {
+    create: string;
+    edit: string;
+    saving: string;
+    cancel: string;
+  };
+  accessibility: {
+    submitCreate: string;
+    submitEdit: string;
+    cancel: string;
+  };
+  alerts: {
+    createdTitle: string;
+    createdMessage: (name: string, minutes: number) => string;
+    updatedTitle: string;
+    updatedMessage: (name: string, minutes: number) => string;
+    createErrorTitle: string;
+    updateErrorTitle: string;
+  };
+};
+
+const DEFAULT_COPY: ServiceFormCopy = {
+  createTitle: "Register a service",
+  editTitle: "Edit service",
+  createSubtitle: "Services define the duration and price of each booking.",
+  editSubtitle: "Adjust the duration, price, or icon for this service.",
+  fields: {
+    nameLabel: "Name",
+    namePlaceholder: "Cut & Style",
+    nameError: "Name is required",
+    durationLabel: "Duration (minutes)",
+    durationPlaceholder: "45",
+    durationError: "Enter minutes > 0",
+    priceLabel: "Price",
+    pricePlaceholder: "30.00",
+    priceError: "Enter a valid price",
+    iconLabel: "Icon (MaterialCommunityIcons)",
+    iconPlaceholder: "content-cut",
+    iconError: "Unknown icon",
+    previewLabel: "Preview:",
+  },
+  buttons: {
+    create: "Create service",
+    edit: "Save changes",
+    saving: "Saving…",
+    cancel: "Cancel",
+  },
+  accessibility: {
+    submitCreate: "Create service",
+    submitEdit: "Save service changes",
+    cancel: "Cancel service form",
+  },
+  alerts: {
+    createdTitle: "Service created",
+    createdMessage: (name: string, minutes: number) => `${name} (${minutes} min)`,
+    updatedTitle: "Service updated",
+    updatedMessage: (name: string, minutes: number) => `${name} (${minutes} min)`,
+    createErrorTitle: "Create service failed",
+    updateErrorTitle: "Update service failed",
+  },
+};
+
 type Props = {
   mode?: "create" | "edit";
   service?: Service | null;
@@ -22,6 +104,7 @@ type Props = {
   onUpdated?: (service: Service) => void;
   onCancel?: () => void;
   colors?: typeof DEFAULT_COLORS;
+  copy?: ServiceFormCopy;
 };
 
 export default function ServiceForm({
@@ -31,15 +114,20 @@ export default function ServiceForm({
   onUpdated,
   onCancel,
   colors = DEFAULT_COLORS,
+  copy = DEFAULT_COPY,
 }: Props) {
   const isEditMode = mode === "edit";
 
   const [name, setName] = useState(() => (isEditMode && service ? service.name : ""));
   const [minutesText, setMinutesText] = useState(() =>
-    isEditMode && service ? String(service.estimated_minutes) : "30",
+    isEditMode && service
+      ? String(service.estimated_minutes)
+      : copy.fields.durationPlaceholder.replace(/[^0-9]/g, ""),
   );
   const [priceText, setPriceText] = useState(() =>
-    isEditMode && service ? centsToInput(service.price_cents) : "30.00",
+    isEditMode && service
+      ? centsToInput(service.price_cents)
+      : copy.fields.pricePlaceholder.replace(/[^0-9.,]/g, ""),
   );
   const [iconName, setIconName] = useState(() => (isEditMode && service ? service.icon : "content-cut"));
   const [saving, setSaving] = useState(false);
@@ -52,11 +140,11 @@ export default function ServiceForm({
       setIconName(service.icon);
     } else if (!isEditMode) {
       setName("");
-      setMinutesText("30");
-      setPriceText("30.00");
+      setMinutesText(copy.fields.durationPlaceholder.replace(/[^0-9]/g, ""));
+      setPriceText(copy.fields.pricePlaceholder.replace(/[^0-9.,]/g, ""));
       setIconName("content-cut");
     }
-  }, [isEditMode, service]);
+  }, [copy.fields.durationPlaceholder, copy.fields.pricePlaceholder, isEditMode, service]);
 
   const minutes = useMemo(() => {
     const numeric = Number(minutesText);
@@ -70,12 +158,21 @@ export default function ServiceForm({
 
   const errors = useMemo(() => {
     const errs: Record<string, string> = {};
-    if (!name.trim()) errs.name = "Name is required";
-    if (!Number.isFinite(minutes) || minutes <= 0) errs.minutes = "Enter minutes > 0";
-    if (!Number.isFinite(priceCents) || priceCents < 0) errs.price = "Enter a valid price";
-    if (!iconValid) errs.icon = "Unknown icon";
+    if (!name.trim()) errs.name = copy.fields.nameError;
+    if (!Number.isFinite(minutes) || minutes <= 0) errs.minutes = copy.fields.durationError;
+    if (!Number.isFinite(priceCents) || priceCents < 0) errs.price = copy.fields.priceError;
+    if (!iconValid) errs.icon = copy.fields.iconError;
     return errs;
-  }, [name, minutes, priceCents, iconValid]);
+  }, [
+    copy.fields.durationError,
+    copy.fields.iconError,
+    copy.fields.nameError,
+    copy.fields.priceError,
+    iconValid,
+    minutes,
+    name,
+    priceCents,
+  ]);
 
   const valid = Object.keys(errors).length === 0 && !saving && (!isEditMode || !!service);
 
@@ -90,7 +187,10 @@ export default function ServiceForm({
           price_cents: priceCents,
           icon: iconName as keyof typeof MaterialCommunityIcons.glyphMap,
         });
-        Alert.alert("Service updated", `${updated.name} (${updated.estimated_minutes} min)`);
+        Alert.alert(
+          copy.alerts.updatedTitle,
+          copy.alerts.updatedMessage(updated.name, updated.estimated_minutes),
+        );
         setName(updated.name);
         setMinutesText(String(updated.estimated_minutes));
         setPriceText(centsToInput(updated.price_cents));
@@ -103,15 +203,21 @@ export default function ServiceForm({
           price_cents: priceCents,
           icon: iconName as keyof typeof MaterialCommunityIcons.glyphMap,
         });
-        Alert.alert("Service created", `${created.name} (${created.estimated_minutes} min)`);
+        Alert.alert(
+          copy.alerts.createdTitle,
+          copy.alerts.createdMessage(created.name, created.estimated_minutes),
+        );
         setName("");
-        setMinutesText("30");
-        setPriceText("30.00");
+        setMinutesText(copy.fields.durationPlaceholder.replace(/[^0-9]/g, ""));
+        setPriceText(copy.fields.pricePlaceholder.replace(/[^0-9.,]/g, ""));
         setIconName("content-cut");
         onCreated?.(created);
       }
     } catch (err: any) {
-      Alert.alert(isEditMode ? "Update service failed" : "Create service failed", err?.message ?? String(err));
+      Alert.alert(
+        isEditMode ? copy.alerts.updateErrorTitle : copy.alerts.createErrorTitle,
+        err?.message ?? String(err),
+      );
     } finally {
       setSaving(false);
     }
@@ -119,39 +225,39 @@ export default function ServiceForm({
 
   return (
     <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-      <Text style={[styles.title, { color: colors.text }]}>{isEditMode ? "Edit service" : "Register a service"}</Text>
+      <Text style={[styles.title, { color: colors.text }]}>
+        {isEditMode ? copy.editTitle : copy.createTitle}
+      </Text>
       <Text style={[styles.subtitle, { color: colors.subtext }]}>
-        {isEditMode
-          ? "Adjust the duration, price, or icon for this service."
-          : "Services define the duration and price of each booking."}
+        {isEditMode ? copy.editSubtitle : copy.createSubtitle}
       </Text>
 
       <FormField
-        label="Name"
+        label={copy.fields.nameLabel}
         value={name}
         onChangeText={setName}
-        placeholder="Cut & Style"
+        placeholder={copy.fields.namePlaceholder}
         error={errors.name}
         colors={colors}
       />
 
       <View style={styles.row}>
         <FormField
-          label="Duration (minutes)"
+          label={copy.fields.durationLabel}
           value={minutesText}
           onChangeText={(text) => setMinutesText(text.replace(/[^0-9]/g, ""))}
           keyboardType="number-pad"
-          placeholder="45"
+          placeholder={copy.fields.durationPlaceholder}
           error={errors.minutes}
           colors={colors}
           style={{ flex: 1 }}
         />
         <FormField
-          label="Price"
+          label={copy.fields.priceLabel}
           value={priceText}
           onChangeText={(text) => setPriceText(text.replace(/[^0-9.,]/g, ""))}
           keyboardType="decimal-pad"
-          placeholder="30.00"
+          placeholder={copy.fields.pricePlaceholder}
           error={errors.price}
           colors={colors}
           style={{ flex: 1 }}
@@ -159,17 +265,17 @@ export default function ServiceForm({
       </View>
 
       <FormField
-        label="Icon (MaterialCommunityIcons)"
+        label={copy.fields.iconLabel}
         value={iconName}
         onChangeText={(text) => setIconName(text.trim())}
         autoCapitalize="none"
-        placeholder="content-cut"
+        placeholder={copy.fields.iconPlaceholder}
         error={errors.icon}
         colors={colors}
       />
 
       <View style={styles.iconPreview}>
-        <Text style={[styles.previewLabel, { color: colors.subtext }]}>Preview:</Text>
+        <Text style={[styles.previewLabel, { color: colors.subtext }]}>{copy.fields.previewLabel}</Text>
         <MaterialCommunityIcons
           name={(iconValid ? iconName : "help-circle") as keyof typeof MaterialCommunityIcons.glyphMap}
           size={26}
@@ -188,10 +294,14 @@ export default function ServiceForm({
           },
         ]}
         accessibilityRole="button"
-        accessibilityLabel={isEditMode ? "Save service changes" : "Create service"}
+        accessibilityLabel={isEditMode ? copy.accessibility.submitEdit : copy.accessibility.submitCreate}
       >
         <Text style={[styles.buttonText, { color: valid ? colors.accentFgOn : colors.subtext }]}>
-          {saving ? "Saving…" : isEditMode ? "Save changes" : "Create service"}
+          {saving
+            ? copy.buttons.saving
+            : isEditMode
+              ? copy.buttons.edit
+              : copy.buttons.create}
         </Text>
       </Pressable>
 
@@ -202,9 +312,9 @@ export default function ServiceForm({
           }}
           style={[styles.secondaryButton, { borderColor: colors.border }]}
           accessibilityRole="button"
-          accessibilityLabel="Cancel service form"
+          accessibilityLabel={copy.accessibility.cancel}
         >
-          <Text style={[styles.secondaryButtonText, { color: colors.subtext }]}>Cancel</Text>
+          <Text style={[styles.secondaryButtonText, { color: colors.subtext }]}>{copy.buttons.cancel}</Text>
         </Pressable>
       ) : null}
     </View>
