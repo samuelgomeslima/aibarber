@@ -102,6 +102,74 @@ const LANGUAGE_COPY = {
         loadTitle: "Bookings list",
       },
     },
+    bookService: {
+      serviceSection: {
+        title: "Service",
+        empty: "Create your first service below.",
+      },
+      clientSection: {
+        title: "Client",
+        noneSelected: "No client selected",
+        change: "Change",
+        select: "Select",
+      },
+      barberSectionTitle: "Choose the barber",
+      dateSectionTitle: "Pick a day",
+      slots: {
+        title: (date: string) => `Available slots · ${date}`,
+        busyTitle: "Already booked",
+        busyMessage: (service: string, barber: string, start: string, end: string) =>
+          `${service} with ${barber} • ${start}–${end}`,
+        busyFallback: "This time is not available.",
+        empty: "Create a service to see availability.",
+      },
+      alerts: {
+        selectSlot: {
+          title: "Select a time",
+          message: "Choose an available slot first.",
+        },
+        selectClient: {
+          title: "Select client",
+          message: "Choose or create a client first.",
+        },
+        selectService: {
+          title: "Select service",
+          message: "Create or choose a service first.",
+        },
+        bookingSuccessTitle: "Booked!",
+        bookingFailureTitle: "Booking failed",
+        cancelFailureTitle: "Cancel failed",
+        customerErrorTitle: "Customers",
+        recurrence: {
+          noPreviewTitle: "Nothing to preview",
+          noPreviewMessage: "Check the start date, time, and occurrence count.",
+          previewFailureTitle: "Preview failed",
+          noCreateTitle: "Nothing to create",
+          noCreateMessage: "All occurrences were skipped.",
+          createSuccessTitle: "Created",
+          createSuccessMessage: (count: number, barberName: string, skipped: number) =>
+            `Added ${count} with ${barberName}${skipped ? ` • Skipped ${skipped}` : ""}`,
+          createFailureTitle: "Create failed",
+        },
+      },
+      actions: {
+        book: { label: "Book service", accessibility: "Book service" },
+        repeat: { label: "Repeat…", accessibility: "Open recurrence" },
+      },
+      bookingsList: {
+        title: "Your bookings",
+        empty: "— none yet —",
+        cancel: "Cancel",
+        tip: "Tip: select or create the client before the barber; conflicts depend on the barber.",
+      },
+      clientModal: {
+        title: "Select client",
+        tabs: { list: "Existing", create: "Create" },
+        searchPlaceholder: "Search name / email / phone",
+        searchButton: "Search",
+        empty: "No results.",
+      },
+    },
   },
   pt: {
     languageLabel: "Idioma",
@@ -149,6 +217,74 @@ const LANGUAGE_COPY = {
       },
       alerts: {
         loadTitle: "Lista de agendamentos",
+      },
+    },
+    bookService: {
+      serviceSection: {
+        title: "Serviço",
+        empty: "Crie seu primeiro serviço abaixo.",
+      },
+      clientSection: {
+        title: "Cliente",
+        noneSelected: "Nenhum cliente selecionado",
+        change: "Trocar",
+        select: "Selecionar",
+      },
+      barberSectionTitle: "Escolha o barbeiro",
+      dateSectionTitle: "Escolha o dia",
+      slots: {
+        title: (date: string) => `Horários disponíveis · ${date}`,
+        busyTitle: "Já ocupado",
+        busyMessage: (service: string, barber: string, start: string, end: string) =>
+          `${service} com ${barber} • ${start}–${end}`,
+        busyFallback: "Este horário não está disponível.",
+        empty: "Crie um serviço para ver a disponibilidade.",
+      },
+      alerts: {
+        selectSlot: {
+          title: "Selecione um horário",
+          message: "Escolha um horário disponível primeiro.",
+        },
+        selectClient: {
+          title: "Selecione o cliente",
+          message: "Escolha ou crie um cliente primeiro.",
+        },
+        selectService: {
+          title: "Selecione o serviço",
+          message: "Crie ou escolha um serviço primeiro.",
+        },
+        bookingSuccessTitle: "Agendado!",
+        bookingFailureTitle: "Falha ao agendar",
+        cancelFailureTitle: "Falha ao cancelar",
+        customerErrorTitle: "Clientes",
+        recurrence: {
+          noPreviewTitle: "Nada para pré-visualizar",
+          noPreviewMessage: "Verifique a data inicial, o horário e a quantidade de ocorrências.",
+          previewFailureTitle: "Erro na pré-visualização",
+          noCreateTitle: "Nada para criar",
+          noCreateMessage: "Todas as ocorrências foram ignoradas.",
+          createSuccessTitle: "Criado",
+          createSuccessMessage: (count: number, barberName: string, skipped: number) =>
+            `Adicionados ${count} com ${barberName}${skipped ? ` • Ignorados ${skipped}` : ""}`,
+          createFailureTitle: "Falha ao criar",
+        },
+      },
+      actions: {
+        book: { label: "Agendar serviço", accessibility: "Agendar serviço" },
+        repeat: { label: "Repetir…", accessibility: "Abrir recorrência" },
+      },
+      bookingsList: {
+        title: "Seus agendamentos",
+        empty: "— nenhum ainda —",
+        cancel: "Cancelar",
+        tip: "Dica: selecione/crie o cliente antes do barbeiro; os conflitos dependem do barbeiro.",
+      },
+      clientModal: {
+        title: "Selecionar cliente",
+        tabs: { list: "Existentes", create: "Criar" },
+        searchPlaceholder: "Buscar nome / e-mail / telefone",
+        searchButton: "Buscar",
+        empty: "Nenhum resultado.",
       },
     },
   },
@@ -399,7 +535,7 @@ export default function App() {
       const rows = await listCustomers(q);
       setCustomers(rows);
     } catch (e: any) {
-      Alert.alert("Customers", e?.message ?? String(e));
+      Alert.alert(bookServiceCopy.alerts.customerErrorTitle, e?.message ?? String(e));
     } finally {
       setCustomersLoading(false);
     }
@@ -434,11 +570,11 @@ export default function App() {
 
   const book = async (start: string) => {
     if (!selectedService) {
-      Alert.alert("Select service", "Create or choose a service before booking.");
+      Alert.alert(bookServiceCopy.alerts.selectService.title, bookServiceCopy.alerts.selectService.message);
       return;
     }
     if (!selectedCustomer) {
-      Alert.alert("Select client", "You need to choose/create a client first.");
+      Alert.alert(bookServiceCopy.alerts.selectClient.title, bookServiceCopy.alerts.selectClient.message);
       return;
     }
     const end = addMinutes(start, selectedService.estimated_minutes);
@@ -456,10 +592,13 @@ export default function App() {
       await loadWeek();
       await loadAllBookings();
       const barberName = BARBER_MAP[selectedBarber.id]?.name ?? selectedBarber.id;
-      Alert.alert("Booked!", `${selectedService.name} • ${selectedCustomer.first_name} • ${barberName} • ${start} • ${humanDate(dateKey)}`);
+      Alert.alert(
+        bookServiceCopy.alerts.bookingSuccessTitle,
+        `${selectedService.name} • ${selectedCustomer.first_name} • ${barberName} • ${start} • ${humanDate(dateKey)}`,
+      );
     } catch (e: any) {
       console.error(e);
-      Alert.alert("Booking failed", e?.message ?? String(e));
+      Alert.alert(bookServiceCopy.alerts.bookingFailureTitle, e?.message ?? String(e));
     } finally {
       setLoading(false);
     }
@@ -474,7 +613,7 @@ export default function App() {
       await loadAllBookings();
     } catch (e: any) {
       console.error(e);
-      Alert.alert("Cancel failed", e?.message ?? String(e));
+      Alert.alert(bookServiceCopy.alerts.cancelFailureTitle, e?.message ?? String(e));
     } finally {
       setLoading(false);
     }
@@ -483,12 +622,12 @@ export default function App() {
   /** Recorrência: usa data/horário/serviço/barbeiro já selecionados e o mesmo cliente */
   async function handleRecurrenceSubmit(opts: { time: string; count: number; startFrom: Date }) {
     if (!selectedCustomer) {
-      Alert.alert("Select client", "Choose/create a client before repeating bookings.");
+      Alert.alert(bookServiceCopy.alerts.selectClient.title, bookServiceCopy.alerts.selectClient.message);
       return;
     }
 
     if (!selectedService) {
-      Alert.alert("Select service", "Create or choose a service before repeating bookings.");
+      Alert.alert(bookServiceCopy.alerts.selectService.title, bookServiceCopy.alerts.selectService.message);
       return;
     }
 
@@ -507,7 +646,10 @@ export default function App() {
     });
 
     if (raw.length === 0) {
-      Alert.alert("Nothing to preview", "Check the start date/time/count.");
+      Alert.alert(
+        bookServiceCopy.alerts.recurrence.noPreviewTitle,
+        bookServiceCopy.alerts.recurrence.noPreviewMessage,
+      );
       return;
     }
 
@@ -538,7 +680,7 @@ export default function App() {
       setPreviewOpen(true);
     } catch (e: any) {
       console.error(e);
-      Alert.alert("Preview failed", e?.message ?? String(e));
+      Alert.alert(bookServiceCopy.alerts.recurrence.previewFailureTitle, e?.message ?? String(e));
     } finally {
       setLoading(false);
     }
@@ -547,13 +689,13 @@ export default function App() {
   async function confirmPreviewInsert() {
     if (!selectedCustomer) {
       setPreviewOpen(false);
-      Alert.alert("Select client", "Choose/create a client before inserting repeated bookings.");
+      Alert.alert(bookServiceCopy.alerts.selectClient.title, bookServiceCopy.alerts.selectClient.message);
       return;
     }
 
     if (!selectedService) {
       setPreviewOpen(false);
-      Alert.alert("Select service", "Create or choose a service before inserting repeated bookings.");
+      Alert.alert(bookServiceCopy.alerts.selectService.title, bookServiceCopy.alerts.selectService.message);
       return;
     }
 
@@ -570,7 +712,10 @@ export default function App() {
 
     if (toInsert.length === 0) {
       setPreviewOpen(false);
-      Alert.alert("Nothing to create", "All occurrences were skipped.");
+      Alert.alert(
+        bookServiceCopy.alerts.recurrence.noCreateTitle,
+        bookServiceCopy.alerts.recurrence.noCreateMessage,
+      );
       return;
     }
     try {
@@ -582,10 +727,13 @@ export default function App() {
       await loadWeek();
       const skipped = previewItems.length - toInsert.length;
       const barberName = BARBER_MAP[selectedBarber.id]?.name ?? selectedBarber.id;
-      Alert.alert("Created", `Added ${toInsert.length} with ${barberName}${skipped ? ` • Skipped ${skipped}` : ""}`);
+      Alert.alert(
+        bookServiceCopy.alerts.recurrence.createSuccessTitle,
+        bookServiceCopy.alerts.recurrence.createSuccessMessage(toInsert.length, barberName, skipped),
+      );
     } catch (e: any) {
       console.error(e);
-      Alert.alert("Create failed", e?.message ?? String(e));
+      Alert.alert(bookServiceCopy.alerts.recurrence.createFailureTitle, e?.message ?? String(e));
     } finally {
       setLoading(false);
     }
@@ -748,6 +896,7 @@ export default function App() {
 
   const locale = language === "pt" ? "pt-BR" : "en-US";
   const copy = useMemo(() => LANGUAGE_COPY[language], [language]);
+  const bookServiceCopy = copy.bookService;
   const bookingsCopy = copy.bookings;
 
   const weekRangeLabel = useMemo(() => {
@@ -965,11 +1114,13 @@ export default function App() {
             >
               <View style={{ gap: 20 }}>
                 <View>
-                  <Text style={styles.sectionLabel}>Service</Text>
+                  <Text style={styles.sectionLabel}>{bookServiceCopy.serviceSection.title}</Text>
                   <View style={styles.chipsRow}>
                     {services.length === 0 ? (
                       <View style={[styles.chip, { opacity: 0.7 }]}>
-                        <Text style={[styles.chipText, { color: COLORS.subtext }]}>Create your first service below.</Text>
+                        <Text style={[styles.chipText, { color: COLORS.subtext }]}>
+                          {bookServiceCopy.serviceSection.empty}
+                        </Text>
                       </View>
                     ) : (
                       services.map((s) => {
@@ -997,13 +1148,15 @@ export default function App() {
 
                 {/* Client picker (novo, antes do barbeiro) */}
                 <View style={{ gap: 8 }}>
-                  <Text style={{ color: COLORS.subtext, fontWeight: "800", fontSize: 12 }}>Client</Text>
+                  <Text style={{ color: COLORS.subtext, fontWeight: "800", fontSize: 12 }}>
+                    {bookServiceCopy.clientSection.title}
+                  </Text>
                   <View style={[styles.cardRow, { borderColor: COLORS.border }]}>
                     <View style={{ flex: 1 }}>
                       <Text style={{ color: COLORS.text, fontWeight: "800" }}>
                         {selectedCustomer
                           ? `${selectedCustomer.first_name} ${selectedCustomer.last_name}`
-                          : "No client selected"}
+                          : bookServiceCopy.clientSection.noneSelected}
                       </Text>
                       {selectedCustomer?.phone ? (
                         <Text style={{ color: COLORS.subtext, fontSize: 12 }}>
@@ -1016,7 +1169,7 @@ export default function App() {
                       style={[styles.smallBtn, { borderColor: COLORS.accent, backgroundColor: COLORS.accent }]}
                     >
                       <Text style={{ color: COLORS.accentFgOn, fontWeight: "900" }}>
-                        {selectedCustomer ? "Change" : "Select"}
+                        {selectedCustomer ? bookServiceCopy.clientSection.change : bookServiceCopy.clientSection.select}
                       </Text>
                     </Pressable>
                   </View>
@@ -1024,7 +1177,7 @@ export default function App() {
 
                 {/* Barber selector (desabilita se não houver cliente) */}
                 <View style={{ opacity: selectedCustomer ? 1 : 0.6 }}>
-                  <Text style={styles.sectionLabel}>Escolha o barbeiro</Text>
+                  <Text style={styles.sectionLabel}>{bookServiceCopy.barberSectionTitle}</Text>
                   <BarberSelector
                     selected={selectedBarber}
                     onChange={setSelectedBarber}
@@ -1034,15 +1187,21 @@ export default function App() {
               </View>
 
               {/* Date selector */}
-              <Text style={styles.sectionLabel}>Pick a day</Text>
-          <DateSelector
-            value={day}
-            onChange={setDay}
-            colors={{ text: COLORS.text, subtext: COLORS.subtext, surface: COLORS.surface, border: COLORS.border, accent: COLORS.accent }}
-          />
+              <Text style={styles.sectionLabel}>{bookServiceCopy.dateSectionTitle}</Text>
+              <DateSelector
+                value={day}
+                onChange={setDay}
+                colors={{
+                  text: COLORS.text,
+                  subtext: COLORS.subtext,
+                  surface: COLORS.surface,
+                  border: COLORS.border,
+                  accent: COLORS.accent,
+                }}
+              />
 
-          {/* Slots */}
-          <Text style={styles.sectionLabel}>Available slots · {humanDate(dateKey)}</Text>
+              {/* Slots */}
+              <Text style={styles.sectionLabel}>{bookServiceCopy.slots.title(humanDate(dateKey))}</Text>
           <View style={styles.card}>
             {selectedService ? (
               <View style={styles.grid}>
@@ -1062,12 +1221,15 @@ export default function App() {
                         key={t}
                         onPress={() =>
                           Alert.alert(
-                            "Já ocupado",
+                            bookServiceCopy.slots.busyTitle,
                             conflict
-                              ? `${conflictService?.name ?? conflict.service_id} com ${
-                                  BARBER_MAP[conflict.barber]?.name ?? conflict.barber
-                                } • ${conflict.start}–${conflict.end}`
-                              : "Este horário não está disponível.",
+                              ? bookServiceCopy.slots.busyMessage(
+                                  conflictService?.name ?? conflict.service_id,
+                                  BARBER_MAP[conflict.barber]?.name ?? conflict.barber,
+                                  conflict.start,
+                                  conflict.end,
+                                )
+                              : bookServiceCopy.slots.busyFallback,
                           )
                         }
                         style={[styles.slot, styles.slotBusy]}
@@ -1095,7 +1257,7 @@ export default function App() {
                 })}
               </View>
             ) : (
-              <Text style={styles.empty}>Create a service to see availability.</Text>
+              <Text style={styles.empty}>{bookServiceCopy.slots.empty}</Text>
             )}
 
             {/* Resumo fixo */}
@@ -1111,7 +1273,10 @@ export default function App() {
               <Pressable
                 onPress={async () => {
                   if (!selectedSlot) {
-                    Alert.alert("Select a time", "Choose an available slot first.");
+                    Alert.alert(
+                      bookServiceCopy.alerts.selectSlot.title,
+                      bookServiceCopy.alerts.selectSlot.message,
+                    );
                     return;
                   }
                   await book(selectedSlot);
@@ -1120,38 +1285,48 @@ export default function App() {
                 disabled={!selectedSlot || loading || !selectedCustomer}
                 style={[styles.bookBtn, (!selectedSlot || loading || !selectedCustomer) && styles.bookBtnDisabled]}
                 accessibilityRole="button"
-                accessibilityLabel="Book service"
+                accessibilityLabel={bookServiceCopy.actions.book.accessibility}
               >
-                <Text style={styles.bookBtnText}>Book service</Text>
+                <Text style={styles.bookBtnText}>{bookServiceCopy.actions.book.label}</Text>
               </Pressable>
 
               <Pressable
                 onPress={() => {
                   if (!selectedSlot) {
-                    Alert.alert("Select a time", "Choose an available slot first.");
+                    Alert.alert(
+                      bookServiceCopy.alerts.selectSlot.title,
+                      bookServiceCopy.alerts.selectSlot.message,
+                    );
                     return;
                   }
                   if (!selectedCustomer) {
-                    Alert.alert("Select client", "Choose/create a client first.");
+                    Alert.alert(
+                      bookServiceCopy.alerts.selectClient.title,
+                      bookServiceCopy.alerts.selectClient.message,
+                    );
                     return;
                   }
                   setRecurrenceOpen(true);
                 }}
                 style={[styles.bookBtn, (!selectedSlot || loading || !selectedCustomer) && styles.bookBtnDisabled, { flexDirection: "row", alignItems: "center" }]}
                 accessibilityRole="button"
-                accessibilityLabel="Open recurrence"
+                accessibilityLabel={bookServiceCopy.actions.repeat.accessibility}
               >
                 <Ionicons name="repeat" size={16} color={COLORS.accentFgOn} />
-                <Text style={[styles.bookBtnText, { marginLeft: 6 }]}>Repeat…</Text>
+                <Text style={[styles.bookBtnText, { marginLeft: 6 }]}>
+                  {bookServiceCopy.actions.repeat.label}
+                </Text>
               </Pressable>
             </View>
           </View>
 
           {/* Bookings */}
-          <Text style={styles.sectionLabel}>Your bookings</Text>
+          <Text style={styles.sectionLabel}>{bookServiceCopy.bookingsList.title}</Text>
           <View style={{ gap: 10 }}>
             {bookings.length === 0 ? (
-              <View style={styles.card}><Text style={styles.empty}>— none yet —</Text></View>
+              <View style={styles.card}>
+                <Text style={styles.empty}>{bookServiceCopy.bookingsList.empty}</Text>
+              </View>
             ) : (
               bookings.map((b) => {
                 const service = serviceMap.get(b.service_id);
@@ -1170,7 +1345,7 @@ export default function App() {
                     </View>
                     <Pressable onPress={() => onCancel(b.id)} style={styles.cancelBtn}>
                       <Ionicons name="trash-outline" size={16} color="#fecaca" />
-                      <Text style={styles.cancelText}>Cancel</Text>
+                      <Text style={styles.cancelText}>{bookServiceCopy.bookingsList.cancel}</Text>
                     </Pressable>
                   </View>
                 );
@@ -1178,7 +1353,7 @@ export default function App() {
             )}
           </View>
 
-          <Text style={styles.note}>Tip: selecione/crie o cliente antes do barbeiro; conflitos são por barbeiro.</Text>
+          <Text style={styles.note}>{bookServiceCopy.bookingsList.tip}</Text>
         </ScrollView>
 
         {/* Modals: Recorrência e Preview (mantidos) */}
@@ -1209,6 +1384,7 @@ export default function App() {
           onRefreshQuery={(q) => { setCustomerQuery(q); refreshCustomers(q); }}
           onPick={(c) => { setSelectedCustomer(c); setClientModalOpen(false); }}
           onSaved={(c) => { setSelectedCustomer(c); refreshCustomers(); }}
+          copy={bookServiceCopy.clientModal}
         />
 
           {loading && (
@@ -1675,6 +1851,7 @@ function ClientModal({
   onRefreshQuery,
   onPick,
   onSaved,
+  copy,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -1683,6 +1860,7 @@ function ClientModal({
   onRefreshQuery: (q: string) => void;
   onPick: (c: Customer) => void;
   onSaved: (c: Customer) => void;
+  copy: typeof LANGUAGE_COPY.en.bookService.clientModal;
 }) {
   const [tab, setTab] = useState<"list" | "create">("list");
   const [query, setQuery] = useState("");
@@ -1694,7 +1872,7 @@ function ClientModal({
       <View style={styles.backdrop}>
         <View style={[styles.sheet, { backgroundColor: "#0c1017", borderColor: COLORS.border }]}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-            <Text style={{ color: COLORS.text, fontWeight: "900", fontSize: 16 }}>Select client</Text>
+            <Text style={{ color: COLORS.text, fontWeight: "900", fontSize: 16 }}>{copy.title}</Text>
             <Pressable onPress={onClose}><Ionicons name="close" size={22} color={COLORS.subtext} /></Pressable>
           </View>
 
@@ -1702,11 +1880,11 @@ function ClientModal({
           <View style={{ flexDirection: "row", gap: 8 }}>
             <Pressable onPress={() => setTab("list")}
               style={[styles.tab, tab === "list" && { backgroundColor: COLORS.accent, borderColor: COLORS.accent }]}>
-              <Text style={[styles.tabText, tab === "list" && { color: COLORS.accentFgOn }]}>Existing</Text>
+              <Text style={[styles.tabText, tab === "list" && { color: COLORS.accentFgOn }]}>{copy.tabs.list}</Text>
             </Pressable>
             <Pressable onPress={() => setTab("create")}
               style={[styles.tab, tab === "create" && { backgroundColor: COLORS.accent, borderColor: COLORS.accent }]}>
-              <Text style={[styles.tabText, tab === "create" && { color: COLORS.accentFgOn }]}>Create</Text>
+              <Text style={[styles.tabText, tab === "create" && { color: COLORS.accentFgOn }]}>{copy.tabs.create}</Text>
             </Pressable>
           </View>
 
@@ -1714,7 +1892,7 @@ function ClientModal({
             <View style={{ gap: 10 }}>
               {Platform.OS === "web" && (
                 <input
-                  placeholder="Search name / email / phone"
+                  placeholder={copy.searchPlaceholder}
                   value={query}
                   onChange={(e: any) => setQuery(String(e.target.value))}
                   onKeyDown={(e: any) => { if (e.key === "Enter") onRefreshQuery(query); }}
@@ -1730,12 +1908,12 @@ function ClientModal({
                 />
               )}
               <Pressable onPress={() => onRefreshQuery(query)} style={[styles.smallBtn, { alignSelf: "flex-start", borderColor: COLORS.border }]}>
-                <Text style={{ color: COLORS.subtext, fontWeight: "800" }}>Search</Text>
+                <Text style={{ color: COLORS.subtext, fontWeight: "800" }}>{copy.searchButton}</Text>
               </Pressable>
 
               <View style={[styles.card, { gap: 6 }]}>
                 {loading ? <ActivityIndicator /> : customers.length === 0 ? (
-                  <Text style={{ color: COLORS.subtext }}>No results.</Text>
+                  <Text style={{ color: COLORS.subtext }}>{copy.empty}</Text>
                 ) : (
                   customers.map(c => (
                     <Pressable key={c.id} onPress={() => onPick(c)} style={styles.listRow}>
