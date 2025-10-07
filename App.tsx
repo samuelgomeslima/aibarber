@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { supabase } from "./src/lib/supabase";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
+import * as Localization from "expo-localization";
 
 import {
   BARBERS,
@@ -54,7 +55,7 @@ import ServiceForm from "./src/components/ServiceForm";
 /* Novo: formulário de usuário (com date_of_birth e salvando no Supabase) */
 import UserForm from "./src/components/UserForm";
 
-const OVERVIEW_COPY = {
+const LANGUAGE_COPY = {
   en: {
     languageLabel: "Language",
     switchLanguage: "Switch language to",
@@ -74,6 +75,33 @@ const OVERVIEW_COPY = {
     bookingsByDayTitle: "Bookings by day",
     dayBookingCount: (count: number) => `${count} booking${count === 1 ? "" : "s"}`,
     noBookings: "No bookings",
+    bookings: {
+      title: "Bookings",
+      subtitle: "Review recent bookings and refine the list using the filters below.",
+      ctaLabel: "Book service",
+      ctaAccessibility: "Open booking screen",
+      filters: {
+        barber: "Barber",
+        service: "Service",
+        client: "Client",
+        clientPlaceholder: "Search by client name",
+        date: "Date (YYYY-MM-DD)",
+        datePlaceholder: "2025-01-30",
+        time: "Time (HH:MM)",
+        timePlaceholder: "09:00",
+        clear: "Clear filters",
+        all: "All",
+      },
+      results: {
+        title: "Results",
+        count: (current: number, total: number) => `${current} of ${total}`,
+        empty: "No bookings match your filters.",
+        walkIn: "Walk-in",
+      },
+      alerts: {
+        loadTitle: "Bookings list",
+      },
+    },
   },
   pt: {
     languageLabel: "Idioma",
@@ -96,15 +124,58 @@ const OVERVIEW_COPY = {
     dayBookingCount: (count: number) =>
       `${count} agendamento${count === 1 ? "" : "s"}`,
     noBookings: "Nenhum agendamento",
+    bookings: {
+      title: "Agendamentos",
+      subtitle: "Revise os agendamentos recentes e refine a lista usando os filtros abaixo.",
+      ctaLabel: "Agendar serviço",
+      ctaAccessibility: "Abrir tela de agendamento",
+      filters: {
+        barber: "Barbeiro",
+        service: "Serviço",
+        client: "Cliente",
+        clientPlaceholder: "Buscar pelo nome do cliente",
+        date: "Data (AAAA-MM-DD)",
+        datePlaceholder: "2025-01-30",
+        time: "Horário (HH:MM)",
+        timePlaceholder: "09:00",
+        clear: "Limpar filtros",
+        all: "Todos",
+      },
+      results: {
+        title: "Resultados",
+        count: (current: number, total: number) => `${current} de ${total}`,
+        empty: "Nenhum agendamento corresponde aos filtros.",
+        walkIn: "Cliente avulso",
+      },
+      alerts: {
+        loadTitle: "Lista de agendamentos",
+      },
+    },
   },
 } as const;
 
-type SupportedLanguage = keyof typeof OVERVIEW_COPY;
+type SupportedLanguage = keyof typeof LANGUAGE_COPY;
 
 const LANGUAGE_OPTIONS: { code: SupportedLanguage; label: string }[] = [
   { code: "en", label: "English (US)" },
   { code: "pt", label: "Português (BR)" },
 ];
+
+function getInitialLanguage(): SupportedLanguage {
+  try {
+    const locales = Localization.getLocales();
+    if (Array.isArray(locales) && locales.length > 0) {
+      const primary = locales[0];
+      const languageCode = primary.languageCode?.toLowerCase();
+      if (languageCode === "pt") {
+        return "pt";
+      }
+    }
+  } catch (error) {
+    console.warn("Failed to detect system language", error);
+  }
+  return "en";
+}
 
 /** ========== App ========== */
 export default function App() {
@@ -118,7 +189,7 @@ export default function App() {
     "home" | "bookings" | "bookService" | "services" | "assistant" | "imageAssistant"
   >("home");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [language, setLanguage] = useState<SupportedLanguage>("en");
+  const [language, setLanguage] = useState<SupportedLanguage>(() => getInitialLanguage());
 
   // Cliente -> obrigatório antes do barbeiro
   const [clientModalOpen, setClientModalOpen] = useState(false);
@@ -296,12 +367,12 @@ export default function App() {
       setAllBookings(Array.isArray(rows) ? rows : []);
     } catch (e: any) {
       console.error(e);
-      Alert.alert("Bookings list", e?.message ?? String(e));
+      Alert.alert(LANGUAGE_COPY[language].bookings.alerts.loadTitle, e?.message ?? String(e));
       setAllBookings([]);
     } finally {
       setAllBookingsLoading(false);
     }
-  }, []);
+  }, [language]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -676,7 +747,8 @@ export default function App() {
   );
 
   const locale = language === "pt" ? "pt-BR" : "en-US";
-  const copy = useMemo(() => OVERVIEW_COPY[language], [language]);
+  const copy = useMemo(() => LANGUAGE_COPY[language], [language]);
+  const bookingsCopy = copy.bookings;
 
   const weekRangeLabel = useMemo(() => {
     if (!weekDays.length) return "";
@@ -1154,24 +1226,24 @@ export default function App() {
         <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 12 }]}>
           <View style={styles.listHeaderRow}>
             <View style={{ flex: 1, gap: 4 }}>
-              <Text style={[styles.title, { color: COLORS.text }]}>Bookings</Text>
+              <Text style={[styles.title, { color: COLORS.text }]}>{bookingsCopy.title}</Text>
               <Text style={{ color: COLORS.subtext, fontSize: 13, fontWeight: "600" }}>
-                Review recent bookings and refine the list using the filters below.
+                {bookingsCopy.subtitle}
               </Text>
             </View>
             <Pressable
               onPress={() => setActiveScreen("bookService")}
               style={[styles.defaultCta, { marginTop: 0 }]}
               accessibilityRole="button"
-              accessibilityLabel="Open booking screen"
+              accessibilityLabel={bookingsCopy.ctaAccessibility}
             >
-              <Text style={styles.defaultCtaText}>Book service</Text>
+              <Text style={styles.defaultCtaText}>{bookingsCopy.ctaLabel}</Text>
             </Pressable>
           </View>
 
           <View style={{ gap: 12 }}>
             <View>
-              <Text style={styles.filterLabel}>Barber</Text>
+              <Text style={styles.filterLabel}>{bookingsCopy.filters.barber}</Text>
               <View style={styles.filterChipsRow}>
                 <Pressable
                   onPress={() => setBookingFilterBarber(null)}
@@ -1182,7 +1254,9 @@ export default function App() {
                     size={16}
                     color={!bookingFilterBarber ? COLORS.accentFgOn : COLORS.subtext}
                   />
-                  <Text style={[styles.chipText, !bookingFilterBarber && styles.chipTextActive]}>All</Text>
+                  <Text style={[styles.chipText, !bookingFilterBarber && styles.chipTextActive]}>
+                    {bookingsCopy.filters.all}
+                  </Text>
                 </Pressable>
                 {BARBERS.map((barber) => {
                   const active = bookingFilterBarber === barber.id;
@@ -1205,7 +1279,7 @@ export default function App() {
             </View>
 
             <View>
-              <Text style={styles.filterLabel}>Service</Text>
+              <Text style={styles.filterLabel}>{bookingsCopy.filters.service}</Text>
               <View style={styles.filterChipsRow}>
                 <Pressable
                   onPress={() => setBookingFilterService(null)}
@@ -1216,7 +1290,9 @@ export default function App() {
                     size={16}
                     color={!bookingFilterService ? COLORS.accentFgOn : COLORS.subtext}
                   />
-                  <Text style={[styles.chipText, !bookingFilterService && styles.chipTextActive]}>All</Text>
+                  <Text style={[styles.chipText, !bookingFilterService && styles.chipTextActive]}>
+                    {bookingsCopy.filters.all}
+                  </Text>
                 </Pressable>
                 {services.map((svc) => {
                   const active = bookingFilterService === svc.id;
@@ -1239,9 +1315,9 @@ export default function App() {
             </View>
 
             <View>
-              <Text style={styles.filterLabel}>Client</Text>
+              <Text style={styles.filterLabel}>{bookingsCopy.filters.client}</Text>
               <TextInput
-                placeholder="Search by client name"
+                placeholder={bookingsCopy.filters.clientPlaceholder}
                 placeholderTextColor={`${COLORS.subtext}99`}
                 value={bookingFilterClient}
                 onChangeText={setBookingFilterClient}
@@ -1251,9 +1327,9 @@ export default function App() {
 
             <View style={styles.filterRow}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.filterLabel}>Date (YYYY-MM-DD)</Text>
+                <Text style={styles.filterLabel}>{bookingsCopy.filters.date}</Text>
                 <TextInput
-                  placeholder="2025-01-30"
+                  placeholder={bookingsCopy.filters.datePlaceholder}
                   placeholderTextColor={`${COLORS.subtext}99`}
                   value={bookingFilterDate}
                   onChangeText={setBookingFilterDate}
@@ -1262,9 +1338,9 @@ export default function App() {
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.filterLabel}>Time</Text>
+                <Text style={styles.filterLabel}>{bookingsCopy.filters.time}</Text>
                 <TextInput
-                  placeholder="09:30"
+                  placeholder={bookingsCopy.filters.timePlaceholder}
                   placeholderTextColor={`${COLORS.subtext}99`}
                   value={bookingFilterTime}
                   onChangeText={setBookingFilterTime}
@@ -1276,7 +1352,7 @@ export default function App() {
 
             <View style={styles.filterActions}>
               <Pressable onPress={clearBookingFilters} style={[styles.smallBtn, { borderColor: COLORS.border }]}>
-                <Text style={{ color: COLORS.subtext, fontWeight: "800" }}>Clear filters</Text>
+                <Text style={{ color: COLORS.subtext, fontWeight: "800" }}>{bookingsCopy.filters.clear}</Text>
               </Pressable>
             </View>
           </View>
@@ -1284,23 +1360,23 @@ export default function App() {
 
         <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 10 }]}>
           <View style={styles.listHeaderRow}>
-            <Text style={[styles.title, { color: COLORS.text }]}>Results</Text>
+            <Text style={[styles.title, { color: COLORS.text }]}>{bookingsCopy.results.title}</Text>
             <Text style={{ color: COLORS.subtext, fontWeight: "700" }}>
-              {filteredBookingsList.length} of {allBookings.length}
+              {bookingsCopy.results.count(filteredBookingsList.length, allBookings.length)}
             </Text>
           </View>
 
           {allBookingsLoading ? (
             <ActivityIndicator />
           ) : filteredBookingsList.length === 0 ? (
-            <Text style={styles.empty}>No bookings match your filters.</Text>
+            <Text style={styles.empty}>{bookingsCopy.results.empty}</Text>
           ) : (
             filteredBookingsList.map((booking) => {
               const service = serviceMap.get(booking.service_id);
               const barber = BARBER_MAP[booking.barber];
               const customerName = booking._customer
                 ? `${booking._customer.first_name}${booking._customer.last_name ? ` ${booking._customer.last_name}` : ""}`
-                : "Walk-in";
+                : bookingsCopy.results.walkIn;
               return (
                 <View key={booking.id} style={styles.bookingListRow}>
                   <View style={styles.bookingListTime}>
