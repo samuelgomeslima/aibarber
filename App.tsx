@@ -31,6 +31,7 @@ import {
   humanDate,
   formatPrice,
 } from "./src/lib/domain";
+import { polyglotServices } from "./src/lib/polyglot";
 
 const getTodayDateKey = () => toDateKey(new Date());
 
@@ -808,6 +809,13 @@ export default function App() {
   // Horário selecionado (só cria ao clicar "Book service")
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
 
+  const localizedServices = useMemo(() => polyglotServices(services, language), [services, language]);
+  const serviceMap = useMemo(() => new Map(services.map((s) => [s.id, s])), [services]);
+  const localizedServiceMap = useMemo(
+    () => new Map(localizedServices.map((s) => [s.id, s])),
+    [localizedServices],
+  );
+
   const loadServices = useCallback(async () => {
     setServicesLoading(true);
     try {
@@ -869,6 +877,7 @@ export default function App() {
     (svc: Service) => {
       if (!svc?.id) return;
 
+      const localized = localizedServiceMap.get(svc.id) ?? svc;
       const confirm = () => {
         void (async () => {
           try {
@@ -884,22 +893,24 @@ export default function App() {
 
       Alert.alert(
         copy.servicesPage.alerts.deleteTitle,
-        copy.servicesPage.alerts.deleteMessage(svc.name),
+        copy.servicesPage.alerts.deleteMessage(localized.name),
         [
           { text: copy.servicesPage.alerts.cancel, style: "cancel" },
           { text: copy.servicesPage.alerts.confirm, style: "destructive", onPress: confirm },
         ],
       );
     },
-    [copy, loadServices],
+    [copy, loadServices, localizedServiceMap],
   );
 
   const selectedService = useMemo(
     () => services.find((s) => s.id === selectedServiceId) ?? null,
     [services, selectedServiceId],
   );
-
-  const serviceMap = useMemo(() => new Map(services.map((s) => [s.id, s])), [services]);
+  const selectedLocalizedService = useMemo(
+    () => (selectedServiceId ? localizedServiceMap.get(selectedServiceId) ?? null : null),
+    [localizedServiceMap, selectedServiceId],
+  );
 
   const loadWeek = useCallback(async () => {
     const now = new Date();
@@ -1037,9 +1048,10 @@ export default function App() {
       await loadWeek();
       await loadAllBookings();
       const barberName = BARBER_MAP[selectedBarber.id]?.name ?? selectedBarber.id;
+      const displayServiceName = selectedLocalizedService?.name ?? selectedService.name;
       Alert.alert(
         bookServiceCopy.alerts.bookingSuccessTitle,
-        `${selectedService.name} • ${selectedCustomer.first_name} • ${barberName} • ${start} • ${humanDate(dateKey)}`,
+        `${displayServiceName} • ${selectedCustomer.first_name} • ${barberName} • ${start} • ${humanDate(dateKey)}`,
       );
     } catch (e: any) {
       console.error(e);
@@ -1198,7 +1210,7 @@ export default function App() {
   }, [day]);
 
   const assistantContextSummary = useMemo(() => {
-    const serviceList = services
+    const serviceList = localizedServices
       .map((s) => assistantCopy.contextSummary.serviceDetail(s.name, s.estimated_minutes))
       .join(", ");
     const barberList = BARBERS.map((b) => b.name).join(", ");
@@ -1215,10 +1227,10 @@ export default function App() {
       : assistantCopy.contextSummary.bookingsEmpty;
 
     return [hoursLine, servicesLine, barbersLine, bookingsLine].join("\n");
-  }, [assistantCopy.contextSummary, bookings, services]);
+  }, [assistantCopy.contextSummary, bookings, localizedServices]);
 
   const assistantSystemPrompt = useMemo(() => {
-    const serviceLines = services
+    const serviceLines = localizedServices
       .map((s) =>
         assistantCopy.systemPrompt.serviceLine(
           s.name,
@@ -1230,7 +1242,7 @@ export default function App() {
     const barberLines = BARBERS.map((b) => assistantCopy.systemPrompt.barberLine(b.name)).join("\n");
     const bookingLines = bookings
       .map((b) => {
-        const serviceName = serviceMap.get(b.service_id)?.name ?? b.service_id;
+        const serviceName = localizedServiceMap.get(b.service_id)?.name ?? b.service_id;
         const barberName = BARBER_MAP[b.barber]?.name ?? b.barber;
         const customerName = b._customer
           ? `${b._customer.first_name}${b._customer.last_name ? ` ${b._customer.last_name}` : ""}`
@@ -1260,7 +1272,7 @@ export default function App() {
       existingBookings,
       ...assistantCopy.systemPrompt.instructions,
     ].join("\n");
-  }, [assistantCopy.systemPrompt, bookings, serviceMap, services]);
+  }, [assistantCopy.systemPrompt, bookings, localizedServiceMap, localizedServices]);
 
   const filteredBookingsList = useMemo(() => {
     const barber = bookingFilterBarber?.trim();
@@ -1618,6 +1630,7 @@ export default function App() {
                       </View>
                     ) : (
                       services.map((s) => {
+                        const localized = localizedServiceMap.get(s.id) ?? s;
                         const active = s.id === selectedServiceId;
                         return (
                           <Pressable
@@ -1631,7 +1644,7 @@ export default function App() {
                               color={active ? COLORS.accentFgOn : COLORS.subtext}
                             />
                             <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                              {s.name} · {s.estimated_minutes}m
+                              {localized.name} · {s.estimated_minutes}m
                             </Text>
                           </Pressable>
                         );
@@ -1709,7 +1722,9 @@ export default function App() {
                         b.barber === selectedBarber.id &&
                         overlap(t, addMinutes(t, selectedService.estimated_minutes), b.start, b.end),
                     );
-                    const conflictService = conflict ? serviceMap.get(conflict.service_id) : null;
+                    const conflictService = conflict
+                      ? localizedServiceMap.get(conflict.service_id) ?? serviceMap.get(conflict.service_id)
+                      : null;
                     return (
                       <Pressable
                         key={t}
@@ -1757,7 +1772,7 @@ export default function App() {
             {/* Resumo fixo */}
             {selectedSlot && selectedService && (
               <Text style={styles.summaryText}>
-                {selectedService.name} • {BARBER_MAP[selectedBarber.id]?.name} • {selectedSlot} • {humanDate(dateKey)}
+                {(selectedLocalizedService?.name ?? selectedService.name)} • {BARBER_MAP[selectedBarber.id]?.name} • {selectedSlot} • {humanDate(dateKey)}
                 {selectedCustomer ? ` • ${selectedCustomer.first_name}` : ""}
               </Text>
             )}
@@ -1823,10 +1838,11 @@ export default function App() {
               </View>
             ) : (
               bookings.map((b) => {
-                const service = serviceMap.get(b.service_id);
-                const svc = service?.name ?? b.service_id;
+                const rawService = serviceMap.get(b.service_id);
+                const displayService = localizedServiceMap.get(b.service_id) ?? rawService;
+                const svc = displayService?.name ?? b.service_id;
                 const barber = BARBER_MAP[b.barber] ?? { name: b.barber, icon: "account" as const };
-                const serviceIcon = (service?.icon ?? "content-cut") as keyof typeof MaterialCommunityIcons.glyphMap;
+                const serviceIcon = (displayService?.icon ?? rawService?.icon ?? "content-cut") as keyof typeof MaterialCommunityIcons.glyphMap;
                 return (
                   <View key={b.id} style={styles.bookingCard}>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
@@ -1857,7 +1873,7 @@ export default function App() {
           onSubmit={handleRecurrenceSubmit}
           fixedDate={day}
           fixedTime={selectedSlot || "00:00"}
-          fixedService={selectedService?.name ?? ""}
+          fixedService={selectedLocalizedService?.name ?? ""}
           fixedBarber={BARBER_MAP[selectedBarber.id]?.name || selectedBarber.id}
           colors={{ text: COLORS.text, subtext: COLORS.subtext, surface: COLORS.surface, border: COLORS.border, accent: COLORS.accent, bg: "#0c1017" }}
         />
@@ -1965,6 +1981,7 @@ export default function App() {
                   </Text>
                 </Pressable>
                 {services.map((svc) => {
+                  const localized = localizedServiceMap.get(svc.id) ?? svc;
                   const active = bookingFilterService === svc.id;
                   return (
                     <Pressable
@@ -1977,7 +1994,7 @@ export default function App() {
                         size={16}
                         color={active ? COLORS.accentFgOn : COLORS.subtext}
                       />
-                      <Text style={[styles.chipText, active && styles.chipTextActive]}>{svc.name}</Text>
+                      <Text style={[styles.chipText, active && styles.chipTextActive]}>{localized.name}</Text>
                     </Pressable>
                   );
                 })}
@@ -2067,7 +2084,8 @@ export default function App() {
             <Text style={styles.empty}>{bookingsCopy.results.empty}</Text>
           ) : (
             filteredBookingsList.map((booking) => {
-              const service = serviceMap.get(booking.service_id);
+              const rawService = serviceMap.get(booking.service_id);
+              const displayService = localizedServiceMap.get(booking.service_id) ?? rawService;
               const barber = BARBER_MAP[booking.barber];
               const customerName = booking._customer
                 ? `${booking._customer.first_name}${booking._customer.last_name ? ` ${booking._customer.last_name}` : ""}`
@@ -2081,7 +2099,7 @@ export default function App() {
                     </Text>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.bookingListTitle}>{service?.name ?? booking.service_id}</Text>
+                    <Text style={styles.bookingListTitle}>{displayService?.name ?? booking.service_id}</Text>
                     <Text style={styles.bookingListMeta}>
                       {(barber?.name ?? booking.barber) + (customerName ? ` • ${customerName}` : "")}
                     </Text>
@@ -2142,47 +2160,50 @@ export default function App() {
           {services.length === 0 ? (
             <Text style={[styles.empty, { marginVertical: 8 }]}>{copy.servicesPage.empty}</Text>
           ) : (
-            services.map((svc) => (
-              <View key={svc.id} style={styles.serviceRow}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
-                  <MaterialCommunityIcons name={svc.icon} size={22} color={COLORS.accent} />
-                  <View>
-                    <Text style={{ color: COLORS.text, fontWeight: "800" }}>{svc.name}</Text>
-                    <Text style={{ color: COLORS.subtext, fontSize: 12 }}>
-                      {copy.servicesPage.serviceMeta(svc.estimated_minutes, formatPrice(svc.price_cents))}
-                    </Text>
+            services.map((svc) => {
+              const localized = localizedServiceMap.get(svc.id) ?? svc;
+              return (
+                <View key={svc.id} style={styles.serviceRow}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
+                    <MaterialCommunityIcons name={svc.icon} size={22} color={COLORS.accent} />
+                    <View>
+                      <Text style={{ color: COLORS.text, fontWeight: "800" }}>{localized.name}</Text>
+                      <Text style={{ color: COLORS.subtext, fontSize: 12 }}>
+                        {copy.servicesPage.serviceMeta(svc.estimated_minutes, formatPrice(svc.price_cents))}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.serviceActions}>
+                    <Pressable
+                      onPress={() => handleOpenEditService(svc)}
+                      style={[styles.smallBtn, { borderColor: COLORS.border }]}
+                      accessibilityRole="button"
+                      accessibilityLabel={copy.servicesPage.actions.edit.accessibility(localized.name)}
+                    >
+                      <Text style={{ color: COLORS.subtext, fontWeight: "800" }}>
+                        {copy.servicesPage.actions.edit.label}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => handleDeleteService(svc)}
+                      style={[
+                        styles.smallBtn,
+                        {
+                          borderColor: COLORS.danger,
+                          backgroundColor: "rgba(239,68,68,0.1)",
+                        },
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel={copy.servicesPage.actions.delete.accessibility(localized.name)}
+                    >
+                      <Text style={{ color: COLORS.danger, fontWeight: "800" }}>
+                        {copy.servicesPage.actions.delete.label}
+                      </Text>
+                    </Pressable>
                   </View>
                 </View>
-                <View style={styles.serviceActions}>
-                  <Pressable
-                    onPress={() => handleOpenEditService(svc)}
-                    style={[styles.smallBtn, { borderColor: COLORS.border }]}
-                    accessibilityRole="button"
-                    accessibilityLabel={copy.servicesPage.actions.edit.accessibility(svc.name)}
-                  >
-                    <Text style={{ color: COLORS.subtext, fontWeight: "800" }}>
-                      {copy.servicesPage.actions.edit.label}
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => handleDeleteService(svc)}
-                    style={[
-                      styles.smallBtn,
-                      {
-                        borderColor: COLORS.danger,
-                        backgroundColor: "rgba(239,68,68,0.1)",
-                      },
-                    ]}
-                    accessibilityRole="button"
-                    accessibilityLabel={copy.servicesPage.actions.delete.accessibility(svc.name)}
-                  >
-                    <Text style={{ color: COLORS.danger, fontWeight: "800" }}>
-                      {copy.servicesPage.actions.delete.label}
-                    </Text>
-                  </Pressable>
-                </View>
-              </View>
-            ))
+              );
+            })
           )}
         </View>
       </ScrollView>
@@ -2201,7 +2222,7 @@ export default function App() {
         systemPrompt={assistantSystemPrompt}
         contextSummary={assistantContextSummary}
         onBookingsMutated={handleBookingsMutated}
-        services={services}
+        services={localizedServices}
         copy={assistantCopy.chat}
       />
     ) : activeScreen === "imageAssistant" ? (
@@ -2332,17 +2353,22 @@ export default function App() {
                 <Text style={[styles.empty, { marginLeft: 2 }]}>{copy.noBookings}</Text>
               ) : (
                 bookings.map((b) => {
-                  const svc = serviceMap.get(b.service_id);
+                  const rawSvc = serviceMap.get(b.service_id);
+                  const localizedSvc = localizedServiceMap.get(b.service_id) ?? rawSvc;
                   const barberName = BARBER_MAP[b.barber]?.name ?? b.barber;
                   const customerName = b._customer
                     ? `${b._customer.first_name}${b._customer.last_name ? ` ${b._customer.last_name}` : ""}`
                     : "";
                   return (
                     <View key={b.id} style={styles.dayBookingRow}>
-                      <MaterialCommunityIcons name={svc?.icon ?? "calendar"} size={18} color={COLORS.accent} />
+                      <MaterialCommunityIcons
+                        name={(localizedSvc?.icon ?? rawSvc?.icon ?? "calendar") as keyof typeof MaterialCommunityIcons.glyphMap}
+                        size={18}
+                        color={COLORS.accent}
+                      />
                       <View style={{ flex: 1 }}>
                         <Text style={[styles.dayBookingText, { color: COLORS.text }]}>
-                          {b.start} – {b.end} • {svc?.name ?? b.service_id}
+                          {b.start} – {b.end} • {localizedSvc?.name ?? b.service_id}
                         </Text>
                         <Text style={[styles.dayBookingMeta, { color: COLORS.subtext }]}>
                           {barberName}
