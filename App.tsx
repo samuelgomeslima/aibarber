@@ -59,6 +59,201 @@ const LANGUAGE_COPY = {
   en: {
     languageLabel: "Language",
     switchLanguage: "Switch language to",
+    navigation: {
+      overview: "Overview",
+      bookings: "Bookings",
+      services: "Services",
+      assistant: "Assistant",
+      imageAssistant: "Image lab",
+      settings: "Settings",
+    },
+    servicesPage: {
+      title: "Services",
+      subtitle: "Manage what clients can book and adjust existing options as needed.",
+      createCta: { label: "Create service", accessibility: "Open create service form" },
+      listTitle: "Existing services",
+      empty: "— none registered yet —",
+      serviceMeta: (minutes: number, price: string) => `${minutes} minutes • ${price}`,
+      actions: {
+        edit: { label: "Edit", accessibility: (name: string) => `Edit ${name}` },
+        delete: { label: "Delete", accessibility: (name: string) => `Delete ${name}` },
+      },
+      alerts: {
+        loadTitle: "Services",
+        deleteTitle: "Delete service",
+        deleteMessage: (name: string) => `Are you sure you want to remove "${name}"?`,
+        cancel: "Cancel",
+        confirm: "Delete",
+        deleteErrorTitle: "Delete service",
+      },
+    },
+    serviceForm: {
+      createTitle: "Register a service",
+      editTitle: "Edit service",
+      createSubtitle: "Services define the duration and price of each booking.",
+      editSubtitle: "Adjust the duration, price, or icon for this service.",
+      fields: {
+        nameLabel: "Name",
+        namePlaceholder: "Cut & Style",
+        nameError: "Name is required",
+        durationLabel: "Duration (minutes)",
+        durationPlaceholder: "45",
+        durationError: "Enter minutes > 0",
+        priceLabel: "Price",
+        pricePlaceholder: "30.00",
+        priceError: "Enter a valid price",
+        iconLabel: "Icon (MaterialCommunityIcons)",
+        iconPlaceholder: "content-cut",
+        iconError: "Unknown icon",
+        previewLabel: "Preview:",
+      },
+      buttons: {
+        create: "Create service",
+        edit: "Save changes",
+        saving: "Saving…",
+        cancel: "Cancel",
+      },
+      accessibility: {
+        submitCreate: "Create service",
+        submitEdit: "Save service changes",
+        cancel: "Cancel service form",
+      },
+      alerts: {
+        createdTitle: "Service created",
+        createdMessage: (name: string, minutes: number) => `${name} (${minutes} min)`,
+        updatedTitle: "Service updated",
+        updatedMessage: (name: string, minutes: number) => `${name} (${minutes} min)`,
+        createErrorTitle: "Create service failed",
+        updateErrorTitle: "Update service failed",
+      },
+    },
+    assistant: {
+      chat: {
+        initialMessage:
+          "Hi! I'm your AIBarber agent. I can check availability, book services, and cancel existing appointments for you.",
+        apiKeyWarning: "Set EXPO_PUBLIC_OPENAI_API_KEY to enable the assistant.",
+        contextPrefix: "Booking context:",
+        quickRepliesTitle: "Suggested prompts",
+        quickRepliesToggleShow: "Show suggestions",
+        quickRepliesToggleHide: "Hide quick suggestions",
+        quickReplyAccessibility: (suggestion: string) => `Send quick message: ${suggestion}`,
+        quickReplies: {
+          existingBookings: "Show my existing bookings",
+          bookService: "Help me book a service",
+          bookSpecificService: (serviceName: string) => `Book a ${serviceName}`,
+          barberAvailability: (barberName: string) => `Available hours for ${barberName}`,
+        },
+        inputPlaceholder: "Ask about bookings...",
+        sendAccessibility: "Send message",
+        suggestionsAccessibility: {
+          show: "Show quick suggestions",
+          hide: "Hide quick suggestions",
+        },
+        voiceButtonAccessibility: {
+          start: "Start voice input",
+          stop: "Stop voice input",
+        },
+        errors: {
+          generic: "Something went wrong.",
+          missingApiKey: "Set EXPO_PUBLIC_OPENAI_API_KEY to enable voice input.",
+          voiceWebOnly: "Voice capture is currently supported on the web experience only.",
+          voiceUnsupported: "Voice capture is not supported in this browser.",
+          voiceStartFailed: "Unable to start voice recording.",
+          noAudio: "No audio captured. Try again.",
+          processFailed: "Failed to process voice message.",
+        },
+      },
+      contextSummary: {
+        hours: (start: string, end: string) => `Hours: ${start}–${end}`,
+        services: (list: string) => `Services: ${list}`,
+        serviceDetail: (name: string, minutes: number) => `${name} (${minutes} min)`,
+        barbers: (list: string) => `Barbers: ${list}`,
+        bookingsScheduled: (count: number) => `Bookings: ${count} scheduled.`,
+        bookingsEmpty: "Bookings: none scheduled yet.",
+      },
+      systemPrompt: {
+        intro: "You are AIBarber, an assistant that helps manage a barbershop booking agenda.",
+        hours: (start: string, end: string) => `Opening hours: ${start} to ${end}.`,
+        servicesHeader: "Services:",
+        serviceLine: (name: string, minutes: number, price: string) =>
+          `• ${name} (${minutes} minutes • ${price})`,
+        barbersHeader: "Barbers:",
+        barberLine: (name: string) => `• ${name}`,
+        bookingsHeader: "Existing bookings:",
+        bookingsEmpty: "(No bookings are currently scheduled.)",
+        bookingLine: ({
+          date,
+          start,
+          end,
+          serviceName,
+          barberName,
+          customerName,
+        }: {
+          date: string;
+          start?: string | null;
+          end?: string | null;
+          serviceName: string;
+          barberName: string;
+          customerName?: string | null;
+        }) => {
+          const timeRange = [start, end].filter(Boolean).join("–");
+          const timeSegment = timeRange ? ` ${timeRange}` : "";
+          const clientSegment = customerName ? ` for ${customerName}` : "";
+          return `${date}${timeSegment} • ${serviceName} • ${barberName}${clientSegment}`;
+        },
+        instructions: [
+          "You can use tools to check availability, create bookings, and cancel bookings.",
+          "Always collect the customer's first name, last name, and phone number digits before booking.",
+          "Use find_customer to check registration with the provided phone number and create_customer if no record exists.",
+          "Include the returned customer_id whenever you call book_service so the booking is linked to the customer.",
+          "When the user asks to schedule, gather the service, barber, date, and preferred time before making suggestions.",
+          "Call get_availability before committing to a new booking, and explain any conflicts you find.",
+          "After performing a booking or cancellation, confirm the action and summarize the result for the user.",
+        ],
+      },
+    },
+    imageAssistant: {
+      title: "Image assistant",
+      subtitle: {
+        before: "Generate marketing visuals for your shop using the OpenAI image API deployed under ",
+        highlight: "/api/GenerateImage",
+        after: ".",
+      },
+      helperMessage:
+        "Set EXPO_PUBLIC_IMAGE_API_TOKEN to authenticate requests to the GenerateImage function.",
+      promptLabel: "Prompt",
+      promptPlaceholder:
+        "Create a premium hero image for a barber shop website featuring a modern haircut session.",
+      sizeLabel: "Size",
+      sizeOptions: [
+        { label: "Square • 256px", value: "256x256" },
+        { label: "Detailed • 512px", value: "512x512" },
+        { label: "Showcase • 1024px", value: "1024x1024" },
+      ] as const,
+      qualityLabel: "Quality",
+      qualityOptions: [
+        { label: "Standard", value: "standard", helper: "Fastest option for quick previews." },
+        { label: "HD", value: "hd", helper: "Sharper output, slightly slower." },
+      ] as const,
+      optionAccessibility: {
+        size: (label: string) => `Select ${label} size`,
+        quality: (label: string) => `Use ${label} quality`,
+      },
+      generateButton: "Generate image",
+      generateAccessibility: "Generate marketing image",
+      errors: {
+        generateFailed: "Unable to generate image.",
+      },
+      history: {
+        title: "Recent results",
+        clearLabel: "Clear",
+        clearAccessibility: "Clear generated images",
+        promptLabel: "Prompt:",
+        revisedPrefix: "Revised prompt:",
+        meta: (size: string, quality: string) => `Size: ${size} • Quality: ${quality}`,
+        generatedAt: (timestamp: string) => `Generated ${timestamp}`,
+      },
+    },
     weekTitle: "This week",
     overviewSubtitle: (range?: string | null) =>
       `Overview of bookings scheduled for ${range?.trim() ? range : "the current week"}.`,
@@ -174,6 +369,201 @@ const LANGUAGE_COPY = {
   pt: {
     languageLabel: "Idioma",
     switchLanguage: "Alterar idioma para",
+    navigation: {
+      overview: "Visão geral",
+      bookings: "Agendamentos",
+      services: "Serviços",
+      assistant: "Assistente",
+      imageAssistant: "Laboratório de imagens",
+      settings: "Configurações",
+    },
+    servicesPage: {
+      title: "Serviços",
+      subtitle: "Gerencie o que os clientes podem agendar e ajuste as opções existentes conforme necessário.",
+      createCta: { label: "Criar serviço", accessibility: "Abrir formulário de criação de serviço" },
+      listTitle: "Serviços cadastrados",
+      empty: "— nenhum cadastrado ainda —",
+      serviceMeta: (minutes: number, price: string) => `${minutes} minutos • ${price}`,
+      actions: {
+        edit: { label: "Editar", accessibility: (name: string) => `Editar ${name}` },
+        delete: { label: "Excluir", accessibility: (name: string) => `Excluir ${name}` },
+      },
+      alerts: {
+        loadTitle: "Serviços",
+        deleteTitle: "Excluir serviço",
+        deleteMessage: (name: string) => `Tem certeza de que deseja remover "${name}"?`,
+        cancel: "Cancelar",
+        confirm: "Excluir",
+        deleteErrorTitle: "Excluir serviço",
+      },
+    },
+    serviceForm: {
+      createTitle: "Cadastrar serviço",
+      editTitle: "Editar serviço",
+      createSubtitle: "Os serviços definem a duração e o preço de cada agendamento.",
+      editSubtitle: "Ajuste a duração, o preço ou o ícone deste serviço.",
+      fields: {
+        nameLabel: "Nome",
+        namePlaceholder: "Corte & Estilo",
+        nameError: "Nome é obrigatório",
+        durationLabel: "Duração (minutos)",
+        durationPlaceholder: "45",
+        durationError: "Informe minutos > 0",
+        priceLabel: "Preço",
+        pricePlaceholder: "30,00",
+        priceError: "Informe um preço válido",
+        iconLabel: "Ícone (MaterialCommunityIcons)",
+        iconPlaceholder: "content-cut",
+        iconError: "Ícone desconhecido",
+        previewLabel: "Prévia:",
+      },
+      buttons: {
+        create: "Criar serviço",
+        edit: "Salvar alterações",
+        saving: "Salvando…",
+        cancel: "Cancelar",
+      },
+      accessibility: {
+        submitCreate: "Criar serviço",
+        submitEdit: "Salvar alterações do serviço",
+        cancel: "Cancelar formulário de serviço",
+      },
+      alerts: {
+        createdTitle: "Serviço criado",
+        createdMessage: (name: string, minutes: number) => `${name} (${minutes} min)`,
+        updatedTitle: "Serviço atualizado",
+        updatedMessage: (name: string, minutes: number) => `${name} (${minutes} min)`,
+        createErrorTitle: "Falha ao criar serviço",
+        updateErrorTitle: "Falha ao atualizar serviço",
+      },
+    },
+    assistant: {
+      chat: {
+        initialMessage:
+          "Olá! Sou o seu agente AIBarber. Posso verificar disponibilidade, agendar serviços e cancelar compromissos existentes para você.",
+        apiKeyWarning: "Defina EXPO_PUBLIC_OPENAI_API_KEY para habilitar o assistente.",
+        contextPrefix: "Contexto de agendamentos:",
+        quickRepliesTitle: "Prompts sugeridos",
+        quickRepliesToggleShow: "Mostrar sugestões",
+        quickRepliesToggleHide: "Ocultar sugestões rápidas",
+        quickReplyAccessibility: (suggestion: string) => `Enviar mensagem rápida: ${suggestion}`,
+        quickReplies: {
+          existingBookings: "Mostrar meus agendamentos",
+          bookService: "Ajudar a agendar um serviço",
+          bookSpecificService: (serviceName: string) => `Agendar ${serviceName}`,
+          barberAvailability: (barberName: string) => `Horários disponíveis para ${barberName}`,
+        },
+        inputPlaceholder: "Pergunte sobre os agendamentos...",
+        sendAccessibility: "Enviar mensagem",
+        suggestionsAccessibility: {
+          show: "Mostrar sugestões rápidas",
+          hide: "Ocultar sugestões rápidas",
+        },
+        voiceButtonAccessibility: {
+          start: "Iniciar entrada por voz",
+          stop: "Parar entrada por voz",
+        },
+        errors: {
+          generic: "Algo deu errado.",
+          missingApiKey: "Defina EXPO_PUBLIC_OPENAI_API_KEY para habilitar a entrada por voz.",
+          voiceWebOnly: "A captura de voz está disponível apenas na experiência web no momento.",
+          voiceUnsupported: "A captura de voz não é suportada neste navegador.",
+          voiceStartFailed: "Não foi possível iniciar a gravação de voz.",
+          noAudio: "Nenhum áudio capturado. Tente novamente.",
+          processFailed: "Falha ao processar a mensagem de voz.",
+        },
+      },
+      contextSummary: {
+        hours: (start: string, end: string) => `Horário: ${start}–${end}`,
+        services: (list: string) => `Serviços: ${list}`,
+        serviceDetail: (name: string, minutes: number) => `${name} (${minutes} min)`,
+        barbers: (list: string) => `Barbeiros: ${list}`,
+        bookingsScheduled: (count: number) => `Agendamentos: ${count} marcados.`,
+        bookingsEmpty: "Agendamentos: nenhum marcado ainda.",
+      },
+      systemPrompt: {
+        intro: "Você é o AIBarber, um assistente que ajuda a gerenciar a agenda de uma barbearia.",
+        hours: (start: string, end: string) => `Horário de funcionamento: ${start} às ${end}.`,
+        servicesHeader: "Serviços:",
+        serviceLine: (name: string, minutes: number, price: string) =>
+          `• ${name} (${minutes} minutos • ${price})`,
+        barbersHeader: "Barbeiros:",
+        barberLine: (name: string) => `• ${name}`,
+        bookingsHeader: "Agendamentos existentes:",
+        bookingsEmpty: "(Nenhum agendamento registrado no momento.)",
+        bookingLine: ({
+          date,
+          start,
+          end,
+          serviceName,
+          barberName,
+          customerName,
+        }: {
+          date: string;
+          start?: string | null;
+          end?: string | null;
+          serviceName: string;
+          barberName: string;
+          customerName?: string | null;
+        }) => {
+          const timeRange = [start, end].filter(Boolean).join("–");
+          const timeSegment = timeRange ? ` ${timeRange}` : "";
+          const clientSegment = customerName ? ` para ${customerName}` : "";
+          return `${date}${timeSegment} • ${serviceName} • ${barberName}${clientSegment}`;
+        },
+        instructions: [
+          "Você pode usar ferramentas para verificar disponibilidade, criar agendamentos e cancelar agendamentos.",
+          "Sempre colete o nome, sobrenome e telefone do cliente antes de agendar.",
+          "Use find_customer para conferir o cadastro pelo telefone informado e create_customer se não houver registro.",
+          "Inclua o customer_id retornado sempre que chamar book_service para vincular o agendamento ao cliente.",
+          "Quando o usuário quiser agendar, reúna serviço, barbeiro, data e horário preferido antes de sugerir opções.",
+          "Chame get_availability antes de confirmar um novo agendamento e explique conflitos encontrados.",
+          "Após realizar um agendamento ou cancelamento, confirme a ação e resuma o resultado para o usuário.",
+        ],
+      },
+    },
+    imageAssistant: {
+      title: "Laboratório de imagens",
+      subtitle: {
+        before: "Gere visuais de marketing para a sua barbearia usando a API de imagens da OpenAI disponível em ",
+        highlight: "/api/GenerateImage",
+        after: ".",
+      },
+      helperMessage:
+        "Defina EXPO_PUBLIC_IMAGE_API_TOKEN para autenticar as requisições para a função GenerateImage.",
+      promptLabel: "Prompt",
+      promptPlaceholder:
+        "Crie uma imagem hero premium para o site de uma barbearia mostrando um corte moderno.",
+      sizeLabel: "Tamanho",
+      sizeOptions: [
+        { label: "Quadrado • 256px", value: "256x256" },
+        { label: "Detalhado • 512px", value: "512x512" },
+        { label: "Vitrine • 1024px", value: "1024x1024" },
+      ] as const,
+      qualityLabel: "Qualidade",
+      qualityOptions: [
+        { label: "Padrão", value: "standard", helper: "Opção mais rápida para pré-visualizações." },
+        { label: "HD", value: "hd", helper: "Resultado mais nítido, um pouco mais lento." },
+      ] as const,
+      optionAccessibility: {
+        size: (label: string) => `Selecionar tamanho ${label}`,
+        quality: (label: string) => `Usar qualidade ${label}`,
+      },
+      generateButton: "Gerar imagem",
+      generateAccessibility: "Gerar imagem de marketing",
+      errors: {
+        generateFailed: "Não foi possível gerar a imagem.",
+      },
+      history: {
+        title: "Resultados recentes",
+        clearLabel: "Limpar",
+        clearAccessibility: "Limpar imagens geradas",
+        promptLabel: "Prompt:",
+        revisedPrefix: "Prompt revisado:",
+        meta: (size: string, quality: string) => `Tamanho: ${size} • Qualidade: ${quality}`,
+        generatedAt: (timestamp: string) => `Gerado em ${timestamp}`,
+      },
+    },
     weekTitle: "Esta semana",
     overviewSubtitle: (range?: string | null) =>
       `Visão geral dos agendamentos marcados para ${range?.trim() ? range : "a semana atual"}.`,
@@ -332,6 +722,11 @@ export default function App() {
   >("home");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [language, setLanguage] = useState<SupportedLanguage>(() => getInitialLanguage());
+  const copy = useMemo(() => LANGUAGE_COPY[language], [language]);
+  const bookServiceCopy = copy.bookService;
+  const bookingsCopy = copy.bookings;
+  const assistantCopy = copy.assistant;
+  const imageAssistantCopy = copy.imageAssistant;
 
   // Cliente -> obrigatório antes do barbeiro
   const [clientModalOpen, setClientModalOpen] = useState(false);
@@ -380,13 +775,13 @@ export default function App() {
       });
     } catch (e: any) {
       console.error(e);
-      Alert.alert("Services", e?.message ?? String(e));
+      Alert.alert(copy.servicesPage.alerts.loadTitle, e?.message ?? String(e));
       setServices([]);
       setSelectedServiceId(null);
     } finally {
       setServicesLoading(false);
     }
-  }, []);
+  }, [copy]);
 
   useEffect(() => { loadServices(); }, [loadServices]);
 
@@ -438,21 +833,21 @@ export default function App() {
             void loadServices();
           } catch (e: any) {
             console.error(e);
-            Alert.alert("Delete service", e?.message ?? String(e));
+            Alert.alert(copy.servicesPage.alerts.deleteErrorTitle, e?.message ?? String(e));
           }
         })();
       };
 
       Alert.alert(
-        "Delete service",
-        `Are you sure you want to remove "${svc.name}"?`,
+        copy.servicesPage.alerts.deleteTitle,
+        copy.servicesPage.alerts.deleteMessage(svc.name),
         [
-          { text: "Cancel", style: "cancel" },
-          { text: "Delete", style: "destructive", onPress: confirm },
+          { text: copy.servicesPage.alerts.cancel, style: "cancel" },
+          { text: copy.servicesPage.alerts.confirm, style: "destructive", onPress: confirm },
         ],
       );
     },
-    [loadServices],
+    [copy, loadServices],
   );
 
   const selectedService = useMemo(
@@ -759,54 +1154,69 @@ export default function App() {
   }, [day]);
 
   const assistantContextSummary = useMemo(() => {
-    const serviceList = services.map((s) => `${s.name} (${s.estimated_minutes}m)`).join(", ");
+    const serviceList = services
+      .map((s) => assistantCopy.contextSummary.serviceDetail(s.name, s.estimated_minutes))
+      .join(", ");
     const barberList = BARBERS.map((b) => b.name).join(", ");
     const bookingCount = bookings.length;
 
-    let summary = `Hours: ${pad(openingHour)}:00–${pad(closingHour)}:00\nServices: ${serviceList}\nBarbers: ${barberList}`;
-    summary += bookingCount
-      ? `\nBookings: ${bookingCount} scheduled.`
-      : "\nBookings: none scheduled yet.";
-    return summary;
-  }, [bookings, services]);
+    const hoursLine = assistantCopy.contextSummary.hours(
+      `${pad(openingHour)}:00`,
+      `${pad(closingHour)}:00`,
+    );
+    const servicesLine = assistantCopy.contextSummary.services(serviceList);
+    const barbersLine = assistantCopy.contextSummary.barbers(barberList);
+    const bookingsLine = bookingCount
+      ? assistantCopy.contextSummary.bookingsScheduled(bookingCount)
+      : assistantCopy.contextSummary.bookingsEmpty;
+
+    return [hoursLine, servicesLine, barbersLine, bookingsLine].join("\n");
+  }, [assistantCopy.contextSummary, bookings, services]);
 
   const assistantSystemPrompt = useMemo(() => {
     const serviceLines = services
-      .map((s) => `• ${s.name} (${s.estimated_minutes} minutes • ${formatPrice(s.price_cents)})`)
+      .map((s) =>
+        assistantCopy.systemPrompt.serviceLine(
+          s.name,
+          s.estimated_minutes,
+          formatPrice(s.price_cents),
+        ),
+      )
       .join("\n");
-    const barberLines = BARBERS.map((b) => `• ${b.name}`).join("\n");
+    const barberLines = BARBERS.map((b) => assistantCopy.systemPrompt.barberLine(b.name)).join("\n");
     const bookingLines = bookings
       .map((b) => {
         const serviceName = serviceMap.get(b.service_id)?.name ?? b.service_id;
         const barberName = BARBER_MAP[b.barber]?.name ?? b.barber;
         const customerName = b._customer
-          ? ` for ${b._customer.first_name}${b._customer.last_name ? ` ${b._customer.last_name}` : ""}`
-          : "";
-        return `${humanDate(b.date)} ${b.start}–${b.end} • ${serviceName} • ${barberName}${customerName}`;
+          ? `${b._customer.first_name}${b._customer.last_name ? ` ${b._customer.last_name}` : ""}`
+          : null;
+        return assistantCopy.systemPrompt.bookingLine({
+          date: humanDate(b.date),
+          start: b.start,
+          end: b.end,
+          serviceName,
+          barberName,
+          customerName,
+        });
       })
       .slice(0, 12)
       .join("\n");
 
-    const existingBookings = bookingLines || "(No bookings are currently scheduled.)";
+    const existingBookings = bookingLines || assistantCopy.systemPrompt.bookingsEmpty;
 
     return [
-      "You are AIBarber, an assistant that helps manage a barbershop booking agenda.",
-      `Opening hours: ${pad(openingHour)}:00 to ${pad(closingHour)}:00.`,
-      "Services:",
+      assistantCopy.systemPrompt.intro,
+      assistantCopy.systemPrompt.hours(`${pad(openingHour)}:00`, `${pad(closingHour)}:00`),
+      assistantCopy.systemPrompt.servicesHeader,
       serviceLines,
-      "Barbers:",
+      assistantCopy.systemPrompt.barbersHeader,
       barberLines,
-      "Existing bookings:",
+      assistantCopy.systemPrompt.bookingsHeader,
       existingBookings,
-      "You can use tools to check availability, create bookings, and cancel bookings.",
-      "Always collect the customer's first name, last name, and phone number digits before booking.",
-      "Use find_customer to check registration with the provided phone number and create_customer if no record exists.",
-      "Include the returned customer_id whenever you call book_service so the booking is linked to the customer.",
-      "When the user asks to schedule, gather the service, barber, date, and preferred time before making suggestions.",
-      "Call get_availability before committing to a new booking, and explain any conflicts you find.",
-      "After performing a booking or cancellation, confirm the action and summarize the result for the user.",
+      ...assistantCopy.systemPrompt.instructions,
     ].join("\n");
-  }, [bookings, serviceMap, services]);
+  }, [assistantCopy.systemPrompt, bookings, serviceMap, services]);
 
   const filteredBookingsList = useMemo(() => {
     const barber = bookingFilterBarber?.trim();
@@ -901,9 +1311,6 @@ export default function App() {
   );
 
   const locale = language === "pt" ? "pt-BR" : "en-US";
-  const copy = useMemo(() => LANGUAGE_COPY[language], [language]);
-  const bookServiceCopy = copy.bookService;
-  const bookingsCopy = copy.bookings;
 
   const weekRangeLabel = useMemo(() => {
     if (!weekDays.length) return "";
@@ -1036,7 +1443,9 @@ export default function App() {
               size={20}
               color={activeScreen === "home" ? COLORS.accentFgOn : COLORS.subtext}
             />
-            <Text style={[styles.sidebarItemText, activeScreen === "home" && styles.sidebarItemTextActive]}>Overview</Text>
+            <Text style={[styles.sidebarItemText, activeScreen === "home" && styles.sidebarItemTextActive]}>
+              {copy.navigation.overview}
+            </Text>
           </Pressable>
           <Pressable
             onPress={() => handleNavigate("bookings")}
@@ -1049,7 +1458,9 @@ export default function App() {
               size={20}
               color={bookingsNavActive ? COLORS.accentFgOn : COLORS.subtext}
             />
-            <Text style={[styles.sidebarItemText, bookingsNavActive && styles.sidebarItemTextActive]}>Bookings</Text>
+            <Text style={[styles.sidebarItemText, bookingsNavActive && styles.sidebarItemTextActive]}>
+              {copy.navigation.bookings}
+            </Text>
           </Pressable>
           <Pressable
             onPress={() => handleNavigate("services")}
@@ -1062,7 +1473,9 @@ export default function App() {
               size={20}
               color={activeScreen === "services" ? COLORS.accentFgOn : COLORS.subtext}
             />
-            <Text style={[styles.sidebarItemText, activeScreen === "services" && styles.sidebarItemTextActive]}>Services</Text>
+            <Text style={[styles.sidebarItemText, activeScreen === "services" && styles.sidebarItemTextActive]}>
+              {copy.navigation.services}
+            </Text>
           </Pressable>
           <Pressable
             onPress={() => handleNavigate("assistant")}
@@ -1075,7 +1488,9 @@ export default function App() {
               size={20}
               color={activeScreen === "assistant" ? COLORS.accentFgOn : COLORS.subtext}
             />
-            <Text style={[styles.sidebarItemText, activeScreen === "assistant" && styles.sidebarItemTextActive]}>Assistant</Text>
+            <Text style={[styles.sidebarItemText, activeScreen === "assistant" && styles.sidebarItemTextActive]}>
+              {copy.navigation.assistant}
+            </Text>
           </Pressable>
           <Pressable
             onPress={() => handleNavigate("imageAssistant")}
@@ -1091,7 +1506,7 @@ export default function App() {
             <Text
               style={[styles.sidebarItemText, activeScreen === "imageAssistant" && styles.sidebarItemTextActive]}
             >
-              Image lab
+              {copy.navigation.imageAssistant}
             </Text>
           </Pressable>
           <Pressable
@@ -1106,7 +1521,7 @@ export default function App() {
               color={activeScreen === "settings" ? COLORS.accentFgOn : COLORS.subtext}
             />
             <Text style={[styles.sidebarItemText, activeScreen === "settings" && styles.sidebarItemTextActive]}>
-              Settings
+              {copy.navigation.settings}
             </Text>
           </Pressable>
         </View>
@@ -1604,18 +2019,18 @@ export default function App() {
         <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 12 }]}>
           <View style={styles.listHeaderRow}>
             <View style={{ flex: 1, gap: 4 }}>
-              <Text style={[styles.title, { color: COLORS.text }]}>Services</Text>
+              <Text style={[styles.title, { color: COLORS.text }]}>{copy.servicesPage.title}</Text>
               <Text style={{ color: COLORS.subtext, fontSize: 13, fontWeight: "600" }}>
-                Manage what clients can book and adjust existing options as needed.
+                {copy.servicesPage.subtitle}
               </Text>
             </View>
             <Pressable
               onPress={handleOpenCreateService}
               style={[styles.defaultCta, { marginTop: 0 }]}
               accessibilityRole="button"
-              accessibilityLabel="Open create service form"
+              accessibilityLabel={copy.servicesPage.createCta.accessibility}
             >
-              <Text style={styles.defaultCtaText}>Create service</Text>
+              <Text style={styles.defaultCtaText}>{copy.servicesPage.createCta.label}</Text>
             </Pressable>
           </View>
         </View>
@@ -1636,13 +2051,14 @@ export default function App() {
               accentFgOn: COLORS.accentFgOn,
               danger: COLORS.danger,
             }}
+            copy={copy.serviceForm}
           />
         ) : null}
 
         <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 12 }]}>
-          <Text style={[styles.title, { color: COLORS.text }]}>Existing services</Text>
+          <Text style={[styles.title, { color: COLORS.text }]}>{copy.servicesPage.listTitle}</Text>
           {services.length === 0 ? (
-            <Text style={[styles.empty, { marginVertical: 8 }]}>— none registered yet —</Text>
+            <Text style={[styles.empty, { marginVertical: 8 }]}>{copy.servicesPage.empty}</Text>
           ) : (
             services.map((svc) => (
               <View key={svc.id} style={styles.serviceRow}>
@@ -1651,7 +2067,7 @@ export default function App() {
                   <View>
                     <Text style={{ color: COLORS.text, fontWeight: "800" }}>{svc.name}</Text>
                     <Text style={{ color: COLORS.subtext, fontSize: 12 }}>
-                      {svc.estimated_minutes} minutes • {formatPrice(svc.price_cents)}
+                      {copy.servicesPage.serviceMeta(svc.estimated_minutes, formatPrice(svc.price_cents))}
                     </Text>
                   </View>
                 </View>
@@ -1660,9 +2076,11 @@ export default function App() {
                     onPress={() => handleOpenEditService(svc)}
                     style={[styles.smallBtn, { borderColor: COLORS.border }]}
                     accessibilityRole="button"
-                    accessibilityLabel={`Edit ${svc.name}`}
+                    accessibilityLabel={copy.servicesPage.actions.edit.accessibility(svc.name)}
                   >
-                    <Text style={{ color: COLORS.subtext, fontWeight: "800" }}>Edit</Text>
+                    <Text style={{ color: COLORS.subtext, fontWeight: "800" }}>
+                      {copy.servicesPage.actions.edit.label}
+                    </Text>
                   </Pressable>
                   <Pressable
                     onPress={() => handleDeleteService(svc)}
@@ -1674,9 +2092,11 @@ export default function App() {
                       },
                     ]}
                     accessibilityRole="button"
-                    accessibilityLabel={`Delete ${svc.name}`}
+                    accessibilityLabel={copy.servicesPage.actions.delete.accessibility(svc.name)}
                   >
-                    <Text style={{ color: COLORS.danger, fontWeight: "800" }}>Delete</Text>
+                    <Text style={{ color: COLORS.danger, fontWeight: "800" }}>
+                      {copy.servicesPage.actions.delete.label}
+                    </Text>
                   </Pressable>
                 </View>
               </View>
@@ -1700,6 +2120,7 @@ export default function App() {
         contextSummary={assistantContextSummary}
         onBookingsMutated={handleBookingsMutated}
         services={services}
+        copy={assistantCopy.chat}
       />
     ) : activeScreen === "imageAssistant" ? (
       <ImageAssistant
@@ -1713,6 +2134,7 @@ export default function App() {
           danger: COLORS.danger,
           bg: COLORS.bg,
         }}
+        copy={imageAssistantCopy}
       />
     ) : activeScreen === "settings" ? (
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, gap: 16 }}>

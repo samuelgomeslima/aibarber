@@ -16,22 +16,74 @@ import {
   type GenerateImageResponse,
 } from "../lib/imageApi";
 
-const SIZE_OPTIONS: Array<{ label: string; value: "256x256" | "512x512" | "1024x1024" }> = [
-  { label: "Square • 256px", value: "256x256" },
-  { label: "Detailed • 512px", value: "512x512" },
-  { label: "Showcase • 1024px", value: "1024x1024" },
-];
+type ImageAssistantCopy = {
+  title: string;
+  subtitle: { before: string; highlight: string; after: string };
+  helperMessage: string;
+  promptLabel: string;
+  promptPlaceholder: string;
+  sizeLabel: string;
+  sizeOptions: Array<{ label: string; value: "256x256" | "512x512" | "1024x1024" }>;
+  qualityLabel: string;
+  qualityOptions: Array<{ label: string; value: "standard" | "hd"; helper: string }>;
+  optionAccessibility: {
+    size: (label: string) => string;
+    quality: (label: string) => string;
+  };
+  generateButton: string;
+  generateAccessibility: string;
+  errors: { generateFailed: string };
+  history: {
+    title: string;
+    clearLabel: string;
+    clearAccessibility: string;
+    promptLabel: string;
+    revisedPrefix: string;
+    meta: (size: string, quality: string) => string;
+    generatedAt: (timestamp: string) => string;
+  };
+};
 
-const QUALITY_OPTIONS: Array<{ label: string; value: "standard" | "hd"; helper: string }> = [
-  { label: "Standard", value: "standard", helper: "Fastest option for quick previews." },
-  { label: "HD", value: "hd", helper: "Sharper output, slightly slower." },
-];
-
-const API_WARNING_MESSAGE =
-  "Set EXPO_PUBLIC_IMAGE_API_TOKEN to authenticate requests to the GenerateImage function.";
-
-const PLACEHOLDER_PROMPT =
-  "Create a premium hero image for a barber shop website featuring a modern haircut session.";
+const DEFAULT_COPY: ImageAssistantCopy = {
+  title: "Image assistant",
+  subtitle: {
+    before: "Generate marketing visuals for your shop using the OpenAI image API deployed under ",
+    highlight: "/api/GenerateImage",
+    after: ".",
+  },
+  helperMessage: "Set EXPO_PUBLIC_IMAGE_API_TOKEN to authenticate requests to the GenerateImage function.",
+  promptLabel: "Prompt",
+  promptPlaceholder: "Create a premium hero image for a barber shop website featuring a modern haircut session.",
+  sizeLabel: "Size",
+  sizeOptions: [
+    { label: "Square • 256px", value: "256x256" },
+    { label: "Detailed • 512px", value: "512x512" },
+    { label: "Showcase • 1024px", value: "1024x1024" },
+  ],
+  qualityLabel: "Quality",
+  qualityOptions: [
+    { label: "Standard", value: "standard", helper: "Fastest option for quick previews." },
+    { label: "HD", value: "hd", helper: "Sharper output, slightly slower." },
+  ],
+  optionAccessibility: {
+    size: (label: string) => `Select ${label} size`,
+    quality: (label: string) => `Use ${label} quality`,
+  },
+  generateButton: "Generate image",
+  generateAccessibility: "Generate marketing image",
+  errors: {
+    generateFailed: "Unable to generate image.",
+  },
+  history: {
+    title: "Recent results",
+    clearLabel: "Clear",
+    clearAccessibility: "Clear generated images",
+    promptLabel: "Prompt:",
+    revisedPrefix: "Revised prompt:",
+    meta: (size: string, quality: string) => `Size: ${size} • Quality: ${quality}`,
+    generatedAt: (timestamp: string) => `Generated ${timestamp}`,
+  },
+};
 
 type ImageAssistantProps = {
   colors: {
@@ -44,6 +96,7 @@ type ImageAssistantProps = {
     danger: string;
     bg: string;
   };
+  copy?: ImageAssistantCopy;
 };
 
 type HistoryEntry = {
@@ -61,7 +114,7 @@ function toDataUri(image: GenerateImageResponse["data"]): string {
   throw new Error("The image response did not include any renderable data.");
 }
 
-export default function ImageAssistant({ colors }: ImageAssistantProps) {
+export default function ImageAssistant({ colors, copy = DEFAULT_COPY }: ImageAssistantProps) {
   const [prompt, setPrompt] = useState("");
   const [size, setSize] = useState<"256x256" | "512x512" | "1024x1024">("1024x1024");
   const [quality, setQuality] = useState<"standard" | "hd">("standard");
@@ -69,11 +122,14 @@ export default function ImageAssistant({ colors }: ImageAssistantProps) {
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
 
+  const sizeOptions = copy.sizeOptions;
+  const qualityOptions = copy.qualityOptions;
+
   const canGenerate = useMemo(() => {
     return Boolean(prompt.trim()) && !pending && isImageApiConfigured;
   }, [prompt, pending]);
 
-  const helperMessage = isImageApiConfigured ? null : API_WARNING_MESSAGE;
+  const helperMessage = isImageApiConfigured ? null : copy.helperMessage;
 
   const handleGenerate = async () => {
     if (!prompt.trim() || pending) return;
@@ -89,7 +145,7 @@ export default function ImageAssistant({ colors }: ImageAssistantProps) {
         ...prev,
       ]);
     } catch (e: any) {
-      setError(e?.message ?? "Unable to generate image.");
+      setError(e?.message ?? copy.errors.generateFailed);
     } finally {
       setPending(false);
     }
@@ -102,8 +158,12 @@ export default function ImageAssistant({ colors }: ImageAssistantProps) {
   return (
     <ScrollView contentContainerStyle={[styles.container, { backgroundColor: colors.bg }]}>
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <Text style={[styles.title, { color: colors.text }]}>Image assistant</Text>
-        <Text style={[styles.subtitle, { color: colors.subtext }]}>Generate marketing visuals for your shop using the OpenAI image API deployed under <Text style={{ fontWeight: "700", color: colors.text }}>/api/GenerateImage</Text>.</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{copy.title}</Text>
+        <Text style={[styles.subtitle, { color: colors.subtext }]}>
+          {copy.subtitle.before}
+          <Text style={{ fontWeight: "700", color: colors.text }}>{copy.subtitle.highlight}</Text>
+          {copy.subtitle.after}
+        </Text>
 
         {helperMessage ? (
           <View style={[styles.banner, { borderColor: colors.danger, backgroundColor: "rgba(239,68,68,0.12)" }]}>
@@ -113,21 +173,21 @@ export default function ImageAssistant({ colors }: ImageAssistantProps) {
 
         <View style={{ gap: 12 }}>
           <View>
-            <Text style={[styles.label, { color: colors.subtext }]}>Prompt</Text>
+            <Text style={[styles.label, { color: colors.subtext }]}>{copy.promptLabel}</Text>
             <TextInput
               multiline
               value={prompt}
               onChangeText={setPrompt}
-              placeholder={PLACEHOLDER_PROMPT}
+              placeholder={copy.promptPlaceholder}
               placeholderTextColor={"rgba(255,255,255,0.4)"}
               style={[styles.promptInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.bg }]}
             />
           </View>
 
           <View>
-            <Text style={[styles.label, { color: colors.subtext }]}>Size</Text>
+            <Text style={[styles.label, { color: colors.subtext }]}>{copy.sizeLabel}</Text>
             <View style={styles.optionRow}>
-              {SIZE_OPTIONS.map((option) => {
+              {sizeOptions.map((option) => {
                 const active = option.value === size;
                 return (
                   <Pressable
@@ -139,7 +199,7 @@ export default function ImageAssistant({ colors }: ImageAssistantProps) {
                       active && { backgroundColor: colors.accent, borderColor: colors.accent },
                     ]}
                     accessibilityRole="button"
-                    accessibilityLabel={`Select ${option.label}`}
+                    accessibilityLabel={copy.optionAccessibility.size(option.label)}
                   >
                     <Text style={[styles.optionText, { color: active ? colors.accentFgOn : colors.subtext }]}>
                       {option.label}
@@ -151,9 +211,9 @@ export default function ImageAssistant({ colors }: ImageAssistantProps) {
           </View>
 
           <View>
-            <Text style={[styles.label, { color: colors.subtext }]}>Quality</Text>
+            <Text style={[styles.label, { color: colors.subtext }]}>{copy.qualityLabel}</Text>
             <View style={styles.optionRow}>
-              {QUALITY_OPTIONS.map((option) => {
+              {qualityOptions.map((option) => {
                 const active = option.value === quality;
                 return (
                   <Pressable
@@ -165,7 +225,7 @@ export default function ImageAssistant({ colors }: ImageAssistantProps) {
                       active && { backgroundColor: colors.accent, borderColor: colors.accent },
                     ]}
                     accessibilityRole="button"
-                    accessibilityLabel={`Use ${option.label} quality`}
+                    accessibilityLabel={copy.optionAccessibility.quality(option.label)}
                   >
                     <View style={{ alignItems: "center" }}>
                       <Text style={[styles.optionText, { color: active ? colors.accentFgOn : colors.subtext }]}>
@@ -186,12 +246,12 @@ export default function ImageAssistant({ colors }: ImageAssistantProps) {
             style={[styles.generateButton, { backgroundColor: canGenerate ? colors.accent : colors.border }]}
             disabled={!canGenerate}
             accessibilityRole="button"
-            accessibilityLabel="Generate marketing image"
+            accessibilityLabel={copy.generateAccessibility}
           >
             {pending ? (
               <ActivityIndicator color={colors.accentFgOn} />
             ) : (
-              <Text style={[styles.generateButtonText, { color: colors.accentFgOn }]}>Generate image</Text>
+              <Text style={[styles.generateButtonText, { color: colors.accentFgOn }]}>{copy.generateButton}</Text>
             )}
           </Pressable>
 
@@ -201,15 +261,15 @@ export default function ImageAssistant({ colors }: ImageAssistantProps) {
 
       {history.length > 0 ? (
         <View style={{ gap: 16 }}>
-          <View style={[styles.historyHeader, { borderColor: colors.border }]}> 
-            <Text style={[styles.title, { color: colors.text, flex: 1 }]}>Recent results</Text>
+          <View style={[styles.historyHeader, { borderColor: colors.border }]}>
+            <Text style={[styles.title, { color: colors.text, flex: 1 }]}>{copy.history.title}</Text>
             <Pressable
               onPress={clearHistory}
               style={[styles.clearHistoryButton, { borderColor: colors.border }]}
               accessibilityRole="button"
-              accessibilityLabel="Clear generated images"
+              accessibilityLabel={copy.history.clearAccessibility}
             >
-              <Text style={[styles.clearHistoryText, { color: colors.subtext }]}>Clear</Text>
+              <Text style={[styles.clearHistoryText, { color: colors.subtext }]}>{copy.history.clearLabel}</Text>
             </Pressable>
           </View>
 
@@ -220,15 +280,19 @@ export default function ImageAssistant({ colors }: ImageAssistantProps) {
                 key={entry.id}
                 style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border, gap: 12 }]}
               >
-                <Text style={[styles.historyMeta, { color: colors.subtext }]}>Prompt:</Text>
+                <Text style={[styles.historyMeta, { color: colors.subtext }]}>{copy.history.promptLabel}</Text>
                 <Text style={[styles.historyPrompt, { color: colors.text }]}>{response.prompt}</Text>
                 {response.data.revised_prompt ? (
-                  <Text style={[styles.historyRevised, { color: colors.subtext }]}>Revised prompt: {response.data.revised_prompt}</Text>
+                  <Text style={[styles.historyRevised, { color: colors.subtext }]}>
+                    {copy.history.revisedPrefix} {response.data.revised_prompt}
+                  </Text>
                 ) : null}
                 <Image source={{ uri: entry.imageUri }} style={styles.previewImage} resizeMode="contain" />
-                <Text style={[styles.historyMeta, { color: colors.subtext }]}>Size: {response.size} • Quality: {response.quality}</Text>
+                <Text style={[styles.historyMeta, { color: colors.subtext }]}>
+                  {copy.history.meta(response.size, response.quality)}
+                </Text>
                 <Text style={[styles.historyTimestamp, { color: colors.subtext }]}>
-                  Generated {new Date(entry.createdAt).toLocaleString()}
+                  {copy.history.generatedAt(new Date(entry.createdAt).toLocaleString())}
                 </Text>
               </View>
             );

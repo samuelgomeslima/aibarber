@@ -16,6 +16,77 @@ import { isOpenAiConfigured, transcribeAudio } from "../lib/openai";
 import { runBookingAgent } from "../lib/bookingAgent";
 import { BARBERS, type Service } from "../lib/domain";
 
+type AssistantChatCopy = {
+  initialMessage: string;
+  apiKeyWarning: string;
+  contextPrefix: string;
+  quickRepliesTitle: string;
+  quickRepliesToggleShow: string;
+  quickRepliesToggleHide: string;
+  quickReplyAccessibility: (suggestion: string) => string;
+  quickReplies: {
+    existingBookings: string;
+    bookService: string;
+    bookSpecificService: (serviceName: string) => string;
+    barberAvailability: (barberName: string) => string;
+  };
+  inputPlaceholder: string;
+  sendAccessibility: string;
+  suggestionsAccessibility: {
+    show: string;
+    hide: string;
+  };
+  voiceButtonAccessibility: {
+    start: string;
+    stop: string;
+  };
+  errors: {
+    generic: string;
+    missingApiKey: string;
+    voiceWebOnly: string;
+    voiceUnsupported: string;
+    voiceStartFailed: string;
+    noAudio: string;
+    processFailed: string;
+  };
+};
+
+const DEFAULT_COPY: AssistantChatCopy = {
+  initialMessage:
+    "Hi! I'm your AIBarber agent. I can check availability, book services, and cancel existing appointments for you.",
+  apiKeyWarning: "Set EXPO_PUBLIC_OPENAI_API_KEY to enable the assistant.",
+  contextPrefix: "Booking context:",
+  quickRepliesTitle: "Suggested prompts",
+  quickRepliesToggleShow: "Show suggestions",
+  quickRepliesToggleHide: "Hide quick suggestions",
+  quickReplyAccessibility: (suggestion: string) => `Send quick message: ${suggestion}`,
+  quickReplies: {
+    existingBookings: "Show my existing bookings",
+    bookService: "Help me book a service",
+    bookSpecificService: (serviceName: string) => `Book a ${serviceName}`,
+    barberAvailability: (barberName: string) => `Available hours for ${barberName}`,
+  },
+  inputPlaceholder: "Ask about bookings...",
+  sendAccessibility: "Send message",
+  suggestionsAccessibility: {
+    show: "Show quick suggestions",
+    hide: "Hide quick suggestions",
+  },
+  voiceButtonAccessibility: {
+    start: "Start voice input",
+    stop: "Stop voice input",
+  },
+  errors: {
+    generic: "Something went wrong.",
+    missingApiKey: "Set EXPO_PUBLIC_OPENAI_API_KEY to enable voice input.",
+    voiceWebOnly: "Voice capture is currently supported on the web experience only.",
+    voiceUnsupported: "Voice capture is not supported in this browser.",
+    voiceStartFailed: "Unable to start voice recording.",
+    noAudio: "No audio captured. Try again.",
+    processFailed: "Failed to process voice message.",
+  },
+};
+
 type DisplayMessage = {
   role: "assistant" | "user";
   content: string;
@@ -36,15 +107,19 @@ type AssistantChatProps = {
   contextSummary: string;
   onBookingsMutated?: () => Promise<void> | void;
   services: Service[];
+  copy?: AssistantChatCopy;
 };
 
-const INITIAL_ASSISTANT_MESSAGE =
-  "Hi! I'm your AIBarber agent. I can check availability, book services, and cancel existing appointments for you.";
-const API_KEY_WARNING_MESSAGE = "Set EXPO_PUBLIC_OPENAI_API_KEY to enable the assistant.";
-
-export default function AssistantChat({ colors, systemPrompt, contextSummary, onBookingsMutated, services }: AssistantChatProps) {
+export default function AssistantChat({
+  colors,
+  systemPrompt,
+  contextSummary,
+  onBookingsMutated,
+  services,
+  copy = DEFAULT_COPY,
+}: AssistantChatProps) {
   const [messages, setMessages] = useState<DisplayMessage[]>([
-    { role: "assistant", content: INITIAL_ASSISTANT_MESSAGE },
+    { role: "assistant", content: copy.initialMessage },
   ]);
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
@@ -53,22 +128,34 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
   const [error, setError] = useState<string | null>(null);
   const [suggestionsVisible, setSuggestionsVisible] = useState(false);
 
+  useEffect(() => {
+    setMessages((prev) => {
+      if (prev.length === 0) {
+        return [{ role: "assistant", content: copy.initialMessage }];
+      }
+      const next = [...prev];
+      const first = next[0];
+      if (first?.role === "assistant" && first.content !== copy.initialMessage) {
+        next[0] = { role: "assistant", content: copy.initialMessage };
+        return next;
+      }
+      return prev;
+    });
+  }, [copy.initialMessage]);
+
   const quickReplies = useMemo(() => {
-    const replies = [
-      "Show my existing bookings",
-      "Help me book a service",
-    ];
+    const replies = [copy.quickReplies.existingBookings, copy.quickReplies.bookService];
 
     services.slice(0, 2).forEach((service) => {
-      replies.push(`Book a ${service.name}`);
+      replies.push(copy.quickReplies.bookSpecificService(service.name));
     });
 
     BARBERS.slice(0, 2).forEach((barber) => {
-      replies.push(`Available hours for ${barber.name}`);
+      replies.push(copy.quickReplies.barberAvailability(barber.name));
     });
 
     return replies;
-  }, [services]);
+  }, [copy.quickReplies, services]);
 
   const scrollRef = useRef<ScrollView>(null);
   const messagesRef = useRef(messages);
@@ -81,7 +168,7 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
   useEffect(() => {
     const trimmed = contextSummary.trim();
     setMessages((prev) => {
-      const contextPrefix = "Booking context:";
+      const contextPrefix = copy.contextPrefix;
       const existingIndex = prev.findIndex(
         (msg) => msg.role === "assistant" && msg.content.startsWith(contextPrefix),
       );
@@ -108,28 +195,23 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
       next.splice(insertIndex, 0, { role: "assistant", content: contextContent });
       return next;
     });
-  }, [contextSummary]);
+  }, [contextSummary, copy.contextPrefix]);
   useEffect(() => {
-    if (isOpenAiConfigured) {
-      setMessages((prev) => {
-        const index = prev.findIndex(
-          (msg) => msg.role === "assistant" && msg.content === API_KEY_WARNING_MESSAGE,
-        );
-        if (index === -1) return prev;
-        const next = [...prev];
-        next.splice(index, 1);
-        return next;
-      });
-      return;
-    }
-
     setMessages((prev) => {
-      if (prev.some((msg) => msg.role === "assistant" && msg.content === API_KEY_WARNING_MESSAGE)) {
-        return prev;
+      const filtered = prev.filter(
+        (msg) =>
+          !(msg.role === "assistant" &&
+            (msg.content === copy.apiKeyWarning || msg.content === DEFAULT_COPY.apiKeyWarning)),
+      );
+      if (isOpenAiConfigured) {
+        return filtered;
       }
-      return [...prev, { role: "assistant", content: API_KEY_WARNING_MESSAGE }];
+      if (filtered.some((msg) => msg.role === "assistant" && msg.content === copy.apiKeyWarning)) {
+        return filtered;
+      }
+      return [...filtered, { role: "assistant", content: copy.apiKeyWarning }];
     });
-  }, [isOpenAiConfigured]);
+  }, [copy.apiKeyWarning, isOpenAiConfigured]);
   useEffect(() => {
     scrollRef.current?.scrollToEnd({ animated: true });
   }, [messages]);
@@ -154,19 +236,19 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
 
   const startVoiceRecording = useCallback(async () => {
     if (!isOpenAiConfigured) {
-      setError("Set EXPO_PUBLIC_OPENAI_API_KEY to enable voice input.");
+      setError(copy.errors.missingApiKey);
       return;
     }
     const globalNavigator: any = Platform.OS === "web" ? (globalThis as any).navigator : null;
     if (!globalNavigator?.mediaDevices?.getUserMedia) {
-      setError("Voice capture is currently supported on the web experience only.");
+      setError(copy.errors.voiceWebOnly);
       return;
     }
 
     try {
       const RecorderCtor = (globalThis as any).MediaRecorder;
       if (typeof RecorderCtor !== "function") {
-        setError("Voice capture is not supported in this browser.");
+        setError(copy.errors.voiceUnsupported);
         return;
       }
 
@@ -183,11 +265,11 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
       setError(null);
       setIsRecording(true);
     } catch (e: any) {
-      const message = e?.message ? String(e.message) : "Unable to start voice recording.";
+      const message = e?.message ? String(e.message) : copy.errors.voiceStartFailed;
       setError(message);
       setIsRecording(false);
     }
-  }, []);
+  }, [copy.errors.missingApiKey, copy.errors.voiceStartFailed, copy.errors.voiceUnsupported, copy.errors.voiceWebOnly, isOpenAiConfigured]);
 
   const stopVoiceRecording = useCallback(async () => {
     const recorder = mediaRecorderRef.current;
@@ -240,13 +322,13 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
         });
         setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
       } catch (e: any) {
-        const message = e?.message ? String(e.message) : "Something went wrong.";
+        const message = e?.message ? String(e.message) : copy.errors.generic;
         setError(message);
       } finally {
         setPending(false);
       }
     },
-    [contextSummary, onBookingsMutated, pending, services, systemPrompt],
+    [contextSummary, copy.errors.generic, onBookingsMutated, pending, services, systemPrompt],
   );
 
   const handleSend = useCallback(() => {
@@ -265,7 +347,7 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
       try {
         const blob = await stopVoiceRecording();
         if (!blob) {
-          setError("No audio captured. Try again.");
+          setError(copy.errors.noAudio);
           return;
         }
         const mimeType = blob.type || "audio/webm";
@@ -295,7 +377,7 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
         });
         await sendMessage(transcript);
       } catch (e: any) {
-        const message = e?.message ? String(e.message) : "Failed to process voice message.";
+        const message = e?.message ? String(e.message) : copy.errors.processFailed;
         setError(message);
       } finally {
         setVoiceTranscribing(false);
@@ -303,7 +385,16 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
     } else {
       await startVoiceRecording();
     }
-  }, [isRecording, pending, sendMessage, startVoiceRecording, stopVoiceRecording, voiceTranscribing]);
+  }, [
+    copy.errors.noAudio,
+    copy.errors.processFailed,
+    isRecording,
+    pending,
+    sendMessage,
+    startVoiceRecording,
+    stopVoiceRecording,
+    voiceTranscribing,
+  ]);
 
   const voiceButtonDisabled =
     !isOpenAiConfigured || pending || voiceTranscribing || (!voiceSupported && !isRecording);
@@ -367,11 +458,13 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
             style={[styles.quickRepliesContainer, { borderColor: colors.border, backgroundColor: colors.surface }]}
           >
             <View style={styles.quickRepliesHeader}>
-              <Text style={[styles.quickRepliesTitle, { color: colors.subtext }]}>Suggested prompts</Text>
+              <Text style={[styles.quickRepliesTitle, { color: colors.subtext }]}>
+                {copy.quickRepliesTitle}
+              </Text>
               <Pressable
                 onPress={() => setSuggestionsVisible(false)}
                 accessibilityRole="button"
-                accessibilityLabel="Hide quick suggestions"
+                accessibilityLabel={copy.suggestionsAccessibility.hide}
                 hitSlop={8}
               >
                 <Ionicons name="close" size={18} color={colors.subtext} />
@@ -392,7 +485,7 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
                     },
                   ]}
                   accessibilityRole="button"
-                  accessibilityLabel={`Send quick message: ${suggestion}`}
+                  accessibilityLabel={copy.quickReplyAccessibility(suggestion)}
                 >
                   <View style={[styles.quickReplyIcon, { backgroundColor: colors.accent }]}>
                     <Ionicons name="sparkles-outline" size={16} color={colors.accentFgOn} />
@@ -407,10 +500,12 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
             onPress={() => setSuggestionsVisible(true)}
             style={[styles.quickRepliesToggle, { borderColor: colors.border, backgroundColor: colors.surface }]}
             accessibilityRole="button"
-            accessibilityLabel="Show quick suggestions"
+            accessibilityLabel={copy.suggestionsAccessibility.show}
           >
             <Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.subtext} />
-            <Text style={[styles.quickRepliesToggleText, { color: colors.subtext }]}>Show suggestions</Text>
+            <Text style={[styles.quickRepliesToggleText, { color: colors.subtext }]}>
+              {copy.quickRepliesToggleShow}
+            </Text>
           </Pressable>
         ) : null}
 
@@ -427,7 +522,9 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
               },
             ]}
             accessibilityRole="button"
-            accessibilityLabel={isRecording ? "Stop voice input" : "Start voice input"}
+            accessibilityLabel={
+              isRecording ? copy.voiceButtonAccessibility.stop : copy.voiceButtonAccessibility.start
+            }
           >
             {voiceTranscribing ? (
               <ActivityIndicator size="small" color={isRecording ? colors.surface : colors.subtext} />
@@ -442,7 +539,7 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
           <TextInput
             value={input}
             onChangeText={setInput}
-            placeholder="Ask about bookings..."
+            placeholder={copy.inputPlaceholder}
             placeholderTextColor={colors.subtext}
             multiline
             style={[styles.input, { color: colors.text }]}
@@ -453,7 +550,7 @@ export default function AssistantChat({ colors, systemPrompt, contextSummary, on
             disabled={!canSend}
             style={[styles.sendButton, { backgroundColor: canSend ? colors.accent : colors.border }]}
             accessibilityRole="button"
-            accessibilityLabel="Send message"
+            accessibilityLabel={copy.sendAccessibility}
           >
             {pending ? (
               <ActivityIndicator color={colors.accentFgOn} />

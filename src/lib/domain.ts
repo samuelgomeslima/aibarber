@@ -33,9 +33,9 @@ export const pad = (n: number) => n.toString().padStart(2, "0");
 export function formatPrice(cents: number) {
   if (Number.isNaN(cents)) return "—";
   const value = cents / 100;
-  return value.toLocaleString(undefined, {
+  return value.toLocaleString("pt-BR", {
     style: "currency",
-    currency: "USD",
+    currency: "BRL",
     minimumFractionDigits: 2,
   });
 }
