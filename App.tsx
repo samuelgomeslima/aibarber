@@ -31,6 +31,40 @@ import {
   humanDate,
   formatPrice,
 } from "./src/lib/domain";
+
+const getTodayDateKey = () => toDateKey(new Date());
+
+const getCurrentTimeString = () => {
+  const now = new Date();
+  return `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+};
+
+const normalizeTimeInput = (input?: string | null): string | null => {
+  if (!input) return null;
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  const parts = trimmed.split(":");
+  if (parts.length > 2) return null;
+  const hours = Number(parts[0]);
+  const minutes = Number(parts[1] ?? "0");
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+  return `${pad(hours)}:${pad(minutes)}`;
+};
+
+const buildDateTime = (
+  dateInput?: string | null,
+  timeInput?: string | null,
+  fallbackTime = "00:00",
+): Date | null => {
+  const trimmedDate = dateInput?.trim();
+  if (!trimmedDate) return null;
+  const normalizedTime = normalizeTimeInput(timeInput) ?? normalizeTimeInput(fallbackTime) ?? "00:00";
+  const iso = `${trimmedDate}T${normalizedTime}:00`;
+  const value = new Date(iso);
+  if (Number.isNaN(value.getTime())) return null;
+  return value;
+};
 import {
   getBookings,
   getBookingsForRange,
@@ -280,10 +314,14 @@ const LANGUAGE_COPY = {
         service: "Service",
         client: "Client",
         clientPlaceholder: "Search by client name",
-        date: "Date (YYYY-MM-DD)",
-        datePlaceholder: "2025-01-30",
-        time: "Time (HH:MM)",
-        timePlaceholder: "09:00",
+        startDate: "Start date (YYYY-MM-DD)",
+        startDatePlaceholder: "2025-01-30",
+        startTime: "Start time (HH:MM)",
+        startTimePlaceholder: "09:00",
+        endDate: "End date (YYYY-MM-DD)",
+        endDatePlaceholder: "2025-02-02",
+        endTime: "End time (HH:MM)",
+        endTimePlaceholder: "18:00",
         clear: "Clear filters",
         all: "All",
       },
@@ -592,10 +630,14 @@ const LANGUAGE_COPY = {
         service: "Serviço",
         client: "Cliente",
         clientPlaceholder: "Buscar pelo nome do cliente",
-        date: "Data (AAAA-MM-DD)",
-        datePlaceholder: "2025-01-30",
-        time: "Horário (HH:MM)",
-        timePlaceholder: "09:00",
+        startDate: "Data inicial (AAAA-MM-DD)",
+        startDatePlaceholder: "2025-01-30",
+        startTime: "Horário inicial (HH:MM)",
+        startTimePlaceholder: "09:00",
+        endDate: "Data final (AAAA-MM-DD)",
+        endDatePlaceholder: "2025-02-02",
+        endTime: "Horário final (HH:MM)",
+        endTimePlaceholder: "18:00",
         clear: "Limpar filtros",
         all: "Todos",
       },
@@ -750,8 +792,10 @@ export default function App() {
   const [bookingFilterBarber, setBookingFilterBarber] = useState<string | null>(null);
   const [bookingFilterService, setBookingFilterService] = useState<string | null>(null);
   const [bookingFilterClient, setBookingFilterClient] = useState("");
-  const [bookingFilterDate, setBookingFilterDate] = useState("");
-  const [bookingFilterTime, setBookingFilterTime] = useState("");
+  const [bookingFilterStartDate, setBookingFilterStartDate] = useState<string>(() => getTodayDateKey());
+  const [bookingFilterStartTime, setBookingFilterStartTime] = useState<string>(() => getCurrentTimeString());
+  const [bookingFilterEndDate, setBookingFilterEndDate] = useState("");
+  const [bookingFilterEndTime, setBookingFilterEndTime] = useState("");
 
   const [recurrenceOpen, setRecurrenceOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -1222,19 +1266,28 @@ export default function App() {
     const barber = bookingFilterBarber?.trim();
     const service = bookingFilterService?.trim();
     const client = bookingFilterClient.trim().toLowerCase();
-    const date = bookingFilterDate.trim();
-    const time = bookingFilterTime.trim().toLowerCase();
+    const startDateTime = buildDateTime(bookingFilterStartDate, bookingFilterStartTime, "00:00");
+    const endDateTime = buildDateTime(bookingFilterEndDate, bookingFilterEndTime, "23:59");
+    const rangeStartMs = startDateTime?.getTime() ?? null;
+    const rangeEndMs = endDateTime?.getTime() ?? null;
 
     return [...allBookings]
       .filter((booking) => {
         if (barber && booking.barber !== barber) return false;
         if (service && booking.service_id !== service) return false;
-        if (date && booking.date !== date) return false;
-        if (time) {
-          const start = (booking.start ?? "").toLowerCase();
-          const end = (booking.end ?? "").toLowerCase();
-          if (!start.includes(time) && !end.includes(time)) return false;
-        }
+
+        const bookingStart = buildDateTime(booking.date, booking.start ?? null, "00:00");
+        const bookingEnd = buildDateTime(
+          booking.date,
+          booking.end ?? booking.start ?? null,
+          booking.start ?? "23:59",
+        );
+        const bookingStartMs = bookingStart?.getTime() ?? bookingEnd?.getTime() ?? null;
+        const bookingEndMs = bookingEnd?.getTime() ?? bookingStart?.getTime() ?? null;
+
+        if (rangeStartMs !== null && bookingEndMs !== null && bookingEndMs < rangeStartMs) return false;
+        if (rangeEndMs !== null && bookingStartMs !== null && bookingStartMs > rangeEndMs) return false;
+
         if (client) {
           const name = `${booking._customer?.first_name ?? ""} ${booking._customer?.last_name ?? ""}`
             .trim()
@@ -1252,16 +1305,20 @@ export default function App() {
     bookingFilterBarber,
     bookingFilterService,
     bookingFilterClient,
-    bookingFilterDate,
-    bookingFilterTime,
+    bookingFilterStartDate,
+    bookingFilterStartTime,
+    bookingFilterEndDate,
+    bookingFilterEndTime,
   ]);
 
   const clearBookingFilters = useCallback(() => {
     setBookingFilterBarber(null);
     setBookingFilterService(null);
     setBookingFilterClient("");
-    setBookingFilterDate("");
-    setBookingFilterTime("");
+    setBookingFilterStartDate(getTodayDateKey());
+    setBookingFilterStartTime(getCurrentTimeString());
+    setBookingFilterEndDate("");
+    setBookingFilterEndTime("");
   }, []);
 
   const handleBookingsMutated = useCallback(async () => {
@@ -1940,23 +1997,48 @@ export default function App() {
 
             <View style={styles.filterRow}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.filterLabel}>{bookingsCopy.filters.date}</Text>
+                <Text style={styles.filterLabel}>{bookingsCopy.filters.startDate}</Text>
                 <TextInput
-                  placeholder={bookingsCopy.filters.datePlaceholder}
+                  placeholder={bookingsCopy.filters.startDatePlaceholder}
                   placeholderTextColor={`${COLORS.subtext}99`}
-                  value={bookingFilterDate}
-                  onChangeText={setBookingFilterDate}
+                  value={bookingFilterStartDate}
+                  onChangeText={setBookingFilterStartDate}
                   style={styles.input}
                   autoCapitalize="none"
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.filterLabel}>{bookingsCopy.filters.time}</Text>
+                <Text style={styles.filterLabel}>{bookingsCopy.filters.startTime}</Text>
                 <TextInput
-                  placeholder={bookingsCopy.filters.timePlaceholder}
+                  placeholder={bookingsCopy.filters.startTimePlaceholder}
                   placeholderTextColor={`${COLORS.subtext}99`}
-                  value={bookingFilterTime}
-                  onChangeText={setBookingFilterTime}
+                  value={bookingFilterStartTime}
+                  onChangeText={setBookingFilterStartTime}
+                  style={styles.input}
+                  autoCapitalize="none"
+                />
+              </View>
+            </View>
+
+            <View style={styles.filterRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.filterLabel}>{bookingsCopy.filters.endDate}</Text>
+                <TextInput
+                  placeholder={bookingsCopy.filters.endDatePlaceholder}
+                  placeholderTextColor={`${COLORS.subtext}99`}
+                  value={bookingFilterEndDate}
+                  onChangeText={setBookingFilterEndDate}
+                  style={styles.input}
+                  autoCapitalize="none"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.filterLabel}>{bookingsCopy.filters.endTime}</Text>
+                <TextInput
+                  placeholder={bookingsCopy.filters.endTimePlaceholder}
+                  placeholderTextColor={`${COLORS.subtext}99`}
+                  value={bookingFilterEndTime}
+                  onChangeText={setBookingFilterEndTime}
                   style={styles.input}
                   autoCapitalize="none"
                 />
