@@ -815,80 +815,98 @@ export default function App() {
 
       <View style={styles.mainArea}>
         {activeScreen === "bookService" ? (
-        <>
+          <>
             {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerRow}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <MaterialCommunityIcons name="content-cut" size={26} color="#fff" />
-              <Text style={styles.title}>AIBarber</Text>
-            </View>
-            <View style={styles.badge}>
-              <Ionicons name="time-outline" size={14} color={COLORS.subtext} />
-              <Text style={styles.badgeText}>09:00–18:00</Text>
-            </View>
-          </View>
-
-          {/* Service chips */}
-          <View style={styles.chipsRow}>
-            {services.length === 0 ? (
-              <View style={[styles.chip, { opacity: 0.7 }]}>
-                <Text style={[styles.chipText, { color: COLORS.subtext }]}>Create your first service below.</Text>
+            <View style={styles.header}>
+              <View style={styles.headerRow}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <MaterialCommunityIcons name="content-cut" size={26} color="#fff" />
+                  <Text style={styles.title}>AIBarber</Text>
+                </View>
+                <View style={styles.badge}>
+                  <Ionicons name="time-outline" size={14} color={COLORS.subtext} />
+                  <Text style={styles.badgeText}>09:00–18:00</Text>
+                </View>
               </View>
-            ) : (
-              services.map((s) => {
-                const active = s.id === selectedServiceId;
-                return (
-                  <Pressable
-                    key={s.id}
-                    onPress={() => setSelectedServiceId(s.id)}
-                    style={[styles.chip, active && styles.chipActive]}
-                  >
-                    <MaterialCommunityIcons name={s.icon} size={16} color={active ? COLORS.accentFgOn : COLORS.subtext} />
-                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                      {s.name} · {s.estimated_minutes}m
-                    </Text>
-                  </Pressable>
-                );
-              })
-            )}
-          </View>
-
-          {/* Client picker (novo, antes do barbeiro) */}
-          <View style={{ marginTop: 12, gap: 8 }}>
-            <Text style={{ color: COLORS.subtext, fontWeight: "800", fontSize: 12 }}>Client</Text>
-            <View style={[styles.cardRow, { borderColor: COLORS.border }]}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: COLORS.text, fontWeight: "800" }}>
-                  {selectedCustomer ? `${selectedCustomer.first_name} ${selectedCustomer.last_name}` : "No client selected"}
-                </Text>
-                {selectedCustomer?.phone ? (
-                  <Text style={{ color: COLORS.subtext, fontSize: 12 }}>
-                    {selectedCustomer.phone} · {selectedCustomer.email ?? ""}
-                  </Text>
-                ) : null}
-              </View>
-              <Pressable onPress={() => setClientModalOpen(true)} style={[styles.smallBtn, { borderColor: COLORS.accent, backgroundColor: COLORS.accent }]}>
-                <Text style={{ color: COLORS.accentFgOn, fontWeight: "900" }}>{selectedCustomer ? "Change" : "Select"}</Text>
-              </Pressable>
             </View>
-          </View>
 
-          {/* Barber selector (desabilita se não houver cliente) */}
-          <View style={{ marginTop: 12, opacity: selectedCustomer ? 1 : 0.6 }}>
-            <Text style={styles.sectionLabel}>Escolha o barbeiro</Text>
-            <BarberSelector
-              selected={selectedBarber}
-              onChange={setSelectedBarber}
-              disabled={!selectedCustomer}
-            />
-          </View>
-        </View>
+            {/* Content */}
+            <ScrollView
+              contentContainerStyle={styles.container}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+            >
+              <View style={{ gap: 20 }}>
+                <View>
+                  <Text style={styles.sectionLabel}>Service</Text>
+                  <View style={styles.chipsRow}>
+                    {services.length === 0 ? (
+                      <View style={[styles.chip, { opacity: 0.7 }]}>
+                        <Text style={[styles.chipText, { color: COLORS.subtext }]}>Create your first service below.</Text>
+                      </View>
+                    ) : (
+                      services.map((s) => {
+                        const active = s.id === selectedServiceId;
+                        return (
+                          <Pressable
+                            key={s.id}
+                            onPress={() => setSelectedServiceId(s.id)}
+                            style={[styles.chip, active && styles.chipActive]}
+                          >
+                            <MaterialCommunityIcons
+                              name={s.icon}
+                              size={16}
+                              color={active ? COLORS.accentFgOn : COLORS.subtext}
+                            />
+                            <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                              {s.name} · {s.estimated_minutes}m
+                            </Text>
+                          </Pressable>
+                        );
+                      })
+                    )}
+                  </View>
+                </View>
 
-        {/* Content */}
-        <ScrollView contentContainerStyle={styles.container} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-          {/* Date selector */}
-          <Text style={styles.sectionLabel}>Pick a day</Text>
+                {/* Client picker (novo, antes do barbeiro) */}
+                <View style={{ gap: 8 }}>
+                  <Text style={{ color: COLORS.subtext, fontWeight: "800", fontSize: 12 }}>Client</Text>
+                  <View style={[styles.cardRow, { borderColor: COLORS.border }]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: COLORS.text, fontWeight: "800" }}>
+                        {selectedCustomer
+                          ? `${selectedCustomer.first_name} ${selectedCustomer.last_name}`
+                          : "No client selected"}
+                      </Text>
+                      {selectedCustomer?.phone ? (
+                        <Text style={{ color: COLORS.subtext, fontSize: 12 }}>
+                          {selectedCustomer.phone} · {selectedCustomer.email ?? ""}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Pressable
+                      onPress={() => setClientModalOpen(true)}
+                      style={[styles.smallBtn, { borderColor: COLORS.accent, backgroundColor: COLORS.accent }]}
+                    >
+                      <Text style={{ color: COLORS.accentFgOn, fontWeight: "900" }}>
+                        {selectedCustomer ? "Change" : "Select"}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+
+                {/* Barber selector (desabilita se não houver cliente) */}
+                <View style={{ opacity: selectedCustomer ? 1 : 0.6 }}>
+                  <Text style={styles.sectionLabel}>Escolha o barbeiro</Text>
+                  <BarberSelector
+                    selected={selectedBarber}
+                    onChange={setSelectedBarber}
+                    disabled={!selectedCustomer}
+                  />
+                </View>
+              </View>
+
+              {/* Date selector */}
+              <Text style={styles.sectionLabel}>Pick a day</Text>
           <DateSelector
             value={day}
             onChange={setDay}
