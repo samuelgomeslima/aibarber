@@ -21,6 +21,21 @@ const humanDateKey = (dk: string) => {
   const d = new Date(`${dk}T00:00:00`);
   return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 };
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const startOfWeek = (date: Date) => {
+  const copy = new Date(date);
+  copy.setHours(0, 0, 0, 0);
+  const weekday = copy.getDay();
+  const diff = (weekday + 6) % 7; // Monday as the first day of the week
+  copy.setDate(copy.getDate() - diff);
+  return copy;
+};
+const addDays = (date: Date, amount: number) => {
+  const copy = new Date(date);
+  copy.setDate(copy.getDate() + amount);
+  return copy;
+};
 
 export default function DateSelector({
   value,
@@ -34,21 +49,24 @@ export default function DateSelector({
   },
 }: Props) {
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(value));
 
   const dateKey = toDateKey(value);
 
-  // 10 dias, centrado em "value" (-3 .. +6)
-  const days = useMemo(() => {
-    const out: { key: string; d: Date }[] = [];
-    const base = new Date(value);
-    base.setDate(base.getDate() - 3);
-    for (let i = 0; i < 10; i++) {
-      const n = new Date(base);
-      n.setDate(base.getDate() + i);
-      out.push({ d: n, key: toDateKey(n) });
-    }
-    return out;
+  useEffect(() => {
+    const aligned = startOfWeek(value);
+    setWeekStart((prev) => {
+      if (prev.getTime() === aligned.getTime()) return prev;
+      return aligned;
+    });
   }, [value]);
+
+  const days = useMemo(() => {
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = addDays(weekStart, i);
+      return { d, key: toDateKey(d) };
+    });
+  }, [weekStart]);
 
   const pickToday = () => {
     const now = new Date();
@@ -56,10 +74,31 @@ export default function DateSelector({
     onChange(now);
   };
 
+  const shiftWeek = (direction: 1 | -1) => {
+    setWeekStart((prev) => {
+      const next = addDays(prev, direction * 7);
+      const normalizedValue = new Date(value);
+      normalizedValue.setHours(0, 0, 0, 0);
+      const relativeIndex = Math.round((normalizedValue.getTime() - prev.getTime()) / DAY_MS);
+      const clampedIndex = Math.min(6, Math.max(0, relativeIndex));
+      const nextSelected = addDays(next, clampedIndex);
+      nextSelected.setHours(0, 0, 0, 0);
+      onChange(nextSelected);
+      return next;
+    });
+  };
+
   return (
     <View>
       {/* Ações: Today + Calendar */}
       <View style={styles.actionsRow}>
+        <Pressable
+          onPress={() => shiftWeek(-1)}
+          style={[styles.actionBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
+          accessibilityLabel="Show previous week"
+        >
+          <Text style={[styles.actionText, { color: colors.text }]}>Prev</Text>
+        </Pressable>
         <Pressable
           onPress={pickToday}
           style={[styles.actionBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
@@ -74,6 +113,13 @@ export default function DateSelector({
           accessibilityLabel="Open calendar"
         >
           <Text style={[styles.actionText, { color: colors.text }]}>Calendar</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => shiftWeek(1)}
+          style={[styles.actionBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
+          accessibilityLabel="Show next week"
+        >
+          <Text style={[styles.actionText, { color: colors.text }]}>Next</Text>
         </Pressable>
       </View>
 
@@ -253,6 +299,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
     marginBottom: 6,
+    flexWrap: "wrap",
+    alignItems: "center",
   },
   actionBtn: {
     paddingVertical: 8,
