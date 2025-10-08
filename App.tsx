@@ -152,9 +152,9 @@ const LANGUAGE_COPY = {
         priceLabel: "Price",
         pricePlaceholder: "30.00",
         priceError: "Enter a valid price",
-        iconLabel: "Icon (MaterialCommunityIcons)",
-        iconPlaceholder: "content-cut",
-        iconError: "Unknown icon",
+        iconLabel: "Icon",
+        iconPlaceholder: "Choose an icon",
+        iconError: "Select an icon",
         previewLabel: "Preview:",
       },
       buttons: {
@@ -481,9 +481,9 @@ const LANGUAGE_COPY = {
         priceLabel: "Preço",
         pricePlaceholder: "30,00",
         priceError: "Informe um preço válido",
-        iconLabel: "Ícone (MaterialCommunityIcons)",
-        iconPlaceholder: "content-cut",
-        iconError: "Ícone desconhecido",
+        iconLabel: "Ícone",
+        iconPlaceholder: "Escolha um ícone",
+        iconError: "Selecione um ícone válido",
         previewLabel: "Prévia:",
       },
       buttons: {
@@ -970,25 +970,32 @@ export default function App() {
       if (!svc?.id) return;
 
       const localized = localizedServiceMap.get(svc.id) ?? svc;
-      const confirm = () => {
-        void (async () => {
-          try {
-            await deleteService(svc.id);
-            setSelectedServiceId((prev) => (prev === svc.id ? null : prev));
-            void loadServices();
-          } catch (e: any) {
-            console.error(e);
-            Alert.alert(copy.servicesPage.alerts.deleteErrorTitle, e?.message ?? String(e));
-          }
-        })();
+      const confirmPrompt = `${copy.servicesPage.alerts.deleteTitle}\n\n${copy.servicesPage.alerts.deleteMessage(localized.name)}`;
+      const executeDelete = async () => {
+        try {
+          await deleteService(svc.id);
+          setSelectedServiceId((prev) => (prev === svc.id ? null : prev));
+          void loadServices();
+        } catch (e: any) {
+          console.error(e);
+          Alert.alert(copy.servicesPage.alerts.deleteErrorTitle, e?.message ?? String(e));
+        }
       };
+
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        const confirmed = window.confirm(confirmPrompt);
+        if (confirmed) {
+          void executeDelete();
+        }
+        return;
+      }
 
       Alert.alert(
         copy.servicesPage.alerts.deleteTitle,
         copy.servicesPage.alerts.deleteMessage(localized.name),
         [
           { text: copy.servicesPage.alerts.cancel, style: "cancel" },
-          { text: copy.servicesPage.alerts.confirm, style: "destructive", onPress: confirm },
+          { text: copy.servicesPage.alerts.confirm, style: "destructive", onPress: () => void executeDelete() },
         ],
       );
     },
