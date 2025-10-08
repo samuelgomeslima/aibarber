@@ -14,6 +14,7 @@ import {
   useWindowDimensions,
   useColorScheme,
 } from "react-native";
+import Svg, { Circle, G } from "react-native-svg";
 import { supabase } from "./src/lib/supabase";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import * as Localization from "expo-localization";
@@ -152,123 +153,96 @@ import DateTimeInput from "./src/components/DateTimeInput";
 /* Novo: formulário de usuário (com date_of_birth e salvando no Supabase) */
 import UserForm from "./src/components/UserForm";
 
-type PyramidChartSegment = {
+type DonutChartSegment = {
   value: number;
   color: string;
 };
 
-type PyramidChartProps = {
-  segments: PyramidChartSegment[];
+type DonutChartProps = {
+  segments: DonutChartSegment[];
   size?: number;
-  height?: number;
-  gap?: number;
+  strokeWidth?: number;
   trackColor: string;
   backgroundColor: string;
 };
 
-const PYRAMID_STYLES = StyleSheet.create({
+const DONUT_STYLES = StyleSheet.create({
   container: {
     position: "relative",
     alignItems: "center",
-    justifyContent: "flex-end",
+    justifyContent: "center",
     overflow: "hidden",
-  },
-  backdrop: {
-    position: "absolute",
-    bottom: 0,
-    width: 0,
-    height: 0,
-    borderStyle: "solid",
-    borderLeftColor: "transparent",
-    borderRightColor: "transparent",
-  },
-  layers: {
-    width: "100%",
-    justifyContent: "flex-end",
-    alignItems: "center",
-  },
-  layer: {
-    borderRadius: 999,
   },
 });
 
-const PyramidChart = ({
+const DonutChart = ({
   segments,
-  size = 150,
-  height,
-  gap = 8,
+  size = 160,
+  strokeWidth = 18,
   trackColor,
   backgroundColor,
-}: PyramidChartProps) => {
+}: DonutChartProps) => {
   const normalizedSegments = segments
     .map((segment) => ({
       value: Math.max(0, segment.value),
       color: segment.color,
     }))
     .filter((segment) => segment.value > 0);
-  const maxValue = normalizedSegments.reduce(
-    (currentMax, segment) => Math.max(currentMax, segment.value),
-    0,
-  );
-  const layerCount = normalizedSegments.length;
-  const baseWidth = size;
-  const baseHeight = height
-    ? Math.max(height, 0)
-    : Math.max(Math.round(baseWidth * 0.9), layerCount ? layerCount * 22 + gap * (layerCount - 1) : 0);
-  const totalGap = layerCount > 1 ? gap * (layerCount - 1) : 0;
-  const segmentHeight = layerCount
-    ? Math.max((baseHeight - totalGap) / layerCount, 12)
-    : 0;
-  const minWidthRatio = layerCount > 1 ? 0.25 : 0.5;
-  const sortedSegments = [...normalizedSegments].sort((a, b) => a.value - b.value);
-  const renderOrder = sortedSegments.slice().reverse();
+
+  const totalValue = normalizedSegments.reduce((total, segment) => total + segment.value, 0);
+  const radius = Math.max((size - strokeWidth) / 2, 0);
+  const circumference = 2 * Math.PI * radius;
+  const arcs: React.ReactNode[] = [];
+
+  if (totalValue > 0 && circumference > 0) {
+    let currentOffset = 0;
+    normalizedSegments.forEach((segment, index) => {
+      const segmentLength = (segment.value / totalValue) * circumference;
+      const isFullCircle = segmentLength >= circumference - 0.5;
+      const dashArray = isFullCircle ? undefined : `${Math.max(segmentLength, 0.5)} ${circumference}`;
+      arcs.push(
+        <Circle
+          key={`${segment.color}-${index}`}
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={segment.color}
+          strokeWidth={strokeWidth}
+          strokeDasharray={dashArray}
+          strokeDashoffset={isFullCircle ? 0 : currentOffset}
+          strokeLinecap="round"
+          fill="transparent"
+        />,
+      );
+      currentOffset -= segmentLength;
+    });
+  }
 
   return (
     <View
       style={[
-        PYRAMID_STYLES.container,
+        DONUT_STYLES.container,
         {
-          width: baseWidth,
-          height: baseHeight,
+          width: size,
+          height: size,
+          borderRadius: size / 2,
           backgroundColor,
         },
       ]}
     >
-      <View
-        style={[
-          PYRAMID_STYLES.backdrop,
-          {
-            borderLeftWidth: baseWidth / 2,
-            borderRightWidth: baseWidth / 2,
-            borderBottomWidth: baseHeight,
-            borderBottomColor: trackColor,
-          },
-        ]}
-      />
-      <View style={[PYRAMID_STYLES.layers, { height: baseHeight }]}>
-        {renderOrder.map((segment, index) => {
-          if (maxValue <= 0) {
-            return null;
-          }
-          const ratio = segment.value / maxValue;
-          const widthRatio = minWidthRatio + (1 - minWidthRatio) * ratio;
-          const layerWidth = baseWidth * Math.min(Math.max(widthRatio, minWidthRatio), 1);
-          return (
-            <View
-              key={`${segment.color}-${index}`}
-              style={[
-                PYRAMID_STYLES.layer,
-                {
-                  width: layerWidth,
-                  height: segmentHeight,
-                  backgroundColor: segment.color,
-                  marginBottom: index === renderOrder.length - 1 ? 0 : gap,
-                },
-              ]}
-            />
-          );
-        })}
-      </View>
+      <Svg width={size} height={size}>
+        <G rotation={-90} originX={size / 2} originY={size / 2}>
+          <Circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke={trackColor}
+            strokeWidth={strokeWidth}
+            fill="transparent"
+          />
+          {arcs}
+        </G>
+      </Svg>
     </View>
   );
 };
@@ -2993,7 +2967,7 @@ export default function App() {
                     color: mixHexColor(colors.text, colors.bg, 0.55),
                   });
                 }
-                const pyramidSegments = legendItems.map((item) => ({ value: item.count, color: item.color }));
+                const donutSegments = legendItems.map((item) => ({ value: item.count, color: item.color }));
                 const busiest = busiestDay;
                 const quietest = quietestDay;
                 return (
@@ -3024,12 +2998,16 @@ export default function App() {
                             isCompactLayout && styles.pieChartBlockCompact,
                           ]}
                         >
-                          <View style={styles.pieChartWrapper}>
-                            <PyramidChart
-                              segments={pyramidSegments}
+                          <View
+                            style={[
+                              styles.pieChartWrapper,
+                              { width: donutSize, height: donutSize },
+                            ]}
+                          >
+                            <DonutChart
+                              segments={donutSegments}
                               size={donutSize}
-                              height={donutSize * 0.95}
-                              gap={10}
+                              strokeWidth={isCompactLayout ? 16 : 18}
                               trackColor={applyAlpha(colors.accent, 0.18)}
                               backgroundColor={colors.bg}
                             />
@@ -3801,8 +3779,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     position: "relative",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    borderRadius: 999,
   },
   pieChartCenter: {
     position: "absolute",

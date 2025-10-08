@@ -19,6 +19,7 @@
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-native": "0.79.6",
+    "react-native-svg": "^15.13.0",
     "react-native-web": "^0.20.0",
     "@react-native-community/datetimepicker": "8.4.1"
   },
