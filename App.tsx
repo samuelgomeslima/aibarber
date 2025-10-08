@@ -12,6 +12,7 @@ import {
   Modal,
   TextInput,
   useWindowDimensions,
+  useColorScheme,
 } from "react-native";
 import { supabase } from "./src/lib/supabase";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
@@ -106,6 +107,13 @@ const LANGUAGE_COPY = {
     settingsPage: {
       title: "Settings",
       subtitle: "Manage your preferences for the AIBarber dashboard.",
+      themeLabel: "Appearance",
+      themeDescription: "Choose how the dashboard adapts its colors.",
+      themeOptions: {
+        system: "System",
+        light: "Light",
+        dark: "Dark",
+      },
     },
     servicesPage: {
       title: "Services",
@@ -424,6 +432,13 @@ const LANGUAGE_COPY = {
     settingsPage: {
       title: "Configurações",
       subtitle: "Gerencie suas preferências no painel do AIBarber.",
+      themeLabel: "Aparência",
+      themeDescription: "Escolha como o painel adapta as cores.",
+      themeOptions: {
+        system: "Sistema",
+        light: "Claro",
+        dark: "Escuro",
+      },
     },
     servicesPage: {
       title: "Serviços",
@@ -739,6 +754,52 @@ const LANGUAGE_OPTIONS: { code: SupportedLanguage; label: string }[] = [
   { code: "pt", label: "Português (BR)" },
 ];
 
+type ThemeName = "dark" | "light";
+type ThemePreference = "system" | ThemeName;
+
+type ThemeColors = {
+  bg: string;
+  surface: string;
+  sidebarBg: string;
+  border: string;
+  text: string;
+  subtext: string;
+  accent: string;
+  accentFgOn: string;
+  danger: string;
+};
+
+const THEMES: Record<ThemeName, ThemeColors> = {
+  dark: {
+    bg: "#0b0d13",
+    surface: "rgba(255,255,255,0.045)",
+    sidebarBg: "#111827",
+    border: "rgba(255,255,255,0.07)",
+    text: "#e5e7eb",
+    subtext: "#cbd5e1",
+    accent: "#60a5fa",
+    accentFgOn: "#091016",
+    danger: "#ef4444",
+  },
+  light: {
+    bg: "#f8fafc",
+    surface: "rgba(15,23,42,0.06)",
+    sidebarBg: "#ffffff",
+    border: "rgba(15,23,42,0.12)",
+    text: "#0f172a",
+    subtext: "#475569",
+    accent: "#2563eb",
+    accentFgOn: "#f8fafc",
+    danger: "#dc2626",
+  },
+};
+
+const THEME_OPTIONS: { value: ThemePreference }[] = [
+  { value: "system" },
+  { value: "light" },
+  { value: "dark" },
+];
+
 function getInitialLanguage(): SupportedLanguage {
   try {
     const locales = Localization.getLocales();
@@ -779,6 +840,11 @@ export default function App() {
   const bookingsCopy = copy.bookings;
   const assistantCopy = copy.assistant;
   const imageAssistantCopy = copy.imageAssistant;
+  const colorScheme = useColorScheme();
+  const [themePreference, setThemePreference] = useState<ThemePreference>("system");
+  const resolvedTheme = themePreference === "system" ? (colorScheme === "dark" ? "dark" : "light") : themePreference;
+  const colors = useMemo(() => THEMES[resolvedTheme], [resolvedTheme]);
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Cliente -> obrigatório antes do barbeiro
   const [clientModalOpen, setClientModalOpen] = useState(false);
@@ -1445,8 +1511,8 @@ export default function App() {
       bodyOverscroll: body.style.getPropertyValue("overscroll-behavior"),
     };
 
-    html.style.backgroundColor = COLORS.bg;
-    body.style.backgroundColor = COLORS.bg;
+    html.style.backgroundColor = colors.bg;
+    body.style.backgroundColor = colors.bg;
     html.style.overflowX = "hidden";
     body.style.overflowX = "hidden";
     html.style.setProperty("overscroll-behavior", "contain");
@@ -1462,10 +1528,10 @@ export default function App() {
       if (previous.bodyOverscroll) body.style.setProperty("overscroll-behavior", previous.bodyOverscroll);
       else body.style.removeProperty("overscroll-behavior");
     };
-  }, []);
+  }, [colors.bg]);
 
   return (
-    <View style={[styles.appShell, { backgroundColor: COLORS.bg }]}>
+    <View style={[styles.appShell, { backgroundColor: colors.bg }]}>
       {!sidebarOpen && (
         <Pressable
           onPress={() => setSidebarOpen(true)}
@@ -1473,14 +1539,14 @@ export default function App() {
             styles.menuFab,
             {
               top: menuButtonTop,
-              borderColor: COLORS.border,
-              backgroundColor: COLORS.sidebarBg,
+              borderColor: colors.border,
+              backgroundColor: colors.sidebarBg,
             },
           ]}
           accessibilityRole="button"
           accessibilityLabel="Open navigation menu"
         >
-          <MaterialCommunityIcons name="menu" size={20} color="#fff" />
+          <MaterialCommunityIcons name="menu" size={20} color={colors.text} />
         </Pressable>
       )}
 
@@ -1496,7 +1562,7 @@ export default function App() {
       <View
         style={[
           styles.sidebar,
-          { borderColor: COLORS.border, backgroundColor: COLORS.sidebarBg, width: sidebarWidth },
+          { borderColor: colors.border, backgroundColor: colors.sidebarBg, width: sidebarWidth },
           sidebarOpen
             ? styles.sidebarOpen
             : [styles.sidebarClosed, { transform: [{ translateX: sidebarWidth + 40 }] }],
@@ -1514,7 +1580,7 @@ export default function App() {
             accessibilityRole="button"
             accessibilityLabel="Close navigation menu"
           >
-            <Ionicons name="close" size={18} color={COLORS.subtext} />
+            <Ionicons name="close" size={18} color={colors.subtext} />
           </Pressable>
         </View>
         <View style={styles.sidebarItems}>
@@ -1527,7 +1593,7 @@ export default function App() {
             <MaterialCommunityIcons
               name="view-dashboard-outline"
               size={20}
-              color={activeScreen === "home" ? COLORS.accentFgOn : COLORS.subtext}
+              color={activeScreen === "home" ? colors.accentFgOn : colors.subtext}
             />
             <Text style={[styles.sidebarItemText, activeScreen === "home" && styles.sidebarItemTextActive]}>
               {copy.navigation.overview}
@@ -1542,7 +1608,7 @@ export default function App() {
             <MaterialCommunityIcons
               name="calendar-clock"
               size={20}
-              color={bookingsNavActive ? COLORS.accentFgOn : COLORS.subtext}
+              color={bookingsNavActive ? colors.accentFgOn : colors.subtext}
             />
             <Text style={[styles.sidebarItemText, bookingsNavActive && styles.sidebarItemTextActive]}>
               {copy.navigation.bookings}
@@ -1557,7 +1623,7 @@ export default function App() {
             <MaterialCommunityIcons
               name="briefcase-outline"
               size={20}
-              color={activeScreen === "services" ? COLORS.accentFgOn : COLORS.subtext}
+              color={activeScreen === "services" ? colors.accentFgOn : colors.subtext}
             />
             <Text style={[styles.sidebarItemText, activeScreen === "services" && styles.sidebarItemTextActive]}>
               {copy.navigation.services}
@@ -1572,7 +1638,7 @@ export default function App() {
             <Ionicons
               name="sparkles-outline"
               size={20}
-              color={activeScreen === "assistant" ? COLORS.accentFgOn : COLORS.subtext}
+              color={activeScreen === "assistant" ? colors.accentFgOn : colors.subtext}
             />
             <Text style={[styles.sidebarItemText, activeScreen === "assistant" && styles.sidebarItemTextActive]}>
               {copy.navigation.assistant}
@@ -1587,7 +1653,7 @@ export default function App() {
             <Ionicons
               name="image-outline"
               size={20}
-              color={activeScreen === "imageAssistant" ? COLORS.accentFgOn : COLORS.subtext}
+              color={activeScreen === "imageAssistant" ? colors.accentFgOn : colors.subtext}
             />
             <Text
               style={[styles.sidebarItemText, activeScreen === "imageAssistant" && styles.sidebarItemTextActive]}
@@ -1604,7 +1670,7 @@ export default function App() {
             <Ionicons
               name="settings-outline"
               size={20}
-              color={activeScreen === "settings" ? COLORS.accentFgOn : COLORS.subtext}
+              color={activeScreen === "settings" ? colors.accentFgOn : colors.subtext}
             />
             <Text style={[styles.sidebarItemText, activeScreen === "settings" && styles.sidebarItemTextActive]}>
               {copy.navigation.settings}
@@ -1624,7 +1690,7 @@ export default function App() {
                   <Text style={styles.title}>AIBarber</Text>
                 </View>
                 <View style={styles.badge}>
-                  <Ionicons name="time-outline" size={14} color={COLORS.subtext} />
+                  <Ionicons name="time-outline" size={14} color={colors.subtext} />
                   <Text style={styles.badgeText}>09:00–18:00</Text>
                 </View>
               </View>
@@ -1641,7 +1707,7 @@ export default function App() {
                   <View style={styles.chipsRow}>
                     {services.length === 0 ? (
                       <View style={[styles.chip, { opacity: 0.7 }]}>
-                        <Text style={[styles.chipText, { color: COLORS.subtext }]}>
+                        <Text style={[styles.chipText, { color: colors.subtext }]}>
                           {bookServiceCopy.serviceSection.empty}
                         </Text>
                       </View>
@@ -1658,7 +1724,7 @@ export default function App() {
                             <MaterialCommunityIcons
                               name={s.icon}
                               size={16}
-                              color={active ? COLORS.accentFgOn : COLORS.subtext}
+                              color={active ? colors.accentFgOn : colors.subtext}
                             />
                             <Text style={[styles.chipText, active && styles.chipTextActive]}>
                               {localized.name} · {s.estimated_minutes}m
@@ -1672,27 +1738,27 @@ export default function App() {
 
                 {/* Client picker (novo, antes do barbeiro) */}
                 <View style={{ gap: 8 }}>
-                  <Text style={{ color: COLORS.subtext, fontWeight: "800", fontSize: 12 }}>
+                  <Text style={{ color: colors.subtext, fontWeight: "800", fontSize: 12 }}>
                     {bookServiceCopy.clientSection.title}
                   </Text>
-                  <View style={[styles.cardRow, { borderColor: COLORS.border }, isCompactLayout && styles.cardRowStack]}>
+                  <View style={[styles.cardRow, { borderColor: colors.border }, isCompactLayout && styles.cardRowStack]}>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: COLORS.text, fontWeight: "800" }}>
+                      <Text style={{ color: colors.text, fontWeight: "800" }}>
                         {selectedCustomer
                           ? `${selectedCustomer.first_name} ${selectedCustomer.last_name}`
                           : bookServiceCopy.clientSection.noneSelected}
                       </Text>
                       {selectedCustomer?.phone ? (
-                        <Text style={{ color: COLORS.subtext, fontSize: 12 }}>
+                        <Text style={{ color: colors.subtext, fontSize: 12 }}>
                           {selectedCustomer.phone} · {selectedCustomer.email ?? ""}
                         </Text>
                       ) : null}
                     </View>
                     <Pressable
                       onPress={() => setClientModalOpen(true)}
-                      style={[styles.smallBtn, { borderColor: COLORS.accent, backgroundColor: COLORS.accent }]}
+                      style={[styles.smallBtn, { borderColor: colors.accent, backgroundColor: colors.accent }]}
                     >
-                      <Text style={{ color: COLORS.accentFgOn, fontWeight: "900" }}>
+                      <Text style={{ color: colors.accentFgOn, fontWeight: "900" }}>
                         {selectedCustomer ? bookServiceCopy.clientSection.change : bookServiceCopy.clientSection.select}
                       </Text>
                     </Pressable>
@@ -1716,11 +1782,11 @@ export default function App() {
                 value={day}
                 onChange={setDay}
                 colors={{
-                  text: COLORS.text,
-                  subtext: COLORS.subtext,
-                  surface: COLORS.surface,
-                  border: COLORS.border,
-                  accent: COLORS.accent,
+                  text: colors.text,
+                  subtext: colors.subtext,
+                  surface: colors.surface,
+                  border: colors.border,
+                  accent: colors.accent,
                 }}
                 locale={locale}
               />
@@ -1761,7 +1827,7 @@ export default function App() {
                         }
                         style={[styles.slot, styles.slotBusy]}
                       >
-                        <Ionicons name="close-circle-outline" size={16} color={COLORS.danger} />
+                        <Ionicons name="close-circle-outline" size={16} color={colors.danger} />
                         <Text style={styles.slotBusyText}>{t}</Text>
                       </Pressable>
                     );
@@ -1776,7 +1842,7 @@ export default function App() {
                       <Ionicons
                         name="time-outline"
                         size={16}
-                        color={isSelected ? COLORS.accentFgOn : COLORS.subtext}
+                        color={isSelected ? colors.accentFgOn : colors.subtext}
                       />
                       <Text style={[styles.slotText, isSelected && styles.slotTextActive]}>{t}</Text>
                     </Pressable>
@@ -1839,7 +1905,7 @@ export default function App() {
                 accessibilityRole="button"
                 accessibilityLabel={bookServiceCopy.actions.repeat.accessibility}
               >
-                <Ionicons name="repeat" size={16} color={COLORS.accentFgOn} />
+                <Ionicons name="repeat" size={16} color={colors.accentFgOn} />
                 <Text style={[styles.bookBtnText, { marginLeft: 6 }]}>
                   {bookServiceCopy.actions.repeat.label}
                 </Text>
@@ -1864,15 +1930,15 @@ export default function App() {
                 return (
                   <View key={b.id} style={styles.bookingCard}>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                      <MaterialCommunityIcons name={serviceIcon} size={20} color="#93c5fd" />
-                      <MaterialCommunityIcons name={barber.icon} size={18} color="#cbd5e1" />
+                      <MaterialCommunityIcons name={serviceIcon} size={20} color={colors.accent} />
+                      <MaterialCommunityIcons name={barber.icon} size={18} color={colors.subtext} />
                       <Text style={styles.bookingText}>
                         {svc} • {b.start}–{b.end} • {barber.name}
                         {b._customer ? ` • ${b._customer.first_name}` : ""}
                       </Text>
                     </View>
                     <Pressable onPress={() => onCancel(b.id)} style={styles.cancelBtn}>
-                      <Ionicons name="trash-outline" size={16} color="#fecaca" />
+                      <Ionicons name="trash-outline" size={16} color={colors.subtext} />
                       <Text style={styles.cancelText}>{bookServiceCopy.bookingsList.cancel}</Text>
                     </Pressable>
                   </View>
@@ -1893,14 +1959,14 @@ export default function App() {
           fixedTime={selectedSlot || "00:00"}
           fixedService={selectedLocalizedService?.name ?? ""}
           fixedBarber={BARBER_MAP[selectedBarber.id]?.name || selectedBarber.id}
-          colors={{ text: COLORS.text, subtext: COLORS.subtext, surface: COLORS.surface, border: COLORS.border, accent: COLORS.accent, bg: "#0c1017" }}
+          colors={{ text: colors.text, subtext: colors.subtext, surface: colors.surface, border: colors.border, accent: colors.accent, bg: colors.sidebarBg }}
         />
         <OccurrencePreviewModal
           visible={previewOpen}
           items={previewItems}
           onClose={() => setPreviewOpen(false)}
           onConfirm={confirmPreviewInsert}
-          colors={{ text: COLORS.text, subtext: COLORS.subtext, surface: COLORS.surface, border: COLORS.border, accent: COLORS.accent, bg: "#0b0d13", danger: COLORS.danger }}
+          colors={{ text: colors.text, subtext: colors.subtext, surface: colors.surface, border: colors.border, accent: colors.accent, bg: colors.bg, danger: colors.danger }}
         />
 
         {/* Modal de clientes (lista + criar via UserForm) */}
@@ -1913,6 +1979,8 @@ export default function App() {
           onPick={(c) => { setSelectedCustomer(c); setClientModalOpen(false); }}
           onSaved={(c) => { setSelectedCustomer(c); refreshCustomers(); }}
           copy={bookServiceCopy.clientModal}
+          colors={colors}
+          styles={styles}
         />
 
           {loading && (
@@ -1927,11 +1995,11 @@ export default function App() {
         contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}
         refreshControl={<RefreshControl refreshing={allBookingsLoading} onRefresh={loadAllBookings} />}
       >
-        <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 12 }]}>
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
           <View style={[styles.listHeaderRow, isCompactLayout && styles.listHeaderRowCompact]}>
             <View style={{ flex: 1, gap: 4 }}>
-              <Text style={[styles.title, { color: COLORS.text }]}>{bookingsCopy.title}</Text>
-              <Text style={{ color: COLORS.subtext, fontSize: 13, fontWeight: "600" }}>
+              <Text style={[styles.title, { color: colors.text }]}>{bookingsCopy.title}</Text>
+              <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
                 {bookingsCopy.subtitle}
               </Text>
             </View>
@@ -1956,7 +2024,7 @@ export default function App() {
                   <MaterialCommunityIcons
                     name="account-group"
                     size={16}
-                    color={!bookingFilterBarber ? COLORS.accentFgOn : COLORS.subtext}
+                    color={!bookingFilterBarber ? colors.accentFgOn : colors.subtext}
                   />
                   <Text style={[styles.chipText, !bookingFilterBarber && styles.chipTextActive]}>
                     {bookingsCopy.filters.all}
@@ -1973,7 +2041,7 @@ export default function App() {
                       <MaterialCommunityIcons
                         name={barber.icon}
                         size={16}
-                        color={active ? COLORS.accentFgOn : COLORS.subtext}
+                        color={active ? colors.accentFgOn : colors.subtext}
                       />
                       <Text style={[styles.chipText, active && styles.chipTextActive]}>{barber.name}</Text>
                     </Pressable>
@@ -1992,7 +2060,7 @@ export default function App() {
                   <MaterialCommunityIcons
                     name="briefcase-outline"
                     size={16}
-                    color={!bookingFilterService ? COLORS.accentFgOn : COLORS.subtext}
+                    color={!bookingFilterService ? colors.accentFgOn : colors.subtext}
                   />
                   <Text style={[styles.chipText, !bookingFilterService && styles.chipTextActive]}>
                     {bookingsCopy.filters.all}
@@ -2010,7 +2078,7 @@ export default function App() {
                       <MaterialCommunityIcons
                         name={svc.icon}
                         size={16}
-                        color={active ? COLORS.accentFgOn : COLORS.subtext}
+                        color={active ? colors.accentFgOn : colors.subtext}
                       />
                       <Text style={[styles.chipText, active && styles.chipTextActive]}>{localized.name}</Text>
                     </Pressable>
@@ -2023,7 +2091,7 @@ export default function App() {
               <Text style={styles.filterLabel}>{bookingsCopy.filters.client}</Text>
               <TextInput
                 placeholder={bookingsCopy.filters.clientPlaceholder}
-                placeholderTextColor={`${COLORS.subtext}99`}
+                placeholderTextColor={`${colors.subtext}99`}
                 value={bookingFilterClient}
                 onChangeText={setBookingFilterClient}
                 style={styles.input}
@@ -2035,7 +2103,7 @@ export default function App() {
                 <Text style={styles.filterLabel}>{bookingsCopy.filters.startDate}</Text>
                 <TextInput
                   placeholder={bookingsCopy.filters.startDatePlaceholder}
-                  placeholderTextColor={`${COLORS.subtext}99`}
+                  placeholderTextColor={`${colors.subtext}99`}
                   value={bookingFilterStartDate}
                   onChangeText={setBookingFilterStartDate}
                   style={styles.input}
@@ -2046,7 +2114,7 @@ export default function App() {
                 <Text style={styles.filterLabel}>{bookingsCopy.filters.startTime}</Text>
                 <TextInput
                   placeholder={bookingsCopy.filters.startTimePlaceholder}
-                  placeholderTextColor={`${COLORS.subtext}99`}
+                  placeholderTextColor={`${colors.subtext}99`}
                   value={bookingFilterStartTime}
                   onChangeText={setBookingFilterStartTime}
                   style={styles.input}
@@ -2060,7 +2128,7 @@ export default function App() {
                 <Text style={styles.filterLabel}>{bookingsCopy.filters.endDate}</Text>
                 <TextInput
                   placeholder={bookingsCopy.filters.endDatePlaceholder}
-                  placeholderTextColor={`${COLORS.subtext}99`}
+                  placeholderTextColor={`${colors.subtext}99`}
                   value={bookingFilterEndDate}
                   onChangeText={setBookingFilterEndDate}
                   style={styles.input}
@@ -2071,7 +2139,7 @@ export default function App() {
                 <Text style={styles.filterLabel}>{bookingsCopy.filters.endTime}</Text>
                 <TextInput
                   placeholder={bookingsCopy.filters.endTimePlaceholder}
-                  placeholderTextColor={`${COLORS.subtext}99`}
+                  placeholderTextColor={`${colors.subtext}99`}
                   value={bookingFilterEndTime}
                   onChangeText={setBookingFilterEndTime}
                   style={styles.input}
@@ -2081,17 +2149,17 @@ export default function App() {
             </View>
 
             <View style={[styles.filterActions, isCompactLayout && styles.filterActionsCompact]}>
-              <Pressable onPress={clearBookingFilters} style={[styles.smallBtn, { borderColor: COLORS.border }]}>
-                <Text style={{ color: COLORS.subtext, fontWeight: "800" }}>{bookingsCopy.filters.clear}</Text>
+              <Pressable onPress={clearBookingFilters} style={[styles.smallBtn, { borderColor: colors.border }]}>
+                <Text style={{ color: colors.subtext, fontWeight: "800" }}>{bookingsCopy.filters.clear}</Text>
               </Pressable>
             </View>
           </View>
         </View>
 
-        <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 10 }]}>
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 10 }]}>
           <View style={[styles.listHeaderRow, isCompactLayout && styles.listHeaderRowCompact]}>
-            <Text style={[styles.title, { color: COLORS.text }]}>{bookingsCopy.results.title}</Text>
-            <Text style={{ color: COLORS.subtext, fontWeight: "700" }}>
+            <Text style={[styles.title, { color: colors.text }]}>{bookingsCopy.results.title}</Text>
+            <Text style={{ color: colors.subtext, fontWeight: "700" }}>
               {bookingsCopy.results.count(filteredBookingsList.length, allBookings.length)}
             </Text>
           </View>
@@ -2137,11 +2205,11 @@ export default function App() {
         contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}
         refreshControl={<RefreshControl refreshing={servicesLoading} onRefresh={loadServices} />}
       >
-        <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 12 }]}>
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
           <View style={[styles.listHeaderRow, isCompactLayout && styles.listHeaderRowCompact]}>
             <View style={{ flex: 1, gap: 4 }}>
-              <Text style={[styles.title, { color: COLORS.text }]}>{copy.servicesPage.title}</Text>
-              <Text style={{ color: COLORS.subtext, fontSize: 13, fontWeight: "600" }}>
+              <Text style={[styles.title, { color: colors.text }]}>{copy.servicesPage.title}</Text>
+              <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
                 {copy.servicesPage.subtitle}
               </Text>
             </View>
@@ -2164,20 +2232,20 @@ export default function App() {
             onUpdated={handleServiceUpdated}
             onCancel={handleServiceFormClose}
             colors={{
-              text: COLORS.text,
-              subtext: COLORS.subtext,
-              border: COLORS.border,
-              surface: COLORS.surface,
-              accent: COLORS.accent,
-              accentFgOn: COLORS.accentFgOn,
-              danger: COLORS.danger,
+              text: colors.text,
+              subtext: colors.subtext,
+              border: colors.border,
+              surface: colors.surface,
+              accent: colors.accent,
+              accentFgOn: colors.accentFgOn,
+              danger: colors.danger,
             }}
             copy={copy.serviceForm}
           />
         ) : null}
 
-        <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 12 }]}>
-          <Text style={[styles.title, { color: COLORS.text }]}>{copy.servicesPage.listTitle}</Text>
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
+          <Text style={[styles.title, { color: colors.text }]}>{copy.servicesPage.listTitle}</Text>
           {services.length === 0 ? (
             <Text style={[styles.empty, { marginVertical: 8 }]}>{copy.servicesPage.empty}</Text>
           ) : (
@@ -2188,10 +2256,10 @@ export default function App() {
                   <View
                     style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1, flexWrap: "wrap" }}
                   >
-                    <MaterialCommunityIcons name={svc.icon} size={22} color={COLORS.accent} />
+                    <MaterialCommunityIcons name={svc.icon} size={22} color={colors.accent} />
                     <View>
-                      <Text style={{ color: COLORS.text, fontWeight: "800" }}>{localized.name}</Text>
-                      <Text style={{ color: COLORS.subtext, fontSize: 12 }}>
+                      <Text style={{ color: colors.text, fontWeight: "800" }}>{localized.name}</Text>
+                      <Text style={{ color: colors.subtext, fontSize: 12 }}>
                         {copy.servicesPage.serviceMeta(svc.estimated_minutes, formatPrice(svc.price_cents))}
                       </Text>
                     </View>
@@ -2199,11 +2267,11 @@ export default function App() {
                   <View style={styles.serviceActions}>
                     <Pressable
                       onPress={() => handleOpenEditService(svc)}
-                      style={[styles.smallBtn, { borderColor: COLORS.border }]}
+                      style={[styles.smallBtn, { borderColor: colors.border }]}
                       accessibilityRole="button"
                       accessibilityLabel={copy.servicesPage.actions.edit.accessibility(localized.name)}
                     >
-                      <Text style={{ color: COLORS.subtext, fontWeight: "800" }}>
+                      <Text style={{ color: colors.subtext, fontWeight: "800" }}>
                         {copy.servicesPage.actions.edit.label}
                       </Text>
                     </Pressable>
@@ -2212,14 +2280,14 @@ export default function App() {
                       style={[
                         styles.smallBtn,
                         {
-                          borderColor: COLORS.danger,
+                          borderColor: colors.danger,
                           backgroundColor: "rgba(239,68,68,0.1)",
                         },
                       ]}
                       accessibilityRole="button"
                       accessibilityLabel={copy.servicesPage.actions.delete.accessibility(localized.name)}
                     >
-                      <Text style={{ color: COLORS.danger, fontWeight: "800" }}>
+                      <Text style={{ color: colors.danger, fontWeight: "800" }}>
                         {copy.servicesPage.actions.delete.label}
                       </Text>
                     </Pressable>
@@ -2233,14 +2301,14 @@ export default function App() {
     ) : activeScreen === "assistant" ? (
       <AssistantChat
         colors={{
-          text: COLORS.text,
-          subtext: COLORS.subtext,
-          surface: COLORS.surface,
-          border: COLORS.border,
-          accent: COLORS.accent,
-          accentFgOn: COLORS.accentFgOn,
-          danger: COLORS.danger,
-          bg: COLORS.bg,
+          text: colors.text,
+          subtext: colors.subtext,
+          surface: colors.surface,
+          border: colors.border,
+          accent: colors.accent,
+          accentFgOn: colors.accentFgOn,
+          danger: colors.danger,
+          bg: colors.bg,
         }}
         systemPrompt={assistantSystemPrompt}
         contextSummary={assistantContextSummary}
@@ -2251,31 +2319,31 @@ export default function App() {
     ) : activeScreen === "imageAssistant" ? (
       <ImageAssistant
         colors={{
-          text: COLORS.text,
-          subtext: COLORS.subtext,
-          surface: COLORS.surface,
-          border: COLORS.border,
-          accent: COLORS.accent,
-          accentFgOn: COLORS.accentFgOn,
-          danger: COLORS.danger,
-          bg: COLORS.bg,
+          text: colors.text,
+          subtext: colors.subtext,
+          surface: colors.surface,
+          border: colors.border,
+          accent: colors.accent,
+          accentFgOn: colors.accentFgOn,
+          danger: colors.danger,
+          bg: colors.bg,
         }}
         copy={imageAssistantCopy}
       />
     ) : activeScreen === "settings" ? (
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}>
-        <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 12 }]}>
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <Ionicons name="settings-outline" size={22} color={COLORS.accent} />
-            <Text style={[styles.title, { color: COLORS.text }]}>{copy.settingsPage.title}</Text>
+            <Ionicons name="settings-outline" size={22} color={colors.accent} />
+            <Text style={[styles.title, { color: colors.text }]}>{copy.settingsPage.title}</Text>
           </View>
-          <Text style={{ color: COLORS.subtext, fontSize: 13, fontWeight: "600" }}>
+          <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
             {copy.settingsPage.subtitle}
           </Text>
         </View>
 
-        <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 16 }]}>
-          <Text style={[styles.languageLabel, { color: COLORS.subtext }]}>{copy.languageLabel}</Text>
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 16 }]}>
+          <Text style={[styles.languageLabel, { color: colors.subtext }]}>{copy.languageLabel}</Text>
           <View style={styles.languageOptions}>
             {LANGUAGE_OPTIONS.map((option) => {
               const isActive = option.code === language;
@@ -2285,8 +2353,8 @@ export default function App() {
                   onPress={() => setLanguage(option.code)}
                   style={[
                     styles.languageOption,
-                    { borderColor: COLORS.border, backgroundColor: COLORS.surface },
-                    isActive && { backgroundColor: COLORS.accent, borderColor: COLORS.accent },
+                    { borderColor: colors.border, backgroundColor: colors.surface },
+                    isActive && { backgroundColor: colors.accent, borderColor: colors.accent },
                   ]}
                   accessibilityRole="button"
                   accessibilityLabel={`${copy.switchLanguage} ${option.label}`}
@@ -2294,10 +2362,44 @@ export default function App() {
                   <Text
                     style={[
                       styles.languageOptionText,
-                      { color: isActive ? COLORS.accentFgOn : COLORS.subtext },
+                      { color: isActive ? colors.accentFgOn : colors.subtext },
                     ]}
                   >
                     {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
+          <Text style={[styles.languageLabel, { color: colors.subtext }]}>{copy.settingsPage.themeLabel}</Text>
+          <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
+            {copy.settingsPage.themeDescription}
+          </Text>
+          <View style={styles.languageOptions}>
+            {THEME_OPTIONS.map((option) => {
+              const isActive = option.value === themePreference;
+              return (
+                <Pressable
+                  key={option.value}
+                  onPress={() => setThemePreference(option.value)}
+                  style={[
+                    styles.languageOption,
+                    { borderColor: colors.border, backgroundColor: colors.surface },
+                    isActive && { backgroundColor: colors.accent, borderColor: colors.accent },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${copy.settingsPage.themeLabel}: ${copy.settingsPage.themeOptions[option.value]}`}
+                >
+                  <Text
+                    style={[
+                      styles.languageOptionText,
+                      { color: isActive ? colors.accentFgOn : colors.subtext },
+                    ]}
+                  >
+                    {copy.settingsPage.themeOptions[option.value]}
                   </Text>
                 </Pressable>
               );
@@ -2311,48 +2413,48 @@ export default function App() {
         contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}
         refreshControl={<RefreshControl refreshing={weekLoading} onRefresh={loadWeek} />}
       >
-        <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 12 }]}>
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <MaterialCommunityIcons name="view-dashboard-outline" size={22} color={COLORS.accent} />
-            <Text style={[styles.title, { color: COLORS.text }]}>{copy.weekTitle}</Text>
+            <MaterialCommunityIcons name="view-dashboard-outline" size={22} color={colors.accent} />
+            <Text style={[styles.title, { color: colors.text }]}>{copy.weekTitle}</Text>
           </View>
-          <Text style={{ color: COLORS.subtext, fontSize: 13, fontWeight: "600" }}>
+          <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
             {copy.overviewSubtitle(weekRangeLabel)}
           </Text>
         </View>
 
         <View style={[styles.statsGrid, isCompactLayout && styles.statsGridCompact]}>
-          <View style={[styles.statCard, { borderColor: COLORS.border, backgroundColor: COLORS.surface }]}>
-            <Text style={[styles.statLabel, { color: COLORS.subtext }]}>{copy.stats.bookingsLabel}</Text>
-            <Text style={[styles.statValue, { color: COLORS.text }]}>{weekSummary.total}</Text>
-            <Text style={[styles.statDetail, { color: COLORS.subtext }]}>
+          <View style={[styles.statCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+            <Text style={[styles.statLabel, { color: colors.subtext }]}>{copy.stats.bookingsLabel}</Text>
+            <Text style={[styles.statValue, { color: colors.text }]}>{weekSummary.total}</Text>
+            <Text style={[styles.statDetail, { color: colors.subtext }]}>
               {copy.stats.averagePerDay(
                 weekDays.length ? (weekSummary.total / weekDays.length).toFixed(1) : "0.0",
               )}
             </Text>
           </View>
-          <View style={[styles.statCard, { borderColor: COLORS.border, backgroundColor: COLORS.surface }]}>
-            <Text style={[styles.statLabel, { color: COLORS.subtext }]}>{copy.stats.serviceHoursLabel}</Text>
-            <Text style={[styles.statValue, { color: COLORS.text }]}>
+          <View style={[styles.statCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+            <Text style={[styles.statLabel, { color: colors.subtext }]}>{copy.stats.serviceHoursLabel}</Text>
+            <Text style={[styles.statValue, { color: colors.text }]}>
               {(weekSummary.totalMinutes / 60).toFixed(weekSummary.totalMinutes / 60 >= 10 ? 0 : 1)}
             </Text>
-            <Text style={[styles.statDetail, { color: COLORS.subtext }]}>
+            <Text style={[styles.statDetail, { color: colors.subtext }]}>
               {copy.stats.serviceHoursDetail}
             </Text>
           </View>
-          <View style={[styles.statCard, { borderColor: COLORS.border, backgroundColor: COLORS.surface }]}>
-            <Text style={[styles.statLabel, { color: COLORS.subtext }]}>{copy.stats.revenueLabel}</Text>
-            <Text style={[styles.statValue, { color: COLORS.text }]}>{formatPrice(weekSummary.totalRevenue)}</Text>
-            <Text style={[styles.statDetail, { color: COLORS.subtext }]}>
+          <View style={[styles.statCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+            <Text style={[styles.statLabel, { color: colors.subtext }]}>{copy.stats.revenueLabel}</Text>
+            <Text style={[styles.statValue, { color: colors.text }]}>{formatPrice(weekSummary.totalRevenue)}</Text>
+            <Text style={[styles.statDetail, { color: colors.subtext }]}>
               {copy.stats.revenueDetail}
             </Text>
           </View>
-          <View style={[styles.statCard, { borderColor: COLORS.border, backgroundColor: COLORS.surface }]}>
-            <Text style={[styles.statLabel, { color: COLORS.subtext }]}>{copy.stats.busiestBarberLabel}</Text>
-            <Text style={[styles.statValue, { color: COLORS.text }]}>
+          <View style={[styles.statCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+            <Text style={[styles.statLabel, { color: colors.subtext }]}>{copy.stats.busiestBarberLabel}</Text>
+            <Text style={[styles.statValue, { color: colors.text }]}>
               {topBarberEntry ? BARBER_MAP[topBarberEntry[0]]?.name ?? topBarberEntry[0] : "—"}
             </Text>
-            <Text style={[styles.statDetail, { color: COLORS.subtext }]}>
+            <Text style={[styles.statDetail, { color: colors.subtext }]}>
               {topBarberEntry
                 ? copy.stats.busiestDetail(topBarberEntry[1])
                 : copy.noBookings}
@@ -2360,14 +2462,14 @@ export default function App() {
           </View>
         </View>
 
-        <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 12 }]}>
-          <Text style={[styles.title, { color: COLORS.text }]}>{copy.bookingsByDayTitle}</Text>
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
+          <Text style={[styles.title, { color: colors.text }]}>{copy.bookingsByDayTitle}</Text>
           {weekDaySummaries.map(({ key, date, bookings }) => (
             <View key={key} style={styles.dayRow}>
               <View style={styles.dayHeader}>
-                <Text style={[styles.dayTitle, { color: COLORS.text }]}>{formatWeekday(date, locale)}</Text>
-                <View style={[styles.dayCountBadge, { borderColor: COLORS.border, backgroundColor: COLORS.bg }]}>
-                  <Text style={[styles.dayCountText, { color: COLORS.subtext }]}>
+                <Text style={[styles.dayTitle, { color: colors.text }]}>{formatWeekday(date, locale)}</Text>
+                <View style={[styles.dayCountBadge, { borderColor: colors.border, backgroundColor: colors.bg }]}>
+                  <Text style={[styles.dayCountText, { color: colors.subtext }]}>
                     {copy.dayBookingCount(bookings.length)}
                   </Text>
                 </View>
@@ -2387,13 +2489,13 @@ export default function App() {
                       <MaterialCommunityIcons
                         name={(localizedSvc?.icon ?? rawSvc?.icon ?? "calendar") as keyof typeof MaterialCommunityIcons.glyphMap}
                         size={18}
-                        color={COLORS.accent}
+                        color={colors.accent}
                       />
                       <View style={{ flex: 1 }}>
-                        <Text style={[styles.dayBookingText, { color: COLORS.text }]}>
+                        <Text style={[styles.dayBookingText, { color: colors.text }]}>
                           {b.start} – {b.end} • {localizedSvc?.name ?? b.service_id}
                         </Text>
-                        <Text style={[styles.dayBookingMeta, { color: COLORS.subtext }]}>
+                        <Text style={[styles.dayBookingMeta, { color: colors.subtext }]}>
                           {barberName}
                           {customerName ? ` • ${customerName}` : ""}
                         </Text>
@@ -2439,6 +2541,8 @@ function ClientModal({
   onPick,
   onSaved,
   copy,
+  colors,
+  styles,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -2448,6 +2552,8 @@ function ClientModal({
   onPick: (c: Customer) => void;
   onSaved: (c: Customer) => void;
   copy: typeof LANGUAGE_COPY.en.bookService.clientModal;
+  colors: ThemeColors;
+  styles: ReturnType<typeof createStyles>;
 }) {
   const [tab, setTab] = useState<"list" | "create">("list");
   const [query, setQuery] = useState("");
@@ -2457,21 +2563,21 @@ function ClientModal({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.backdrop}>
-        <View style={[styles.sheet, { backgroundColor: "#0c1017", borderColor: COLORS.border }]}>
+        <View style={[styles.sheet, { backgroundColor: colors.sidebarBg, borderColor: colors.border }]}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-            <Text style={{ color: COLORS.text, fontWeight: "900", fontSize: 16 }}>{copy.title}</Text>
-            <Pressable onPress={onClose}><Ionicons name="close" size={22} color={COLORS.subtext} /></Pressable>
+            <Text style={{ color: colors.text, fontWeight: "900", fontSize: 16 }}>{copy.title}</Text>
+            <Pressable onPress={onClose}><Ionicons name="close" size={22} color={colors.subtext} /></Pressable>
           </View>
 
           {/* Tabs */}
           <View style={{ flexDirection: "row", gap: 8 }}>
             <Pressable onPress={() => setTab("list")}
-              style={[styles.tab, tab === "list" && { backgroundColor: COLORS.accent, borderColor: COLORS.accent }]}>
-              <Text style={[styles.tabText, tab === "list" && { color: COLORS.accentFgOn }]}>{copy.tabs.list}</Text>
+              style={[styles.tab, tab === "list" && { backgroundColor: colors.accent, borderColor: colors.accent }]}>
+              <Text style={[styles.tabText, tab === "list" && { color: colors.accentFgOn }]}>{copy.tabs.list}</Text>
             </Pressable>
             <Pressable onPress={() => setTab("create")}
-              style={[styles.tab, tab === "create" && { backgroundColor: COLORS.accent, borderColor: COLORS.accent }]}>
-              <Text style={[styles.tabText, tab === "create" && { color: COLORS.accentFgOn }]}>{copy.tabs.create}</Text>
+              style={[styles.tab, tab === "create" && { backgroundColor: colors.accent, borderColor: colors.accent }]}>
+              <Text style={[styles.tabText, tab === "create" && { color: colors.accentFgOn }]}>{copy.tabs.create}</Text>
             </Pressable>
           </View>
 
@@ -2487,28 +2593,28 @@ function ClientModal({
                     padding: 10,
                     borderRadius: 10,
                     width: "100%",
-                    border: `1px solid ${COLORS.border}`,
-                    background: "rgba(255,255,255,0.06)",
-                    color: COLORS.text,
+                    border: `1px solid ${colors.border}`,
+                    background: colors.surface,
+                    color: colors.text,
                     fontWeight: 700,
                   }}
                 />
               )}
-              <Pressable onPress={() => onRefreshQuery(query)} style={[styles.smallBtn, { alignSelf: "flex-start", borderColor: COLORS.border }]}>
-                <Text style={{ color: COLORS.subtext, fontWeight: "800" }}>{copy.searchButton}</Text>
+              <Pressable onPress={() => onRefreshQuery(query)} style={[styles.smallBtn, { alignSelf: "flex-start", borderColor: colors.border }]}>
+                <Text style={{ color: colors.subtext, fontWeight: "800" }}>{copy.searchButton}</Text>
               </Pressable>
 
               <View style={[styles.card, { gap: 6 }]}>
                 {loading ? <ActivityIndicator /> : customers.length === 0 ? (
-                  <Text style={{ color: COLORS.subtext }}>{copy.empty}</Text>
+                  <Text style={{ color: colors.subtext }}>{copy.empty}</Text>
                 ) : (
                   customers.map(c => (
                     <Pressable key={c.id} onPress={() => onPick(c)} style={styles.listRow}>
-                      <MaterialCommunityIcons name="account" size={18} color="#93c5fd" />
-                      <Text style={{ color: COLORS.text, fontWeight: "800" }}>
+                      <MaterialCommunityIcons name="account" size={18} color={colors.accent} />
+                      <Text style={{ color: colors.text, fontWeight: "800" }}>
                         {c.first_name} {c.last_name}
                       </Text>
-                      {c.email ? <Text style={{ color: COLORS.subtext, marginLeft: 6, fontSize: 12 }}>{c.email}</Text> : null}
+                      {c.email ? <Text style={{ color: colors.subtext, marginLeft: 6, fontSize: 12 }}>{c.email}</Text> : null}
                     </Pressable>
                   ))
                 )}
@@ -2529,6 +2635,15 @@ function ClientModal({
                   onClose();
                 }}
                 onCancel={() => setTab("list")}
+                colors={{
+                  text: colors.text,
+                  subtext: colors.subtext,
+                  border: colors.border,
+                  surface: colors.surface,
+                  accent: colors.accent,
+                  accentFgOn: colors.accentFgOn,
+                  danger: colors.danger,
+                }}
               />
             </View>
           )}
@@ -2539,25 +2654,13 @@ function ClientModal({
 }
 
 /** ========== Design tokens & styles ========== */
-const COLORS = {
-  bg: "#0b0d13",
-  surface: "rgba(255,255,255,0.045)",
-  sidebarBg: "#111827",
-  border: "rgba(255,255,255,0.07)",
-  text: "#e5e7eb",
-  subtext: "#cbd5e1",
-  accent: "#60a5fa",
-  accentFgOn: "#091016",
-  danger: "#ef4444",
-};
-
 const SHADOW = Platform.select({
   ios: { shadowColor: "#000", shadowOpacity: 0.25, shadowRadius: 10, shadowOffset: { width: 0, height: 6 } },
   android: { elevation: 6 },
   default: {},
 });
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   appShell: { flex: 1 },
   menuFab: {
     position: "absolute",
@@ -2566,6 +2669,8 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 40,
@@ -2590,6 +2695,8 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     paddingHorizontal: 16,
     borderLeftWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.sidebarBg,
     alignItems: "stretch",
     gap: 16,
     zIndex: 30,
@@ -2604,16 +2711,16 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   sidebarBrand: { flexDirection: "row", alignItems: "center", gap: 10 },
-  navBrand: { color: "#fff", fontSize: 18, fontWeight: "800", letterSpacing: 0.3 },
+  navBrand: { color: colors.text, fontSize: 18, fontWeight: "800", letterSpacing: 0.3 },
   sidebarClose: {
     width: 34,
     height: 34,
     borderRadius: 17,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: colors.surface,
   },
   sidebarItems: {
     flex: 1,
@@ -2631,44 +2738,51 @@ const styles = StyleSheet.create({
     borderColor: "transparent",
     backgroundColor: "transparent",
   },
-  sidebarItemActive: { backgroundColor: COLORS.accent, borderColor: COLORS.accent },
-  sidebarItemText: { color: COLORS.subtext, fontWeight: "700" },
-  sidebarItemTextActive: { color: COLORS.accentFgOn },
+  sidebarItemActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+  sidebarItemText: { color: colors.subtext, fontWeight: "700" },
+  sidebarItemTextActive: { color: colors.accentFgOn },
   mainArea: { flex: 1 },
 
   defaultScreen: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 16 },
-  defaultTitle: { color: COLORS.text, fontSize: 24, fontWeight: "800", textAlign: "center", letterSpacing: 0.3 },
-  defaultSubtitle: { color: COLORS.subtext, fontSize: 14, textAlign: "center", lineHeight: 20, maxWidth: 320 },
+  defaultTitle: { color: colors.text, fontSize: 24, fontWeight: "800", textAlign: "center", letterSpacing: 0.3 },
+  defaultSubtitle: { color: colors.subtext, fontSize: 14, textAlign: "center", lineHeight: 20, maxWidth: 320 },
   defaultCta: {
     marginTop: 8,
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 999,
-    backgroundColor: COLORS.accent,
+    backgroundColor: colors.accent,
     borderWidth: 1,
-    borderColor: COLORS.accent,
+    borderColor: colors.accent,
   },
-  defaultCtaText: { color: COLORS.accentFgOn, fontWeight: "800", fontSize: 14 },
+  defaultCtaText: { color: colors.accentFgOn, fontWeight: "800", fontSize: 14 },
 
-  header: { paddingTop: 24, paddingBottom: 16, paddingHorizontal: 16, borderBottomWidth: 1, borderColor: "#11151c", backgroundColor: "#0c1017" },
+  header: {
+    paddingTop: 24,
+    paddingBottom: 16,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.sidebarBg,
+  },
   headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 },
-  title: { color: "#fff", fontSize: 22, fontWeight: "800", letterSpacing: 0.3 },
-  badge: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.06)" },
-  badgeText: { color: "#cbd5e1", fontSize: 12, fontWeight: "600" },
+  title: { color: colors.text, fontSize: 22, fontWeight: "800", letterSpacing: 0.3 },
+  badge: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, backgroundColor: colors.surface },
+  badgeText: { color: colors.subtext, fontSize: 12, fontWeight: "600" },
 
   chipsRow: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 12 },
   filterChipsRow: { flexDirection: "row", gap: 8, flexWrap: "wrap", marginTop: 8 },
-  chip: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1, borderColor: "#ffffff12", backgroundColor: "rgba(255,255,255,0.045)", ...(SHADOW as object) },
-  chipActive: { backgroundColor: "#60a5fa", borderColor: "#60a5fa" },
-  chipText: { color: "#cbd5e1", fontWeight: "700" },
-  chipTextActive: { color: "#091016", fontWeight: "800" },
+  chip: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, ...(SHADOW as object) },
+  chipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+  chipText: { color: colors.subtext, fontWeight: "700" },
+  chipTextActive: { color: colors.accentFgOn, fontWeight: "800" },
 
   container: { padding: 16, gap: 14 },
   containerCompact: { paddingHorizontal: 12, paddingVertical: 16, gap: 16 },
-  sectionLabel: { color: "#e5e7eb", fontSize: 14, fontWeight: "700", letterSpacing: 0.3, marginTop: 8 },
-  filterLabel: { color: COLORS.subtext, fontSize: 12, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.4 },
+  sectionLabel: { color: colors.text, fontSize: 14, fontWeight: "700", letterSpacing: 0.3, marginTop: 8 },
+  filterLabel: { color: colors.subtext, fontSize: 12, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.4 },
 
-  card: { backgroundColor: "rgba(255,255,255,0.045)", borderRadius: 18, borderWidth: 1, borderColor: "#ffffff12", padding: 12, ...(SHADOW as object) },
+  card: { backgroundColor: colors.surface, borderRadius: 18, borderWidth: 1, borderColor: colors.border, padding: 12, ...(SHADOW as object) },
   languageControls: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -2689,9 +2803,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#ffffff12",
-    backgroundColor: "rgba(255,255,255,0.035)",
-    color: COLORS.text,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    color: colors.text,
     fontWeight: "700",
     marginTop: 6,
   },
@@ -2709,60 +2823,95 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#ffffff12",
-    backgroundColor: "rgba(255,255,255,0.03)",
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
   bookingListRowCompact: { flexDirection: "column", alignItems: "flex-start", gap: 8 },
   bookingListTime: { width: 140 },
   bookingListTimeCompact: { width: "100%" },
-  bookingListDate: { color: COLORS.text, fontWeight: "800", fontSize: 13 },
-  bookingListClock: { color: COLORS.subtext, fontWeight: "700", fontSize: 12 },
-  bookingListTitle: { color: COLORS.text, fontWeight: "800", fontSize: 15 },
-  bookingListMeta: { color: COLORS.subtext, fontWeight: "600", fontSize: 12, marginTop: 2 },
+  bookingListDate: { color: colors.text, fontWeight: "800", fontSize: 13 },
+  bookingListClock: { color: colors.subtext, fontWeight: "700", fontSize: 12 },
+  bookingListTitle: { color: colors.text, fontWeight: "800", fontSize: 15 },
+  bookingListMeta: { color: colors.subtext, fontWeight: "600", fontSize: 12, marginTop: 2 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
 
-  slot: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: "#ffffff12", borderRadius: 12, backgroundColor: "rgba(255,255,255,0.03)" },
+  slot: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.surface },
   slotPressed: { opacity: 0.7 },
-  slotText: { color: "#e5e7eb", fontWeight: "700" },
+  slotText: { color: colors.text, fontWeight: "700" },
 
   // seleção de horário
-  slotActive: { backgroundColor: COLORS.accent, borderColor: COLORS.accent },
-  slotTextActive: { color: COLORS.accentFgOn },
+  slotActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+  slotTextActive: { color: colors.accentFgOn },
 
   // slot ocupado
   slotBusy: { backgroundColor: "rgba(239,68,68,0.15)", borderColor: "rgba(239,68,68,0.4)" },
-  slotBusyText: { color: COLORS.danger, textDecorationLine: "line-through", fontWeight: "700" },
+  slotBusyText: { color: colors.danger, textDecorationLine: "line-through", fontWeight: "700" },
 
   // resumo fixo
-  summaryText: { marginTop: 10, textAlign: "center", color: COLORS.text, fontWeight: "700", fontSize: 14 },
+  summaryText: { marginTop: 10, textAlign: "center", color: colors.text, fontWeight: "700", fontSize: 14 },
 
   // botões
-  bookBtn: { paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, backgroundColor: COLORS.accent, borderWidth: 1, borderColor: COLORS.accent },
+  bookBtn: { paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, backgroundColor: colors.accent, borderWidth: 1, borderColor: colors.accent },
   bookBtnDisabled: { opacity: 0.5 },
-  bookBtnText: { color: COLORS.accentFgOn, fontWeight: "800" },
+  bookBtnText: { color: colors.accentFgOn, fontWeight: "800" },
 
-  empty: { color: "#cbd5e1", padding: 6 },
+  empty: { color: colors.subtext, padding: 6 },
 
-  bookingCard: { borderRadius: 16, padding: 12, borderWidth: 1, borderColor: "#ffffff12", backgroundColor: "rgba(255,255,255,0.035)", flexDirection: "row", alignItems: "center", justifyContent: "space-between", ...(SHADOW as object) },
-  bookingText: { color: "#e5e7eb", fontSize: 15, fontWeight: "700" },
+  bookingCard: { borderRadius: 16, padding: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, flexDirection: "row", alignItems: "center", justifyContent: "space-between", ...(SHADOW as object) },
+  bookingText: { color: colors.text, fontSize: 15, fontWeight: "700" },
   cancelBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 10, borderWidth: 1, borderColor: "rgba(239,68,68,0.35)", backgroundColor: "rgba(239,68,68,0.1)" },
-  cancelText: { color: "#fecaca", fontWeight: "800" },
+  cancelText: { color: colors.danger, fontWeight: "800" },
 
-  note: { color: "#94a3b8", fontSize: 12, marginTop: 8 },
+  note: { color: colors.subtext, fontSize: 12, marginTop: 8 },
 
   loadingOverlay: { position: "absolute", inset: 0, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.15)" },
 
   // Modal
   backdrop: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.45)", padding: 16 },
-  sheet: { width: 560, maxWidth: "100%", borderRadius: 16, borderWidth: 1, padding: 16, gap: 12 },
-  tab: { borderWidth: 1, borderColor: "#ffffff12", paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999 },
-  tabText: { color: "#e5e7eb", fontWeight: "800" },
+  sheet: {
+    width: 560,
+    maxWidth: "100%",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.sidebarBg,
+    padding: 16,
+    gap: 12,
+  },
+  tab: { borderWidth: 1, borderColor: colors.border, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999 },
+  tabText: { color: colors.text, fontWeight: "800" },
 
   // linha lista
-  listRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 8 },
-  cardRow: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderRadius: 14, padding: 12 },
+  listRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 10,
+  },
+  cardRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: 14,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    padding: 12,
+  },
   cardRowStack: { flexDirection: "column", alignItems: "stretch", gap: 12 },
-  smallBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1 },
+  smallBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
   fullWidthButton: { alignSelf: "stretch", justifyContent: "center", alignItems: "center" },
   serviceRow: {
     flexDirection: "row",
@@ -2774,8 +2923,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#ffffff12",
-    backgroundColor: "rgba(255,255,255,0.035)",
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
   serviceActions: {
     flexDirection: "row",
@@ -2794,6 +2943,8 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 16,
     borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     gap: 6,
   },
   statLabel: { fontSize: 12, fontWeight: "700", textTransform: "uppercase" },
@@ -2802,21 +2953,23 @@ const styles = StyleSheet.create({
   dayRow: {
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: "#ffffff12",
+    borderColor: colors.border,
     padding: 12,
     gap: 10,
-    backgroundColor: "rgba(255,255,255,0.03)",
+    backgroundColor: colors.surface,
   },
   dayHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
-  dayTitle: { fontSize: 14, fontWeight: "800" },
+  dayTitle: { fontSize: 14, fontWeight: "800", color: colors.text },
   dayCountBadge: {
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 999,
     borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bg,
   },
-  dayCountText: { fontSize: 12, fontWeight: "700" },
+  dayCountText: { fontSize: 12, fontWeight: "700", color: colors.subtext },
   dayBookingRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  dayBookingText: { fontSize: 13, fontWeight: "700" },
-  dayBookingMeta: { fontSize: 12, fontWeight: "600" },
+  dayBookingText: { fontSize: 13, fontWeight: "700", color: colors.text },
+  dayBookingMeta: { fontSize: 12, fontWeight: "600", color: colors.subtext },
 });

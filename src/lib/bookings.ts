@@ -19,6 +19,16 @@ export type Customer = {
   date_of_birth?: string | null;
 };
 
+const stripSeconds = (time: string | null | undefined) =>
+  typeof time === "string" && time.length >= 5 ? time.slice(0, 5) : time ?? "";
+
+const normalizeTimeFields = (rows: DbBooking[]): DbBooking[] =>
+  rows.map((row) => ({
+    ...row,
+    start: stripSeconds(row.start),
+    end: stripSeconds(row.end),
+  }));
+
 export type BookingWithCustomer = DbBooking & { _customer?: Customer };
 
 async function attachCustomers(rows: DbBooking[]): Promise<BookingWithCustomer[]> {
@@ -47,7 +57,7 @@ export async function getBookings(dateKey: string): Promise<BookingWithCustomer[
   console.log("[getBookings]", { dateKey, status, data, error });
   if (error) throw error;
 
-  const rows = (data ?? []) as DbBooking[];
+  const rows = normalizeTimeFields((data ?? []) as DbBooking[]);
   return attachCustomers(rows);
 }
 
@@ -68,7 +78,7 @@ export async function getBookingsForRange(
   console.log("[getBookingsForRange]", { startDate, endDate, status, error });
   if (error) throw error;
 
-  const rows = (data ?? []) as DbBooking[];
+  const rows = normalizeTimeFields((data ?? []) as DbBooking[]);
   return attachCustomers(rows);
 }
 
@@ -83,7 +93,7 @@ export async function listRecentBookings(limit = 200): Promise<BookingWithCustom
   console.log("[listRecentBookings]", { status, error, limit });
   if (error) throw error;
 
-  const rows = (data ?? []) as DbBooking[];
+  const rows = normalizeTimeFields((data ?? []) as DbBooking[]);
   return attachCustomers(rows);
 }
 

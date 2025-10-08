@@ -292,7 +292,12 @@ export default function ImageAssistant({ colors, copy = DEFAULT_COPY }: ImageAss
                   {copy.history.meta(response.size, response.quality)}
                 </Text>
                 <Text style={[styles.historyTimestamp, { color: colors.subtext }]}>
-                  {copy.history.generatedAt(new Date(entry.createdAt).toLocaleString())}
+                  {copy.history.generatedAt(
+                    new Date(entry.createdAt).toLocaleString(undefined, {
+                      dateStyle: "short",
+                      timeStyle: "short",
+                    }),
+                  )}
                 </Text>
               </View>
             );
