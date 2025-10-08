@@ -101,6 +101,8 @@ const mixHexColor = (base: string, mix: string, amount: number) => {
 const tintHexColor = (color: string, amount: number, mixColor = "#ffffff") =>
   mixHexColor(color, mixColor, amount);
 
+const SLOT_MINUTES = 30;
+
 const normalizeTimeInput = (input?: string | null): string | null => {
   if (!input) return null;
   const trimmed = input.trim();
@@ -1301,7 +1303,9 @@ export default function App() {
   const allSlots = useMemo(() => {
     const start = openingHour * 60, end = closingHour * 60;
     const slots: string[] = [];
-    for (let t = start; t <= end - 30; t += 30) slots.push(minutesToTime(t));
+    for (let t = start; t <= end - SLOT_MINUTES; t += SLOT_MINUTES) {
+      slots.push(minutesToTime(t));
+    }
     return slots;
   }, []);
 
@@ -2139,7 +2143,13 @@ export default function App() {
                   const isSelected = selectedSlot === t;
 
                   if (!isAvailable) {
-                    const conflict = bookings.find(
+                    const slotEnd = addMinutes(t, SLOT_MINUTES);
+                    const overlappingBooking = bookings.find(
+                      (b) =>
+                        b.barber === selectedBarber.id &&
+                        overlap(t, slotEnd, b.start, b.end),
+                    );
+                    const conflict = overlappingBooking ?? bookings.find(
                       (b) =>
                         b.barber === selectedBarber.id &&
                         overlap(t, addMinutes(t, selectedService.estimated_minutes), b.start, b.end),
@@ -2163,10 +2173,17 @@ export default function App() {
                               : bookServiceCopy.slots.busyFallback,
                           )
                         }
-                        style={[styles.slot, styles.slotBusy]}
+                        style={[
+                          styles.slot,
+                          overlappingBooking ? styles.slotBusy : styles.slotDisabled,
+                        ]}
                       >
-                        <Ionicons name="close-circle-outline" size={16} color={colors.danger} />
-                        <Text style={styles.slotBusyText}>{t}</Text>
+                        <Ionicons
+                          name={overlappingBooking ? "close-circle-outline" : "time-outline"}
+                          size={16}
+                          color={overlappingBooking ? colors.danger : colors.subtext}
+                        />
+                        <Text style={overlappingBooking ? styles.slotBusyText : styles.slotDisabledText}>{t}</Text>
                       </Pressable>
                     );
                   }
@@ -3563,6 +3580,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   // slot ocupado
   slotBusy: { backgroundColor: "rgba(239,68,68,0.15)", borderColor: "rgba(239,68,68,0.4)" },
   slotBusyText: { color: colors.danger, textDecorationLine: "line-through", fontWeight: "700" },
+
+  // slot indisponível (sem reserva direta)
+  slotDisabled: { backgroundColor: applyAlpha(colors.subtext, 0.08), borderColor: applyAlpha(colors.subtext, 0.25) },
+  slotDisabledText: { color: colors.subtext, fontWeight: "700", opacity: 0.7 },
 
   // resumo fixo
   summaryText: { marginTop: 10, textAlign: "center", color: colors.text, fontWeight: "700", fontSize: 14 },
