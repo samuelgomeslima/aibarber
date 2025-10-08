@@ -86,8 +86,8 @@ export async function listRecentBookings(limit = 200): Promise<BookingWithCustom
   const { data, error, status } = await supabase
     .from("bookings")
     .select('id,date,start,"end",service_id,barber,customer_id')
-    .order("date", { ascending: true })
-    .order("start", { ascending: true })
+    .order("date", { ascending: false })
+    .order("start", { ascending: false })
     .limit(limit);
 
   console.log("[listRecentBookings]", { status, error, limit });

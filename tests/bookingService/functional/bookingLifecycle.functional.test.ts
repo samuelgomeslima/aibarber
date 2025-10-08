@@ -95,7 +95,8 @@ describe("booking service functional flow", () => {
 
     const bookings = await listRecentBookings(5);
 
-    expect(bookingsTable.order).toHaveBeenCalledWith("date", { ascending: true });
+    expect(bookingsTable.order).toHaveBeenCalledWith("date", { ascending: false });
+    expect(bookingsTable.order).toHaveBeenCalledWith("start", { ascending: false });
     expect(bookingsTable.limit).toHaveBeenCalledWith(5);
     expect(customersTable.in).toHaveBeenCalledWith("id", [customerRecord.id]);
     expect(bookings).toEqual([
