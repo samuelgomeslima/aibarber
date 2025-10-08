@@ -53,11 +53,11 @@ Make sure `IMAGE_API_TOKEN` matches the value used in `.env.local`. The function
 Use two terminals (or run the commands in the background):
 
 ```bash
-npm run dev            # starts Expo for the front-end (web, iOS, or Android)
+npm start                    # starts Expo for the front-end (web, iOS, or Android)
 npm run start --prefix api   # starts the Azure Functions app (func start)
 ```
 
-> If you prefer the Static Web Apps CLI, you can alternatively run `npx swa start http://localhost:8081 --run "npm run dev"`.
+> If you prefer the Static Web Apps CLI, you can alternatively run `npx swa start http://localhost:8081 --run "npm start"`.
 
 ## 5. Generate images
 
