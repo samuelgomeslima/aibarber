@@ -3,7 +3,7 @@ import type { Service } from "./domain";
 export type LanguageCode = "en" | "pt";
 
 const RAW_SERVICE_TRANSLATIONS: Record<string, Partial<Record<LanguageCode, string>>> = {
-  cut: { pt: "Corte clássico" },
+  cut: { pt: "Corte" },
   "classic cut": { pt: "Corte clássico" },
   "classic haircut": { pt: "Corte clássico" },
   fade: { pt: "Degradê" },
@@ -11,8 +11,10 @@ const RAW_SERVICE_TRANSLATIONS: Record<string, Partial<Record<LanguageCode, stri
   colors: { pt: "Coloração" },
   "hair color": { pt: "Coloração" },
   beard: { pt: "Barba" },
-  shave: { pt: "Barbear" },
-  "beard shave": { pt: "Barbear" },
+  shave: { pt: "Barba" },
+  "beard shave": { pt: "Barba" },
+  "cut shave": { pt: "Corte & Barba" },
+  "cut and shave": { pt: "Corte & Barba" },
   trim: { pt: "Aparar" },
   "buzz cut": { pt: "Corte militar" },
   "cut style": { pt: "Corte e estilo" },

@@ -103,6 +103,10 @@ const LANGUAGE_COPY = {
       imageAssistant: "Image lab",
       settings: "Settings",
     },
+    settingsPage: {
+      title: "Settings",
+      subtitle: "Manage your preferences for the AIBarber dashboard.",
+    },
     servicesPage: {
       title: "Services",
       subtitle: "Manage what clients can book and adjust existing options as needed.",
@@ -416,6 +420,10 @@ const LANGUAGE_COPY = {
       assistant: "Assistente",
       imageAssistant: "Laboratório de imagens",
       settings: "Configurações",
+    },
+    settingsPage: {
+      title: "Configurações",
+      subtitle: "Gerencie suas preferências no painel do AIBarber.",
     },
     servicesPage: {
       title: "Serviços",
@@ -1058,7 +1066,7 @@ export default function App() {
       const displayServiceName = selectedLocalizedService?.name ?? selectedService.name;
       Alert.alert(
         bookServiceCopy.alerts.bookingSuccessTitle,
-        `${displayServiceName} • ${selectedCustomer.first_name} • ${barberName} • ${start} • ${humanDate(dateKey)}`,
+        `${displayServiceName} • ${selectedCustomer.first_name} • ${barberName} • ${start} • ${humanDate(dateKey, locale)}`,
       );
     } catch (e: any) {
       console.error(e);
@@ -1255,7 +1263,7 @@ export default function App() {
           ? `${b._customer.first_name}${b._customer.last_name ? ` ${b._customer.last_name}` : ""}`
           : null;
         return assistantCopy.systemPrompt.bookingLine({
-          date: humanDate(b.date),
+          date: humanDate(b.date, locale),
           start: b.start,
           end: b.end,
           serviceName,
@@ -1279,7 +1287,7 @@ export default function App() {
       existingBookings,
       ...assistantCopy.systemPrompt.instructions,
     ].join("\n");
-  }, [assistantCopy.systemPrompt, bookings, localizedServiceMap, localizedServices]);
+  }, [assistantCopy.systemPrompt, bookings, locale, localizedServiceMap, localizedServices]);
 
   const filteredBookingsList = useMemo(() => {
     const barber = bookingFilterBarber?.trim();
@@ -1714,10 +1722,11 @@ export default function App() {
                   border: COLORS.border,
                   accent: COLORS.accent,
                 }}
+                locale={locale}
               />
 
               {/* Slots */}
-              <Text style={styles.sectionLabel}>{bookServiceCopy.slots.title(humanDate(dateKey))}</Text>
+              <Text style={styles.sectionLabel}>{bookServiceCopy.slots.title(humanDate(dateKey, locale))}</Text>
           <View style={styles.card}>
             {selectedService ? (
               <View style={styles.grid}>
@@ -1781,7 +1790,7 @@ export default function App() {
             {/* Resumo fixo */}
             {selectedSlot && selectedService && (
               <Text style={styles.summaryText}>
-                {(selectedLocalizedService?.name ?? selectedService.name)} • {BARBER_MAP[selectedBarber.id]?.name} • {selectedSlot} • {humanDate(dateKey)}
+                {(selectedLocalizedService?.name ?? selectedService.name)} • {BARBER_MAP[selectedBarber.id]?.name} • {selectedSlot} • {humanDate(dateKey, locale)}
                 {selectedCustomer ? ` • ${selectedCustomer.first_name}` : ""}
               </Text>
             )}
@@ -2105,7 +2114,7 @@ export default function App() {
                   style={[styles.bookingListRow, isUltraCompactLayout && styles.bookingListRowCompact]}
                 >
                   <View style={[styles.bookingListTime, isUltraCompactLayout && styles.bookingListTimeCompact]}>
-                    <Text style={styles.bookingListDate}>{humanDate(booking.date)}</Text>
+                    <Text style={styles.bookingListDate}>{humanDate(booking.date, locale)}</Text>
                     <Text style={styles.bookingListClock}>
                       {booking.start} – {booking.end}
                     </Text>
@@ -2258,10 +2267,10 @@ export default function App() {
         <View style={[styles.card, { borderColor: COLORS.border, backgroundColor: COLORS.surface, gap: 12 }]}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <Ionicons name="settings-outline" size={22} color={COLORS.accent} />
-            <Text style={[styles.title, { color: COLORS.text }]}>Settings</Text>
+            <Text style={[styles.title, { color: COLORS.text }]}>{copy.settingsPage.title}</Text>
           </View>
           <Text style={{ color: COLORS.subtext, fontSize: 13, fontWeight: "600" }}>
-            Manage your preferences for the AIBarber dashboard.
+            {copy.settingsPage.subtitle}
           </Text>
         </View>
 
