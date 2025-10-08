@@ -168,9 +168,14 @@ type DonutChartProps = {
 const DONUT_STYLES = StyleSheet.create({
   container: { position: "relative" },
   track: { position: "absolute", top: 0, left: 0 },
-  segment: { position: "absolute", top: 0, left: 0 },
-  halfContainer: { position: "absolute", top: 0, overflow: "hidden" },
-  half: { position: "absolute", top: 0 },
+  slice: {
+    position: "absolute",
+    width: 0,
+    height: 0,
+    borderStyle: "solid",
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+  },
   center: { position: "absolute" },
 });
 
@@ -182,7 +187,6 @@ const DonutChart = ({
   backgroundColor,
 }: DonutChartProps) => {
   const radius = size / 2;
-  const halfWidth = radius;
   const normalizedSegments = segments
     .map((segment) => ({
       value: Math.max(0, segment.value),
@@ -190,108 +194,85 @@ const DonutChart = ({
     }))
     .filter((segment) => segment.value > 0);
   const totalValue = normalizedSegments.reduce((sum, segment) => sum + segment.value, 0);
+  const resolutionSteps = 240;
+  const stepAngle = 360 / resolutionSteps;
+  const halfAngleRadians = (stepAngle * Math.PI) / 360;
+  const sliceHalfWidth = Math.min(Math.max(radius * Math.tan(halfAngleRadians), 0.5), radius);
 
-  const renderSegment = (
-    startAngle: number,
-    sweepAngle: number,
-    color: string,
-    key: string,
-  ) => {
-    if (sweepAngle <= 0) {
-      return null;
+  const createSlice = (angle: number, color: string, key: string) => (
+    <View
+      key={key}
+      style={[
+        DONUT_STYLES.slice,
+        {
+          top: radius,
+          left: radius,
+          borderLeftWidth: sliceHalfWidth,
+          borderRightWidth: sliceHalfWidth,
+          borderBottomWidth: radius,
+          borderBottomColor: color,
+          transform: [{ rotate: `${angle - 180}deg` }],
+        },
+      ]}
+    />
+  );
+
+  const baseSlices = Array.from({ length: resolutionSteps }, (_, index) =>
+    createSlice(index * stepAngle, trackColor, `track-${index}`),
+  );
+
+  const segmentSlices: React.ReactNode[] = [];
+  if (totalValue > 0) {
+    const allocations = normalizedSegments.map((segment) => {
+      const share = segment.value / totalValue;
+      const rawSteps = share * resolutionSteps;
+      const baseSteps = Math.floor(rawSteps);
+      return {
+        segment,
+        steps: baseSteps,
+        remainder: rawSteps - baseSteps,
+      };
+    });
+
+    let allocated = allocations.reduce((sum, entry) => sum + entry.steps, 0);
+    let remaining = Math.max(0, resolutionSteps - allocated);
+
+    if (remaining > 0) {
+      const order = allocations
+        .map((entry, index) => ({ index, remainder: entry.remainder }))
+        .sort((a, b) => b.remainder - a.remainder);
+      let i = 0;
+      while (remaining > 0 && order.length > 0) {
+        const target = order[i % order.length];
+        allocations[target.index].steps += 1;
+        remaining -= 1;
+        i += 1;
+      }
     }
 
-    const rightRotation = Math.min(sweepAngle, 180);
-    const leftRotation = sweepAngle > 180 ? sweepAngle - 180 : 0;
+    if (remaining > 0 && allocations.length > 0) {
+      for (let i = 0; i < remaining; i += 1) {
+        allocations[i % allocations.length].steps += 1;
+      }
+      remaining = 0;
+    }
 
-    return (
-      <View
-        key={key}
-        style={[
-          DONUT_STYLES.segment,
-          {
-            width: size,
-            height: size,
-            transform: [{ rotate: `${startAngle}deg` }],
-          },
-        ]}
-      >
-        <View
-          style={[
-            DONUT_STYLES.halfContainer,
-            {
-              width: halfWidth,
-              height: size,
-              left: halfWidth,
-              borderTopRightRadius: radius,
-              borderBottomRightRadius: radius,
-            },
-          ]}
-        >
-          <View
-            style={[
-              DONUT_STYLES.half,
-              {
-                width: size,
-                height: size,
-                borderRadius: radius,
-                left: -halfWidth,
-                backgroundColor: color,
-                transform: [{ rotate: `${rightRotation}deg` }],
-              },
-            ]}
-          />
-        </View>
-        {sweepAngle > 180 ? (
-          <View
-            style={[
-              DONUT_STYLES.halfContainer,
-              {
-                width: halfWidth,
-                height: size,
-                left: 0,
-                borderTopLeftRadius: radius,
-                borderBottomLeftRadius: radius,
-                transform: [{ rotate: "180deg" }],
-              },
-            ]}
-          >
-            <View
-              style={[
-                DONUT_STYLES.half,
-                {
-                  width: size,
-                  height: size,
-                  borderRadius: radius,
-                  left: -halfWidth,
-                  backgroundColor: color,
-                  transform: [{ rotate: `${leftRotation}deg` }],
-                },
-              ]}
-            />
-          </View>
-        ) : null}
-      </View>
-    );
-  };
-
-  let currentAngle = 0;
-  const segmentsToRender: React.ReactNode[] = [];
-
-  if (totalValue > 0) {
-    normalizedSegments.forEach((segment, index) => {
-      const startAngle = currentAngle;
-      let sweepAngle = index === normalizedSegments.length - 1
-        ? 360 - currentAngle
-        : (segment.value / totalValue) * 360;
-      const maxSweep = 360 - startAngle;
-      sweepAngle = Math.max(0, Math.min(maxSweep, sweepAngle));
-      currentAngle = Math.min(360, startAngle + sweepAngle);
-      segmentsToRender.push(
-        renderSegment(startAngle, sweepAngle, segment.color, `${index}-${segment.color}`),
-      );
+    let currentStep = 0;
+    allocations.forEach((entry) => {
+      for (let step = 0; step < entry.steps && currentStep < resolutionSteps; step += 1) {
+        segmentSlices.push(
+          createSlice(
+            currentStep * stepAngle,
+            entry.segment.color,
+            `segment-${currentStep}-${entry.segment.color}`,
+          ),
+        );
+        currentStep += 1;
+      }
     });
   }
+
+  const innerSize = Math.max(0, size - thickness * 2);
 
   return (
     <View style={[DONUT_STYLES.container, { width: size, height: size }]}
@@ -307,14 +288,15 @@ const DonutChart = ({
           },
         ]}
       />
-      {segmentsToRender}
+      {baseSlices}
+      {segmentSlices}
       <View
         style={[
           DONUT_STYLES.center,
           {
-            width: size - thickness * 2,
-            height: size - thickness * 2,
-            borderRadius: (size - thickness * 2) / 2,
+            width: innerSize,
+            height: innerSize,
+            borderRadius: innerSize / 2,
             backgroundColor,
             top: thickness,
             left: thickness,
