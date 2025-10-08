@@ -2190,6 +2190,7 @@ export default function App() {
                   surface: colors.surface,
                   border: colors.border,
                   accent: colors.accent,
+                  accentFgOn: colors.accentFgOn,
                 }}
                 locale={locale}
               />
