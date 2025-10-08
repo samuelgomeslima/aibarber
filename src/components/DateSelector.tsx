@@ -100,8 +100,12 @@ export default function DateSelector({
         {/* Tira horizontal de dias */}
         <ScrollView
           horizontal
+          style={styles.dayStripScroll}
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={[styles.dayStrip, { gap: 10, paddingVertical: 10 }]}
+          contentContainerStyle={[
+            styles.dayStrip,
+            { gap: 10, paddingVertical: 10, paddingRight: 0 },
+          ]}
         >
           {days.map(({ d, key }) => {
             const active = key === dateKey;
@@ -311,7 +315,13 @@ const styles = StyleSheet.create({
   },
   arrowIcon: { fontSize: 20, fontWeight: "800" },
 
-  dayStrip: {},
+  dayStripScroll: {
+    flexGrow: 0,
+  },
+  dayStrip: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   dayPill: {
     width: 72,
     paddingVertical: 10,
