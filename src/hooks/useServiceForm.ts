@@ -3,19 +3,9 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import type { Service } from "../lib/domain";
 import { createService, updateService } from "../lib/services";
+import type { ServiceFormCopy } from "../locales/types";
 
 type ServiceFormMode = "create" | "edit";
-
-type ServiceFormCopy = {
-  fields: {
-    nameError: string;
-    durationError: string;
-    priceError: string;
-    iconError: string;
-    durationPlaceholder: string;
-    pricePlaceholder: string;
-  };
-};
 
 type UseServiceFormOptions = {
   mode: ServiceFormMode;

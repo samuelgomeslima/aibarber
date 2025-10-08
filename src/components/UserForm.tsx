@@ -11,6 +11,12 @@ import {
   Alert,
 } from "react-native";
 import { supabase } from "../lib/supabase";
+import { defaultComponentCopy } from "../locales/componentCopy";
+import type { UserFormCopy } from "../locales/types";
+import { subtleFormCardColors, type SubtleFormCardColors } from "../theme/colors";
+
+const DEFAULT_FORM_AGE = 18;
+const MINIMUM_AGE = 13;
 
 /* ========= Types ========= */
 export type NewUser = {
@@ -21,25 +27,37 @@ export type NewUser = {
   date_of_birth: Date;  // <-- renamed
 };
 
+type UserFormErrors = {
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  email?: string;
+  date_of_birth?: string;
+};
+
 /* ========= Component ========= */
 export default function UserForm({
   initial,
-  onSaved,        // optional callback after successful save
+  onSaved, // optional callback after successful save
   onCancel,
-  colors = DEFAULT_COLORS,
+  colors = subtleFormCardColors,
+  copy = defaultComponentCopy.userForm,
   table = "customers",
 }: {
   initial?: Partial<NewUser>;
   onSaved?: (row: { id: string } & Record<string, any>) => void;
   onCancel?: () => void;
-  colors?: typeof DEFAULT_COLORS;
+  colors?: SubtleFormCardColors;
+  copy?: UserFormCopy;
   table?: string;
 }) {
   const [firstName, setFirstName]     = useState(initial?.firstName ?? "");
   const [lastName, setLastName]       = useState(initial?.lastName ?? "");
   const [phoneRaw, setPhoneRaw]       = useState(initial?.phone ?? "");
   const [email, setEmail]             = useState(initial?.email ?? "");
-  const [dateOfBirth, setDateOfBirth] = useState<Date>(initial?.date_of_birth ?? todayMinusYears(18));
+  const [dateOfBirth, setDateOfBirth] = useState<Date>(
+    initial?.date_of_birth ?? todayMinusYears(DEFAULT_FORM_AGE),
+  );
   const [saving, setSaving]           = useState(false);
 
   // phone mask (store digits)
@@ -47,18 +65,29 @@ export default function UserForm({
   const phoneMasked = useMemo(() => formatPhone(phoneDigits), [phoneDigits]);
 
   // validation
-  const errs = useMemo(() => {
-    const e: Record<string, string> = {};
-    if (!firstName.trim()) e.firstName = "Required";
-    if (!lastName.trim())  e.lastName = "Required";
-    if (phoneDigits.length < 10 || phoneDigits.length > 15) e.phone = "Enter a valid phone";
-    if (!EMAIL_RE.test(email.toLowerCase())) e.email = "Enter a valid email";
-    if (!dateOfBirth || isNaN(dateOfBirth.getTime())) e.date_of_birth = "Select a valid date";
+  const errs = useMemo<UserFormErrors>(() => {
+    const e: UserFormErrors = {};
+    if (!firstName.trim()) e.firstName = copy.fields.firstName.required;
+    if (!lastName.trim()) e.lastName = copy.fields.lastName.required;
+    if (phoneDigits.length < 10 || phoneDigits.length > 15) {
+      e.phone = copy.fields.phone.invalid;
+    }
+    if (!EMAIL_RE.test(email.toLowerCase())) {
+      e.email = copy.fields.email.invalid;
+    }
+
+    const dob = dateOfBirth;
     const now = new Date();
-    if (dateOfBirth > now) e.date_of_birth = "Date of birth cannot be in the future";
-    if (yearsBetween(dateOfBirth, now) < 13) e.date_of_birth = "Minimum age is 13";
+    if (!dob || Number.isNaN(dob.getTime())) {
+      e.date_of_birth = copy.fields.dateOfBirth.invalid;
+    } else if (dob > now) {
+      e.date_of_birth = copy.fields.dateOfBirth.future;
+    } else if (yearsBetween(dob, now) < MINIMUM_AGE) {
+      e.date_of_birth = copy.fields.dateOfBirth.minAge(MINIMUM_AGE);
+    }
+
     return e;
-  }, [firstName, lastName, phoneDigits, email, dateOfBirth]);
+  }, [copy, dateOfBirth, email, firstName, lastName, phoneDigits]);
 
   const valid = Object.keys(errs).length === 0;
 
@@ -82,7 +111,7 @@ export default function UserForm({
 
       if (error) throw new Error(error.message || `Insert failed (${status})`);
 
-      Alert.alert("User saved", `${payload.first_name} ${payload.last_name}`);
+      Alert.alert(copy.alerts.savedTitle, copy.alerts.savedMessage(payload.first_name, payload.last_name));
       onSaved?.(data as any);
 
       // reset
@@ -90,9 +119,9 @@ export default function UserForm({
       setLastName("");
       setPhoneRaw("");
       setEmail("");
-      setDateOfBirth(todayMinusYears(18));
+      setDateOfBirth(todayMinusYears(DEFAULT_FORM_AGE));
     } catch (e: any) {
-      Alert.alert("Save failed", e?.message ?? String(e));
+      Alert.alert(copy.alerts.failedTitle, e?.message ?? copy.alerts.failedFallback);
     } finally {
       setSaving(false);
     }
@@ -101,23 +130,23 @@ export default function UserForm({
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-        <Text style={[styles.title, { color: colors.text }]}>Create user</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{copy.title}</Text>
 
         {/* First / Last */}
         <View style={styles.rowGap}>
           <FormField
-            label="First name"
+            label={copy.fields.firstName.label}
             value={firstName}
             onChangeText={setFirstName}
-            placeholder="e.g., Ana"
+            placeholder={copy.fields.firstName.placeholder}
             error={errs.firstName}
             colors={colors}
           />
           <FormField
-            label="Surname"
+            label={copy.fields.lastName.label}
             value={lastName}
             onChangeText={setLastName}
-            placeholder="e.g., Silva"
+            placeholder={copy.fields.lastName.placeholder}
             error={errs.lastName}
             colors={colors}
           />
@@ -125,29 +154,29 @@ export default function UserForm({
 
         {/* Phone */}
         <FormField
-          label="Cell phone"
+          label={copy.fields.phone.label}
           value={phoneMasked}
           onChangeText={setPhoneRaw}
           keyboardType="phone-pad"
-          placeholder="(11) 99999-9999"
+          placeholder={copy.fields.phone.placeholder}
           error={errs.phone}
           colors={colors}
         />
 
         {/* Email */}
         <FormField
-          label="Email"
+          label={copy.fields.email.label}
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
           autoCapitalize="none"
-          placeholder="ana@email.com"
+          placeholder={copy.fields.email.placeholder}
           error={errs.email}
           colors={colors}
         />
 
         {/* Date of birth */}
-        <Text style={[styles.label, { color: colors.subtext }]}>Date of birth</Text>
+        <Text style={[styles.label, { color: colors.subtext }]}>{copy.fields.dateOfBirth.label}</Text>
         <InlineDatePicker value={dateOfBirth} onChange={setDateOfBirth} colors={colors} />
         {errs.date_of_birth ? <Text style={[styles.error, { color: colors.danger }]}>{errs.date_of_birth}</Text> : null}
 
@@ -155,7 +184,7 @@ export default function UserForm({
         <View style={styles.actions}>
           {onCancel && (
             <Pressable onPress={onCancel} style={[styles.btnGhost, { borderColor: colors.border }]}>
-              <Text style={[styles.btnGhostText, { color: colors.subtext }]}>Cancel</Text>
+              <Text style={[styles.btnGhostText, { color: colors.subtext }]}>{copy.buttons.cancel}</Text>
             </Pressable>
           )}
           <Pressable
@@ -165,12 +194,12 @@ export default function UserForm({
               styles.btnPrimary,
               { backgroundColor: valid && !saving ? colors.accent : "#334155", borderColor: valid && !saving ? colors.accent : "#334155" },
             ]}
-            accessibilityLabel="Save user"
+            accessibilityLabel={copy.buttons.submitAccessibility}
           >
             {saving ? (
               <ActivityIndicator color={colors.accentFgOn} />
             ) : (
-              <Text style={[styles.btnPrimaryText, { color: colors.accentFgOn }]}>Save user</Text>
+              <Text style={[styles.btnPrimaryText, { color: colors.accentFgOn }]}>{copy.buttons.submit}</Text>
             )}
           </Pressable>
         </View>
@@ -189,7 +218,7 @@ function FormField({
 }: {
   label: string;
   error?: string;
-  colors: typeof DEFAULT_COLORS;
+  colors: SubtleFormCardColors;
 } & React.ComponentProps<typeof TextInput>) {
   return (
     <View style={{ marginBottom: 10 }}>
@@ -199,7 +228,7 @@ function FormField({
         placeholderTextColor="#94a3b8"
         style={[
           styles.input,
-          { borderColor: colors.border, backgroundColor: "rgba(255,255,255,0.06)", color: colors.text },
+          { borderColor: colors.border, backgroundColor: colors.surface, color: colors.text },
           error && { borderColor: colors.danger },
         ]}
       />
@@ -215,7 +244,7 @@ function InlineDatePicker({
 }: {
   value: Date;
   onChange: (d: Date) => void;
-  colors: typeof DEFAULT_COLORS;
+  colors: SubtleFormCardColors;
 }) {
   if (Platform.OS === "web") {
     const pad = (n: number) => n.toString().padStart(2, "0");
@@ -235,7 +264,7 @@ function InlineDatePicker({
           padding: 10,
           borderRadius: 10,
           border: `1px solid ${colors.border}`,
-          background: "rgba(255,255,255,0.06)",
+          background: colors.surface,
           color: colors.text,
           outline: "none",
           fontWeight: 700,
@@ -293,16 +322,6 @@ function formatPhone(value: string) {
     }
     return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
   }
-
-const DEFAULT_COLORS = {
-  surface: "rgba(255,255,255,0.045)",
-  border: "rgba(255,255,255,0.07)",
-  text: "#e5e7eb",
-  subtext: "#cbd5e1",
-  accent: "#60a5fa",
-  accentFgOn: "#091016",
-  danger: "#ef4444",
-};
 
 const styles = StyleSheet.create({
   card: { borderRadius: 16, borderWidth: 1, padding: 14, gap: 10 },

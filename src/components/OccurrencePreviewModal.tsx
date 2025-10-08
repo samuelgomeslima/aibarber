@@ -2,6 +2,10 @@
 import React from "react";
 import { Modal, View, Text, Pressable, StyleSheet, ScrollView } from "react-native";
 
+import { defaultComponentCopy } from "../locales/componentCopy";
+import type { OccurrencePreviewCopy } from "../locales/types";
+import { modalColorsWithDanger, type ModalColorsWithDanger } from "../theme/colors";
+
 export type PreviewItem = {
   date: string;   // YYYY-MM-DD
   start: string;  // HH:MM
@@ -15,22 +19,17 @@ type Props = {
   items: PreviewItem[];
   onClose: () => void;
   onConfirm: () => void;
-  colors?: {
-    text: string; subtext: string; surface: string; border: string; accent: string; bg: string; danger: string;
-  };
+  colors?: ModalColorsWithDanger;
+  copy?: OccurrencePreviewCopy;
 };
 
 export default function OccurrencePreviewModal({
-  visible, items, onClose, onConfirm,
-  colors = {
-    text: "#e5e7eb",
-    subtext: "#cbd5e1",
-    surface: "rgba(255,255,255,0.06)",
-    border: "rgba(255,255,255,0.12)",
-    accent: "#60a5fa",
-    bg: "#0b0d13",
-    danger: "#ef4444",
-  }
+  visible,
+  items,
+  onClose,
+  onConfirm,
+  colors = modalColorsWithDanger,
+  copy = defaultComponentCopy.occurrencePreview,
 }: Props) {
   const okCount = items.filter(i => i.ok).length;
   const badCount = items.length - okCount;
@@ -39,20 +38,22 @@ export default function OccurrencePreviewModal({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View style={[styles.sheet, { backgroundColor: colors.bg, borderColor: colors.border }]}>
-          <Text style={[styles.title, { color: colors.text }]}>Preview recurring bookings</Text>
-          <Text style={{ color: colors.subtext, marginBottom: 8 }}>
-            {okCount} will be created {badCount ? `• ${badCount} skipped` : ""}
-          </Text>
+          <Text style={[styles.title, { color: colors.text }]}>{copy.title}</Text>
+          <Text style={{ color: colors.subtext, marginBottom: 8 }}>{copy.summary(okCount, badCount)}</Text>
 
           <View style={[styles.headerRow, { borderColor: colors.border }]}>
-            <Text style={[styles.hCell, { color: colors.subtext }]}>Date</Text>
-            <Text style={[styles.hCell, { color: colors.subtext }]}>Time</Text>
-            <Text style={[styles.hCell, { color: colors.subtext }]}>Status</Text>
+            <Text style={[styles.hCell, { color: colors.subtext }]}>{copy.headers.date}</Text>
+            <Text style={[styles.hCell, { color: colors.subtext }]}>{copy.headers.time}</Text>
+            <Text style={[styles.hCell, { color: colors.subtext }]}>{copy.headers.status}</Text>
           </View>
 
           <ScrollView style={{ maxHeight: 360 }}>
             {items.map((it, idx) => {
-              const status = it.ok ? "OK" : (it.reason === "conflict" ? "Conflict" : "Outside hours");
+              const status = it.ok
+                ? copy.status.ok
+                : it.reason === "conflict"
+                  ? copy.status.conflict
+                  : copy.status.outsideHours;
               const color = it.ok ? colors.text : colors.danger;
               return (
                 <View key={idx} style={[styles.row, { borderColor: colors.border, backgroundColor: colors.surface }]}>
@@ -66,7 +67,7 @@ export default function OccurrencePreviewModal({
 
           <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 12 }}>
             <Pressable style={[styles.btn, { borderColor: colors.border }]} onPress={onClose}>
-              <Text style={{ color: colors.subtext, fontWeight: "700" }}>Back</Text>
+              <Text style={{ color: colors.subtext, fontWeight: "700" }}>{copy.actions.back}</Text>
             </Pressable>
             <Pressable
               disabled={okCount === 0}
@@ -81,7 +82,7 @@ export default function OccurrencePreviewModal({
               onPress={onConfirm}
             >
               <Text style={{ color: okCount ? "#071018" : colors.subtext, fontWeight: "800" }}>
-                Create {okCount}
+                {copy.actions.confirm(okCount)}
               </Text>
             </Pressable>
           </View>

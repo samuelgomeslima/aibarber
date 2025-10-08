@@ -2,6 +2,10 @@
 import React, { useState } from "react";
 import { Modal, View, Text, Pressable, TextInput, StyleSheet } from "react-native";
 
+import { defaultComponentCopy } from "../locales/componentCopy";
+import type { RecurrenceModalCopy } from "../locales/types";
+import { modalColors, type ModalColors } from "../theme/colors";
+
 type Props = {
   visible: boolean;
   onClose: () => void;
@@ -14,19 +18,22 @@ type Props = {
   fixedTime: string;   // horário selecionado na tela principal (HH:MM)
   fixedService: string; // serviço atual (ex.: "Cut")
   fixedBarber: string;  // barbeiro atual (ex.: "João")
-  colors?: {
-    text: string; subtext: string; surface: string; border: string; accent: string; bg: string;
-  };
+  colors?: ModalColors;
+  copy?: RecurrenceModalCopy;
 };
 
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
 
 export default function RecurrenceModal({
-  visible, onClose, onSubmit, fixedDate, fixedTime, fixedService, fixedBarber,
-  colors = {
-    text: "#e5e7eb", subtext: "#cbd5e1", surface: "rgba(255,255,255,0.06)",
-    border: "rgba(255,255,255,0.12)", accent: "#60a5fa", bg: "#0b0d13"
-  }
+  visible,
+  onClose,
+  onSubmit,
+  fixedDate,
+  fixedTime,
+  fixedService,
+  fixedBarber,
+  colors = modalColors,
+  copy = defaultComponentCopy.recurrenceModal,
 }: Props) {
   const [count, setCount] = useState("10"); // default continua 10
 
@@ -52,34 +59,34 @@ export default function RecurrenceModal({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View style={[styles.sheet, { backgroundColor: colors.bg, borderColor: colors.border }]}>
-          <Text style={[styles.title, { color: colors.text }]}>Repeat booking</Text>
+          <Text style={[styles.title, { color: colors.text }]}>{copy.title}</Text>
 
           {/* Info fixas */}
           <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: colors.subtext }]}>Service</Text>
+            <Text style={[styles.infoLabel, { color: colors.subtext }]}>{copy.labels.service}</Text>
             <Text style={[styles.infoValue, { color: colors.text }]}>{fixedService}</Text>
           </View>
           <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: colors.subtext }]}>Barber</Text>
+            <Text style={[styles.infoLabel, { color: colors.subtext }]}>{copy.labels.barber}</Text>
             <Text style={[styles.infoValue, { color: colors.text }]}>{fixedBarber}</Text>
           </View>
           <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: colors.subtext }]}>Start date</Text>
+            <Text style={[styles.infoLabel, { color: colors.subtext }]}>{copy.labels.startDate}</Text>
             <Text style={[styles.infoValue, { color: colors.text }]}>{humanDate(fixedDate)}</Text>
           </View>
           <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: colors.subtext }]}>Time</Text>
+            <Text style={[styles.infoLabel, { color: colors.subtext }]}>{copy.labels.time}</Text>
             <Text style={[styles.infoValue, { color: colors.text }]}>{fixedTime}</Text>
           </View>
 
           {/* Count */}
           <View style={{ marginTop: 8 }}>
-            <Text style={[styles.label, { color: colors.subtext }]}>Count (1–10)</Text>
+            <Text style={[styles.label, { color: colors.subtext }]}>{copy.labels.count}</Text>
             <TextInput
               value={count}
               onChangeText={onCountChange}
               onBlur={onCountBlur}
-              placeholder="10"
+              placeholder={copy.placeholders.count}
               placeholderTextColor={colors.subtext}
               style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
               keyboardType="numeric"
@@ -90,10 +97,10 @@ export default function RecurrenceModal({
           {/* Actions */}
           <View style={[styles.actions, { borderTopColor: colors.border }]}>
             <Pressable style={[styles.btn, { borderColor: colors.border }]} onPress={onClose}>
-              <Text style={{ color: colors.subtext, fontWeight: "700" }}>Cancel</Text>
+              <Text style={{ color: colors.subtext, fontWeight: "700" }}>{copy.actions.cancel}</Text>
             </Pressable>
             <Pressable style={[styles.btn, { backgroundColor: colors.accent, borderColor: colors.accent }]} onPress={submit}>
-              <Text style={{ color: "#071018", fontWeight: "800" }}>Preview</Text>
+              <Text style={{ color: "#071018", fontWeight: "800" }}>{copy.actions.preview}</Text>
             </Pressable>
           </View>
         </View>

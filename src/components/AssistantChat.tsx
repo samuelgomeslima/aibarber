@@ -13,43 +13,9 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 
 import type { Service } from "../lib/domain";
-import { useAssistantChat, type AssistantChatCopy } from "../hooks/useAssistantChat";
-
-const DEFAULT_COPY: AssistantChatCopy = {
-  initialMessage:
-    "Hi! I'm your AIBarber agent. I can check availability, book services, and cancel existing appointments for you.",
-  apiKeyWarning: "Set EXPO_PUBLIC_OPENAI_API_KEY to enable the assistant.",
-  contextPrefix: "Booking context:",
-  quickRepliesTitle: "Suggested prompts",
-  quickRepliesToggleShow: "Show suggestions",
-  quickRepliesToggleHide: "Hide quick suggestions",
-  quickReplyAccessibility: (suggestion: string) => `Send quick message: ${suggestion}`,
-  quickReplies: {
-    existingBookings: "Show my existing bookings",
-    bookService: "Help me book a service",
-    bookSpecificService: (serviceName: string) => `Book a ${serviceName}`,
-    barberAvailability: (barberName: string) => `Available hours for ${barberName}`,
-  },
-  inputPlaceholder: "Ask about bookings...",
-  sendAccessibility: "Send message",
-  suggestionsAccessibility: {
-    show: "Show quick suggestions",
-    hide: "Hide quick suggestions",
-  },
-  voiceButtonAccessibility: {
-    start: "Start voice input",
-    stop: "Stop voice input",
-  },
-  errors: {
-    generic: "Something went wrong.",
-    missingApiKey: "Set EXPO_PUBLIC_OPENAI_API_KEY to enable voice input.",
-    voiceWebOnly: "Voice capture is currently supported on the web experience only.",
-    voiceUnsupported: "Voice capture is not supported in this browser.",
-    voiceStartFailed: "Unable to start voice recording.",
-    noAudio: "No audio captured. Try again.",
-    processFailed: "Failed to process voice message.",
-  },
-};
+import { useAssistantChat } from "../hooks/useAssistantChat";
+import { defaultComponentCopy } from "../locales/componentCopy";
+import type { AssistantChatCopy } from "../locales/types";
 
 type AssistantChatProps = {
   colors: {
@@ -75,7 +41,7 @@ export default function AssistantChat({
   contextSummary,
   onBookingsMutated,
   services,
-  copy = DEFAULT_COPY,
+  copy = defaultComponentCopy.assistantChat,
 }: AssistantChatProps) {
   const scrollRef = useRef<ScrollView>(null);
 
