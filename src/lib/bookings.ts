@@ -1,24 +1,6 @@
 import { logger } from "./logger";
-import { supabase } from "./supabase";
-
-export type DbBooking = {
-  id: string;
-  date: string;
-  start: string;
-  end: string;
-  service_id: string;
-  barber: string;
-  customer_id?: string | null;
-};
-
-export type Customer = {
-  id: string;
-  first_name: string;
-  last_name: string;
-  phone?: string | null;
-  email?: string | null;
-  date_of_birth?: string | null;
-};
+import { getBookingGateway, PersistenceError } from "./gateways/bookingGateway";
+import type { Customer, DbBooking } from "./types/booking";
 
 const stripSeconds = (time: string | null | undefined) =>
   typeof time === "string" && time.length >= 5 ? time.slice(0, 5) : time ?? "";
@@ -34,40 +16,32 @@ export type BookingWithCustomer = DbBooking & { _customer?: Customer };
 
 async function attachCustomers(rows: DbBooking[]): Promise<BookingWithCustomer[]> {
   const ids = Array.from(new Set(rows.map((r) => r.customer_id).filter(Boolean))) as string[];
-  let customerMap = new Map<string, Customer>();
-
-  if (ids.length) {
-    const { data: people, error: e2 } = await supabase
-      .from("customers")
-      .select("id,first_name,last_name,phone,email,date_of_birth")
-      .in("id", ids);
-    if (e2) throw e2;
-    customerMap = new Map((people ?? []).map((c) => [c.id, c as Customer]));
+  if (ids.length === 0) {
+    return rows.map((r) => ({ ...r, _customer: undefined }));
   }
 
+  const gateway = getBookingGateway();
+  const { data } = await gateway.fetchCustomersByIds(ids);
+  const customerMap = new Map((data ?? []).map((c) => [c.id, c]));
   return rows.map((r) => ({ ...r, _customer: r.customer_id ? customerMap.get(r.customer_id) : undefined }));
 }
 
 export async function getBookings(dateKey: string): Promise<BookingWithCustomer[]> {
-  const { data, error, status } = await supabase
-    .from("bookings")
-    .select('id,date,start,"end",service_id,barber,customer_id')
-    .eq("date", dateKey)
-    .order("start");
-
-  if (error) {
+  const gateway = getBookingGateway();
+  try {
+    const { data, status } = await gateway.fetchBookingsByDate(dateKey);
+    logger.debug("bookings.getBookings succeeded", {
+      dateKey,
+      status,
+      count: Array.isArray(data) ? data.length : 0,
+    });
+    const rows = normalizeTimeFields(data ?? []);
+    return attachCustomers(rows);
+  } catch (error) {
+    const status = error instanceof PersistenceError ? error.status : undefined;
     logger.error("bookings.getBookings failed", { dateKey, status, error });
     throw error;
   }
-
-  logger.debug("bookings.getBookings succeeded", {
-    dateKey,
-    status,
-    count: Array.isArray(data) ? data.length : 0,
-  });
-
-  const rows = normalizeTimeFields((data ?? []) as DbBooking[]);
-  return attachCustomers(rows);
 }
 
 export async function getBookingsForRange(
@@ -75,16 +49,19 @@ export async function getBookingsForRange(
   endDate: string,
 ): Promise<BookingWithCustomer[]> {
   if (!startDate || !endDate) return [];
-
-  const { data, error, status } = await supabase
-    .from("bookings")
-    .select('id,date,start,"end",service_id,barber,customer_id')
-    .gte("date", startDate)
-    .lte("date", endDate)
-    .order("date")
-    .order("start");
-
-  if (error) {
+  const gateway = getBookingGateway();
+  try {
+    const { data, status } = await gateway.fetchBookingsForRange(startDate, endDate);
+    logger.debug("bookings.getBookingsForRange succeeded", {
+      startDate,
+      endDate,
+      status,
+      count: Array.isArray(data) ? data.length : 0,
+    });
+    const rows = normalizeTimeFields(data ?? []);
+    return attachCustomers(rows);
+  } catch (error) {
+    const status = error instanceof PersistenceError ? error.status : undefined;
     logger.error("bookings.getBookingsForRange failed", {
       startDate,
       endDate,
@@ -93,126 +70,115 @@ export async function getBookingsForRange(
     });
     throw error;
   }
-
-  logger.debug("bookings.getBookingsForRange succeeded", {
-    startDate,
-    endDate,
-    status,
-    count: Array.isArray(data) ? data.length : 0,
-  });
-
-  const rows = normalizeTimeFields((data ?? []) as DbBooking[]);
-  return attachCustomers(rows);
 }
 
 export async function listRecentBookings(limit = 200): Promise<BookingWithCustomer[]> {
-  const { data, error, status } = await supabase
-    .from("bookings")
-    .select('id,date,start,"end",service_id,barber,customer_id')
-    .order("date", { ascending: false })
-    .order("start", { ascending: false })
-    .limit(limit);
-
-  if (error) {
+  const gateway = getBookingGateway();
+  try {
+    const { data, status } = await gateway.fetchRecentBookings(limit);
+    logger.debug("bookings.listRecentBookings succeeded", {
+      status,
+      limit,
+      count: Array.isArray(data) ? data.length : 0,
+    });
+    const rows = normalizeTimeFields(data ?? []);
+    return attachCustomers(rows);
+  } catch (error) {
+    const status = error instanceof PersistenceError ? error.status : undefined;
     logger.error("bookings.listRecentBookings failed", { status, error, limit });
     throw error;
   }
-
-  logger.debug("bookings.listRecentBookings succeeded", {
-    status,
-    limit,
-    count: Array.isArray(data) ? data.length : 0,
-  });
-
-  const rows = normalizeTimeFields((data ?? []) as DbBooking[]);
-  return attachCustomers(rows);
 }
 
-export async function createBooking(payload: {
+export type BookingInsertPayload = {
   date: string;
   start: string;
   end: string;
   service_id: string;
   barber: string;
   customer_id?: string | null;
-}) {
-  const { data, error, status } = await supabase.from("bookings").insert(payload).select("id").single();
-  if (error) {
+};
+
+export async function createBooking(payload: BookingInsertPayload) {
+  const gateway = getBookingGateway();
+  try {
+    const { data, status } = await gateway.insertBooking(payload);
+    const bookingId = data?.id ?? null;
+    logger.info("bookings.createBooking succeeded", { bookingId, status });
+    return bookingId;
+  } catch (error) {
+    const status = error instanceof PersistenceError ? error.status : undefined;
     logger.error("bookings.createBooking failed", { status, error });
     throw error;
   }
+}
 
-  const bookingId = data?.id ?? null;
-  logger.info("bookings.createBooking succeeded", { bookingId, status });
-  return bookingId;
+export async function createBookingsBulk(payloads: BookingInsertPayload[]): Promise<void> {
+  if (payloads.length === 0) return;
+  const gateway = getBookingGateway();
+  try {
+    const { status } = await gateway.insertManyBookings(payloads);
+    logger.info("bookings.createBookingsBulk succeeded", {
+      status,
+      count: payloads.length,
+    });
+  } catch (error) {
+    const status = error instanceof PersistenceError ? error.status : undefined;
+    logger.error("bookings.createBookingsBulk failed", { status, error, count: payloads.length });
+    throw error;
+  }
 }
 
 export async function cancelBooking(id: string) {
-  const { data, error, status } = await supabase.from("bookings").delete().eq("id", id);
-  if (error) {
+  const gateway = getBookingGateway();
+  try {
+    const { data, status } = await gateway.deleteBooking(id);
+    logger.info("bookings.cancelBooking succeeded", { id, status, deleted: data.deleted });
+  } catch (error) {
+    const status = error instanceof PersistenceError ? error.status : undefined;
     logger.error("bookings.cancelBooking failed", { id, status, error });
     throw error;
   }
-
-  logger.info("bookings.cancelBooking succeeded", { id, status, deleted: Array.isArray(data) ? data.length : 0 });
 }
 
 export async function listCustomers(query: string) {
+  const gateway = getBookingGateway();
   const q = (query || "").trim();
-  let req = supabase
-    .from("customers")
-    .select("id,first_name,last_name,phone,email,date_of_birth")
-    .order("first_name")
-    .limit(20);
-
-  if (q) {
-    req = supabase
-      .from("customers")
-      .select("id,first_name,last_name,phone,email,date_of_birth")
-      .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%`)
-      .limit(20);
-  }
-
-  const { data, error } = await req;
-  if (error) throw error;
+  const { data } = await gateway.searchCustomers({ query: q || null, limit: 20 });
   return (data ?? []) as Customer[];
 }
 
 export async function getCustomerById(id: string) {
   if (!id?.trim()) return null;
-  const { data, error, status } = await supabase
-    .from("customers")
-    .select("id,first_name,last_name,phone,email,date_of_birth")
-    .eq("id", id.trim())
-    .maybeSingle();
-  if (error) {
-    logger.error("customers.getCustomerById failed", { id, status, error });
+  const gateway = getBookingGateway();
+  try {
+    const { data, status } = await gateway.findCustomerById(id.trim());
+    logger.debug("customers.getCustomerById succeeded", { id: id.trim(), status, found: Boolean(data) });
+    return (data ?? null) as Customer | null;
+  } catch (error) {
+    const status = error instanceof PersistenceError ? error.status : undefined;
+    logger.error("customers.getCustomerById failed", { id: id.trim(), status, error });
     throw error;
   }
-
-  logger.debug("customers.getCustomerById succeeded", { id, status, found: Boolean(data) });
-  return (data ?? null) as Customer | null;
 }
 
 export async function findCustomerByPhone(phone: string) {
   const digits = (phone || "").replace(/\D/g, "");
   if (!digits) return null;
-  const { data, error, status } = await supabase
-    .from("customers")
-    .select("id,first_name,last_name,phone,email,date_of_birth")
-    .eq("phone", digits)
-    .maybeSingle();
-  if (error) {
+  const gateway = getBookingGateway();
+  try {
+    const { data, status } = await gateway.findCustomerByPhone(digits);
+    logger.debug("customers.findCustomerByPhone succeeded", {
+      phone: digits,
+      status,
+      found: Boolean(data),
+    });
+    return (data ?? null) as Customer | null;
+  } catch (error) {
+    const status = error instanceof PersistenceError ? error.status : undefined;
     logger.error("customers.findCustomerByPhone failed", { phone: digits, status, error });
     throw error;
   }
-
-  logger.debug("customers.findCustomerByPhone succeeded", {
-    phone: digits,
-    status,
-    found: Boolean(data),
-  });
-  return (data ?? null) as Customer | null;
 }
 
 export async function createCustomer(payload: {
@@ -228,20 +194,25 @@ export async function createCustomer(payload: {
     throw new Error("Invalid customer payload");
   }
 
-  const { data, error, status } = await supabase
-    .from("customers")
-    .insert({
+  const gateway = getBookingGateway();
+  try {
+    const { data, status } = await gateway.insertCustomer({
       first_name,
       last_name,
       phone: phoneDigits,
-    })
-    .select("id,first_name,last_name,phone,email,date_of_birth")
-    .single();
-  if (error) {
+    });
+    logger.info("customers.createCustomer succeeded", { customerId: data?.id, status });
+    return data as Customer;
+  } catch (error) {
+    const status = error instanceof PersistenceError ? error.status : undefined;
     logger.error("customers.createCustomer failed", { status, error });
     throw error;
   }
+}
 
-  logger.info("customers.createCustomer succeeded", { customerId: data?.id, status });
-  return data as Customer;
+export async function getBookingsForDates(dates: readonly string[]): Promise<DbBooking[]> {
+  if (!dates.length) return [];
+  const gateway = getBookingGateway();
+  const { data } = await gateway.fetchBookingsForDates(dates);
+  return normalizeTimeFields(data ?? []);
 }
