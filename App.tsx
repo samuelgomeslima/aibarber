@@ -101,7 +101,10 @@ const mixHexColor = (base: string, mix: string, amount: number) => {
 const tintHexColor = (color: string, amount: number, mixColor = "#ffffff") =>
   mixHexColor(color, mixColor, amount);
 
-const SLOT_MINUTES = 30;
+const SLOT_MINUTES = 15;
+const MORNING_END_MINUTES = 12 * 60;
+const AFTERNOON_END_MINUTES = 17 * 60;
+type SlotPeriod = "morning" | "afternoon" | "evening";
 
 const normalizeTimeInput = (input?: string | null): string | null => {
   if (!input) return null;
@@ -553,6 +556,11 @@ const LANGUAGE_COPY = {
         busyMessage: (service: string, barber: string, start: string, end: string) =>
           `${service} with ${barber} • ${start}–${end}`,
         busyFallback: "This time is not available.",
+        periods: {
+          morning: "Morning",
+          afternoon: "Afternoon",
+          evening: "Evening",
+        },
         empty: "Create a service to see availability.",
       },
       alerts: {
@@ -907,6 +915,11 @@ const LANGUAGE_COPY = {
         busyMessage: (service: string, barber: string, start: string, end: string) =>
           `${service} com ${barber} • ${start}–${end}`,
         busyFallback: "Este horário não está disponível.",
+        periods: {
+          morning: "Manhã",
+          afternoon: "Tarde",
+          evening: "Noite",
+        },
         empty: "Crie um serviço para ver a disponibilidade.",
       },
       alerts: {
@@ -1308,6 +1321,33 @@ export default function App() {
     }
     return slots;
   }, []);
+
+  const slotGroups = useMemo<Record<SlotPeriod, string[]>>(() => {
+    const groups: Record<SlotPeriod, string[]> = {
+      morning: [],
+      afternoon: [],
+      evening: [],
+    };
+
+    allSlots.forEach((slot) => {
+      const minutes = timeToMinutes(slot);
+      if (minutes < MORNING_END_MINUTES) {
+        groups.morning.push(slot);
+      } else if (minutes < AFTERNOON_END_MINUTES) {
+        groups.afternoon.push(slot);
+      } else {
+        groups.evening.push(slot);
+      }
+    });
+
+    return groups;
+  }, [allSlots]);
+
+  const slotPeriods: { key: SlotPeriod; label: string }[] = [
+    { key: "morning", label: bookServiceCopy.slots.periods.morning },
+    { key: "afternoon", label: bookServiceCopy.slots.periods.afternoon },
+    { key: "evening", label: bookServiceCopy.slots.periods.evening },
+  ];
 
   const availableSlots = useMemo(() => {
     if (!selectedService) return [];
@@ -2137,70 +2177,82 @@ export default function App() {
               <Text style={styles.sectionLabel}>{bookServiceCopy.slots.title(humanDate(dateKey, locale))}</Text>
           <View style={styles.card}>
             {selectedService ? (
-              <View style={styles.grid}>
-                {allSlots.map((t) => {
-                  const isAvailable = availableSlots.includes(t);
-                  const isSelected = selectedSlot === t;
-
-                  if (!isAvailable) {
-                    const slotEnd = addMinutes(t, SLOT_MINUTES);
-                    const overlappingBooking = bookings.find(
-                      (b) =>
-                        b.barber === selectedBarber.id &&
-                        overlap(t, slotEnd, b.start, b.end),
-                    );
-                    const conflict = overlappingBooking ?? bookings.find(
-                      (b) =>
-                        b.barber === selectedBarber.id &&
-                        overlap(t, addMinutes(t, selectedService.estimated_minutes), b.start, b.end),
-                    );
-                    const conflictService = conflict
-                      ? localizedServiceMap.get(conflict.service_id) ?? serviceMap.get(conflict.service_id)
-                      : null;
-                    return (
-                      <Pressable
-                        key={t}
-                        onPress={() =>
-                          Alert.alert(
-                            bookServiceCopy.slots.busyTitle,
-                            conflict
-                              ? bookServiceCopy.slots.busyMessage(
-                                  conflictService?.name ?? conflict.service_id,
-                                  BARBER_MAP[conflict.barber]?.name ?? conflict.barber,
-                                  conflict.start,
-                                  conflict.end,
-                                )
-                              : bookServiceCopy.slots.busyFallback,
-                          )
-                        }
-                        style={[
-                          styles.slot,
-                          overlappingBooking ? styles.slotBusy : styles.slotDisabled,
-                        ]}
-                      >
-                        <Ionicons
-                          name={overlappingBooking ? "close-circle-outline" : "time-outline"}
-                          size={16}
-                          color={overlappingBooking ? colors.danger : colors.subtext}
-                        />
-                        <Text style={overlappingBooking ? styles.slotBusyText : styles.slotDisabledText}>{t}</Text>
-                      </Pressable>
-                    );
-                  }
+              <View style={{ gap: 12 }}>
+                {slotPeriods.map(({ key, label }) => {
+                  const periodSlots = slotGroups[key];
+                  if (!periodSlots.length) return null;
 
                   return (
-                    <Pressable
-                      key={t}
-                      onPress={() => setSelectedSlot(t)}
-                      style={[styles.slot, isSelected && styles.slotActive]}
-                    >
-                      <Ionicons
-                        name="time-outline"
-                        size={16}
-                        color={isSelected ? colors.accentFgOn : colors.subtext}
-                      />
-                      <Text style={[styles.slotText, isSelected && styles.slotTextActive]}>{t}</Text>
-                    </Pressable>
+                    <View key={key} style={styles.slotGroup}>
+                      <Text style={styles.slotGroupTitle}>{label}</Text>
+                      <View style={styles.grid}>
+                        {periodSlots.map((t) => {
+                          const isAvailable = availableSlots.includes(t);
+                          const isSelected = selectedSlot === t;
+
+                          if (!isAvailable) {
+                            const slotEnd = addMinutes(t, SLOT_MINUTES);
+                            const overlappingBooking = bookings.find(
+                              (b) =>
+                                b.barber === selectedBarber.id &&
+                                overlap(t, slotEnd, b.start, b.end),
+                            );
+                            const conflict = overlappingBooking ?? bookings.find(
+                              (b) =>
+                                b.barber === selectedBarber.id &&
+                                overlap(t, addMinutes(t, selectedService.estimated_minutes), b.start, b.end),
+                            );
+                            const conflictService = conflict
+                              ? localizedServiceMap.get(conflict.service_id) ?? serviceMap.get(conflict.service_id)
+                              : null;
+                            return (
+                              <Pressable
+                                key={t}
+                                onPress={() =>
+                                  Alert.alert(
+                                    bookServiceCopy.slots.busyTitle,
+                                    conflict
+                                      ? bookServiceCopy.slots.busyMessage(
+                                          conflictService?.name ?? conflict.service_id,
+                                          BARBER_MAP[conflict.barber]?.name ?? conflict.barber,
+                                          conflict.start,
+                                          conflict.end,
+                                        )
+                                      : bookServiceCopy.slots.busyFallback,
+                                  )
+                                }
+                                style={[
+                                  styles.slot,
+                                  overlappingBooking ? styles.slotBusy : styles.slotDisabled,
+                                ]}
+                              >
+                                <Ionicons
+                                  name={overlappingBooking ? "close-circle-outline" : "time-outline"}
+                                  size={16}
+                                  color={overlappingBooking ? colors.danger : colors.subtext}
+                                />
+                                <Text style={overlappingBooking ? styles.slotBusyText : styles.slotDisabledText}>{t}</Text>
+                              </Pressable>
+                            );
+                          }
+
+                          return (
+                            <Pressable
+                              key={t}
+                              onPress={() => setSelectedSlot(t)}
+                              style={[styles.slot, isSelected && styles.slotActive]}
+                            >
+                              <Ionicons
+                                name="time-outline"
+                                size={16}
+                                color={isSelected ? colors.accentFgOn : colors.subtext}
+                              />
+                              <Text style={[styles.slotText, isSelected && styles.slotTextActive]}>{t}</Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </View>
                   );
                 })}
               </View>
@@ -3568,6 +3620,15 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   bookingListTitle: { color: colors.text, fontWeight: "800", fontSize: 15 },
   bookingListMeta: { color: colors.subtext, fontWeight: "600", fontSize: 12, marginTop: 2 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+
+  slotGroup: { gap: 8 },
+  slotGroupTitle: {
+    color: colors.subtext,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
 
   slot: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.surface },
   slotPressed: { opacity: 0.7 },
