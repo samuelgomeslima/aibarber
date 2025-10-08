@@ -2332,16 +2332,39 @@ export default function App() {
                 const serviceIcon = (displayService?.icon ?? rawService?.icon ?? "content-cut") as keyof typeof MaterialCommunityIcons.glyphMap;
                 return (
                   <View key={b.id} style={styles.bookingCard}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <View style={styles.bookingIconWrapper}>
                       <MaterialCommunityIcons name={serviceIcon} size={20} color={colors.accent} />
-                      <MaterialCommunityIcons name={barber.icon} size={18} color={colors.subtext} />
-                      <Text style={styles.bookingText}>
-                        {svc} • {b.start}–{b.end} • {barber.name}
-                        {b._customer ? ` • ${b._customer.first_name}` : ""}
-                      </Text>
                     </View>
-                    <Pressable onPress={() => onCancel(b.id)} style={styles.cancelBtn}>
-                      <Ionicons name="trash-outline" size={16} color={colors.subtext} />
+                    <View style={styles.bookingContent}>
+                      <View style={styles.bookingHeader}>
+                        <Text style={styles.bookingTitle}>{svc}</Text>
+                        <View style={styles.bookingTimePill}>
+                          <Ionicons name="time-outline" size={12} color={colors.accent} />
+                          <Text style={styles.bookingTimeText}>
+                            {b.start}–{b.end}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.bookingMetaRow}>
+                        <View style={styles.bookingMetaItem}>
+                          <MaterialCommunityIcons name={barber.icon} size={16} color={colors.subtext} />
+                          <Text style={styles.bookingMetaText}>{barber.name}</Text>
+                        </View>
+                        {b._customer ? (
+                          <View style={styles.bookingMetaItem}>
+                            <Ionicons name="person-outline" size={14} color={colors.subtext} />
+                            <Text style={styles.bookingMetaText}>{b._customer.first_name}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    </View>
+                    <Pressable
+                      onPress={() => onCancel(b.id)}
+                      style={styles.cancelBtn}
+                      accessibilityRole="button"
+                      accessibilityLabel={bookServiceCopy.bookingsList.cancel}
+                    >
+                      <Ionicons name="trash-outline" size={16} color={colors.danger} />
                       <Text style={styles.cancelText}>{bookServiceCopy.bookingsList.cancel}</Text>
                     </Pressable>
                   </View>
@@ -3610,10 +3633,53 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
 
   empty: { color: colors.subtext, padding: 6 },
 
-  bookingCard: { borderRadius: 16, padding: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, flexDirection: "row", alignItems: "center", justifyContent: "space-between", ...(SHADOW as object) },
-  bookingText: { color: colors.text, fontSize: 15, fontWeight: "700" },
-  cancelBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 10, borderWidth: 1, borderColor: "rgba(239,68,68,0.35)", backgroundColor: "rgba(239,68,68,0.1)" },
-  cancelText: { color: colors.danger, fontWeight: "800" },
+  bookingCard: {
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: applyAlpha(colors.accent, 0.2),
+    backgroundColor: mixHexColor(colors.surface, colors.accent, 0.05),
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    ...(SHADOW as object),
+  },
+  bookingIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: applyAlpha(colors.accent, 0.12),
+  },
+  bookingContent: { flex: 1, gap: 8 },
+  bookingHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10 },
+  bookingTitle: { color: colors.text, fontSize: 16, fontWeight: "800", flex: 1, flexWrap: "wrap" },
+  bookingTimePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 999,
+    backgroundColor: applyAlpha(colors.accent, 0.12),
+  },
+  bookingTimeText: { color: colors.accent, fontSize: 12, fontWeight: "800", letterSpacing: 0.3 },
+  bookingMetaRow: { flexDirection: "row", alignItems: "center", gap: 12, flexWrap: "wrap" },
+  bookingMetaItem: { flexDirection: "row", alignItems: "center", gap: 6 },
+  bookingMetaText: { color: colors.subtext, fontSize: 13, fontWeight: "700" },
+  cancelBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: applyAlpha(colors.danger, 0.45),
+    backgroundColor: applyAlpha(colors.danger, 0.1),
+  },
+  cancelText: { color: colors.danger, fontWeight: "800", fontSize: 13 },
 
   note: { color: colors.subtext, fontSize: 12, marginTop: 8 },
 
