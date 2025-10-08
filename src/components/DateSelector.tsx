@@ -11,6 +11,7 @@ type Props = {
     surface: string;
     border: string;
     accent: string;
+    accentFgOn?: string;
   };
   locale?: string;
 };
@@ -47,6 +48,7 @@ export default function DateSelector({
     surface: "rgba(255,255,255,0.045)",
     border: "rgba(255,255,255,0.07)",
     accent: "#60a5fa",
+    accentFgOn: "#0b1220",
   },
   locale,
 }: Props) {
@@ -140,15 +142,29 @@ export default function DateSelector({
               style={[
                 styles.dayPill,
                 { borderColor: colors.border, backgroundColor: colors.surface },
-                active && { backgroundColor: "#111827", borderColor: colors.accent },
+                active && { backgroundColor: colors.accent, borderColor: colors.accent },
               ]}
               accessibilityRole="button"
               accessibilityLabel={`Select ${d.toDateString()}`}
             >
-              <Text style={[styles.dayDow, { color: colors.subtext }, active && { color: colors.text }]}>
+              <Text
+                style={[
+                  styles.dayDow,
+                  { color: colors.subtext },
+                  active && { color: colors.accentFgOn ?? colors.text },
+                ]}
+              >
                 {humanDow(d, locale)}
               </Text>
-              <Text style={[styles.dayNum, { color: colors.text }]}>{d.getDate()}</Text>
+              <Text
+                style={[
+                  styles.dayNum,
+                  { color: colors.text },
+                  active && { color: colors.accentFgOn ?? colors.text },
+                ]}
+              >
+                {d.getDate()}
+              </Text>
             </Pressable>
           );
         })}
