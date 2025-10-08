@@ -836,6 +836,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [language, setLanguage] = useState<SupportedLanguage>(() => getInitialLanguage());
   const copy = useMemo(() => LANGUAGE_COPY[language], [language]);
+  const locale = language === "pt" ? "pt-BR" : "en-US";
   const bookServiceCopy = copy.bookService;
   const bookingsCopy = copy.bookings;
   const assistantCopy = copy.assistant;
@@ -1459,8 +1460,6 @@ export default function App() {
     () => weekDays.map((dayInfo) => ({ ...dayInfo, bookings: weekDayMap.get(dayInfo.key) ?? [] })),
     [weekDayMap, weekDays],
   );
-
-  const locale = language === "pt" ? "pt-BR" : "en-US";
 
   const weekRangeLabel = useMemo(() => {
     if (!weekDays.length) return "";
@@ -2551,7 +2550,7 @@ function ClientModal({
   onRefreshQuery: (q: string) => void;
   onPick: (c: Customer) => void;
   onSaved: (c: Customer) => void;
-  copy: typeof LANGUAGE_COPY.en.bookService.clientModal;
+  copy: (typeof LANGUAGE_COPY)[SupportedLanguage]["bookService"]["clientModal"];
   colors: ThemeColors;
   styles: ReturnType<typeof createStyles>;
 }) {
