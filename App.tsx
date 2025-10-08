@@ -16,7 +16,6 @@ import {
   Linking,
 } from "react-native";
 import Svg, { Circle, G } from "react-native-svg";
-import { supabase } from "./src/lib/supabase";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import * as Localization from "expo-localization";
 
@@ -137,7 +136,9 @@ const buildDateTime = (
 import {
   getBookings,
   getBookingsForRange,
+  getBookingsForDates,
   createBooking,
+  createBookingsBulk,
   cancelBooking,
   listCustomers,
   listRecentBookings,
@@ -1490,11 +1491,7 @@ export default function App() {
     try {
       setLoading(true);
       const dates = Array.from(new Set(raw.map((r) => r.date)));
-      const { data: existingAll, error } = await supabase
-        .from("bookings")
-        .select('id,date,start,"end",service_id,barber')
-        .in("date", dates);
-      if (error) throw error;
+      const existingAll = await getBookingsForDates(dates);
 
       const byDate = new Map<string, { start: string; end: string; barber: string }[]>();
       (existingAll ?? []).forEach((b) => {
@@ -1554,8 +1551,7 @@ export default function App() {
     }
     try {
       setLoading(true);
-      const { error } = await supabase.from("bookings").insert(toInsert);
-      if (error) throw error;
+      await createBookingsBulk(toInsert);
       setPreviewOpen(false);
       await load();
       await loadWeek();
