@@ -42,6 +42,18 @@ const getCurrentTimeString = () => {
   return `${pad(now.getHours())}:${pad(now.getMinutes())}`;
 };
 
+const applyAlpha = (hexColor: string, alpha: number) => {
+  const normalized = hexColor.replace("#", "");
+  if (normalized.length !== 6) {
+    return hexColor;
+  }
+  const clampAlpha = Math.max(0, Math.min(alpha, 1));
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${clampAlpha})`;
+};
+
 const normalizeTimeInput = (input?: string | null): string | null => {
   if (!input) return null;
   const trimmed = input.trim();
@@ -93,6 +105,124 @@ import DateTimeInput from "./src/components/DateTimeInput";
 
 /* Novo: formulário de usuário (com date_of_birth e salvando no Supabase) */
 import UserForm from "./src/components/UserForm";
+
+type DonutChartProps = {
+  percentage: number;
+  size?: number;
+  thickness?: number;
+  colors: {
+    fill: string;
+    track: string;
+    background: string;
+  };
+};
+
+const DONUT_STYLES = StyleSheet.create({
+  container: { position: "relative" },
+  track: { position: "absolute", top: 0, left: 0 },
+  halfContainer: { position: "absolute", top: 0, overflow: "hidden" },
+  half: { position: "absolute", top: 0 },
+  center: { position: "absolute" },
+});
+
+const DonutChart = ({
+  percentage,
+  size = 150,
+  thickness = 18,
+  colors: donutColors,
+}: DonutChartProps) => {
+  const normalized = Math.max(0, Math.min(100, percentage));
+  const angle = (normalized / 100) * 360;
+  const radius = size / 2;
+  const halfWidth = radius;
+  const rightRotation = Math.min(angle, 180);
+  const leftRotation = angle > 180 ? angle - 180 : 0;
+
+  return (
+    <View style={[DONUT_STYLES.container, { width: size, height: size }]}
+    >
+      <View
+        style={[
+          DONUT_STYLES.track,
+          {
+            width: size,
+            height: size,
+            borderRadius: radius,
+            backgroundColor: donutColors.track,
+          },
+        ]}
+      />
+      <View
+        style={[
+          DONUT_STYLES.halfContainer,
+          {
+            width: halfWidth,
+            height: size,
+            left: halfWidth,
+            borderTopRightRadius: radius,
+            borderBottomRightRadius: radius,
+          },
+        ]}
+      >
+        <View
+          style={[
+            DONUT_STYLES.half,
+            {
+              width: size,
+              height: size,
+              borderRadius: radius,
+              left: -halfWidth,
+              backgroundColor: donutColors.fill,
+              transform: [{ rotate: `${rightRotation}deg` }],
+            },
+          ]}
+        />
+      </View>
+      {angle > 180 ? (
+        <View
+          style={[
+            DONUT_STYLES.halfContainer,
+            {
+              width: halfWidth,
+              height: size,
+              left: 0,
+              borderTopLeftRadius: radius,
+              borderBottomLeftRadius: radius,
+              transform: [{ rotate: "180deg" }],
+            },
+          ]}
+        >
+          <View
+            style={[
+              DONUT_STYLES.half,
+              {
+                width: size,
+                height: size,
+                borderRadius: radius,
+                left: -halfWidth,
+                backgroundColor: donutColors.fill,
+                transform: [{ rotate: `${leftRotation}deg` }],
+              },
+            ]}
+          />
+        </View>
+      ) : null}
+      <View
+        style={[
+          DONUT_STYLES.center,
+          {
+            width: size - thickness * 2,
+            height: size - thickness * 2,
+            borderRadius: (size - thickness * 2) / 2,
+            backgroundColor: donutColors.background,
+            top: thickness,
+            left: thickness,
+          },
+        ]}
+      />
+    </View>
+  );
+};
 
 const LANGUAGE_COPY = {
   en: {
@@ -316,14 +446,21 @@ const LANGUAGE_COPY = {
       revenueDetail: "Based on service prices",
       busiestBarberLabel: "Busiest barber",
       busiestDetail: (count: number) => `${count} booking${count === 1 ? "" : "s"}`,
+      avgDuration: (minutes: string) => `${minutes} min avg duration`,
+      utilization: (percentage: string) => `${percentage}% capacity used`,
+      avgTicket: (value: string) => `Avg. ticket ${value}`,
+      topShare: (percentage: string) => `${percentage}% of bookings`,
+      noBarberData: "No barber data",
     },
     bookingsByDayTitle: "Booking insights",
     charts: {
       pizzaTitle: "Service spotlight",
       pizzaSubtitle: (service: string) => `Weekly share for ${service}`,
       pizzaEmpty: "No services booked this week.",
-      pizzaLegend: (sliceSize: number) => `1 slice ≈ ${sliceSize}%`,
       pizzaStat: (percentage: string) => `${percentage}% of weekly bookings`,
+      pizzaOther: "Other services",
+      pieLegendTitle: "Share of weekly bookings",
+      pieLegendEmpty: "No service mix available.",
       barsTitle: "Bookings per day",
       barsSubtitle: "Daily volume for the selected week.",
       barsEmpty: "No bookings recorded for this range.",
@@ -661,16 +798,22 @@ const LANGUAGE_COPY = {
       revenueLabel: "Receita",
       revenueDetail: "Baseado nos preços dos serviços",
       busiestBarberLabel: "Barbeiro mais ativo",
-      busiestDetail: (count: number) =>
-        `${count} agendamento${count === 1 ? "" : "s"}`,
+      busiestDetail: (count: number) => `${count} agendamento${count === 1 ? "" : "s"}`,
+      avgDuration: (minutes: string) => `${minutes} min de duração média`,
+      utilization: (percentage: string) => `${percentage}% da capacidade usada`,
+      avgTicket: (value: string) => `Ticket médio ${value}`,
+      topShare: (percentage: string) => `${percentage}% dos agendamentos`,
+      noBarberData: "Sem dados de barbeiro",
     },
     bookingsByDayTitle: "Painel de agendamentos",
     charts: {
       pizzaTitle: "Destaque de serviços",
       pizzaSubtitle: (service: string) => `Participação semanal de ${service}`,
       pizzaEmpty: "Nenhum serviço agendado nesta semana.",
-      pizzaLegend: (sliceSize: number) => `1 fatia ≈ ${sliceSize}%`,
       pizzaStat: (percentage: string) => `${percentage}% dos agendamentos da semana`,
+      pizzaOther: "Outros serviços",
+      pieLegendTitle: "Participação nos agendamentos da semana",
+      pieLegendEmpty: "Sem composição de serviços disponível.",
       barsTitle: "Agendamentos por dia",
       barsSubtitle: "Volume diário para a semana selecionada.",
       barsEmpty: "Sem agendamentos neste período.",
@@ -1586,6 +1729,71 @@ export default function App() {
     });
     return min;
   }, [dayTotals]);
+
+  const daysInWeek = weekDays.length;
+  const totalBookings = weekSummary.total;
+  const averagePerDayValue = daysInWeek ? (totalBookings / daysInWeek).toFixed(1) : "0.0";
+  const totalHours = weekSummary.totalMinutes / 60;
+  const serviceHoursDisplay = totalHours.toFixed(totalHours >= 10 ? 0 : 1);
+  const capacityMinutes = daysInWeek * (closingHour - openingHour) * 60;
+  const utilizationRatio = capacityMinutes ? Math.min(1, weekSummary.totalMinutes / capacityMinutes) : 0;
+  const utilizationPercent = Math.round(utilizationRatio * 100);
+  const avgDurationMinutes = totalBookings ? Math.round(weekSummary.totalMinutes / totalBookings) : 0;
+  const avgTicketCents = totalBookings ? Math.round(weekSummary.totalRevenue / totalBookings) : 0;
+  const bookingsTarget = Math.max(totalBookings || 0, daysInWeek * 6);
+  const bookingsProgress = bookingsTarget ? Math.min(1, totalBookings / bookingsTarget) : 0;
+  const revenueTarget = Math.max(weekSummary.totalRevenue || 0, daysInWeek * 8000);
+  const revenueProgress = revenueTarget ? Math.min(1, weekSummary.totalRevenue / revenueTarget) : 0;
+  const topBarberSharePercent =
+    topBarberEntry && totalBookings ? Math.round((topBarberEntry[1] / totalBookings) * 100) : 0;
+
+  const statCards = [
+    {
+      key: "bookings" as const,
+      icon: "calendar-check" as const,
+      label: copy.stats.bookingsLabel,
+      detail: copy.stats.averagePerDay(averagePerDayValue),
+      value: totalBookings.toString(),
+      chip: totalBookings ? copy.stats.avgDuration(avgDurationMinutes.toString()) : undefined,
+      chipIcon: "clock-outline" as const,
+      progress: bookingsTarget ? bookingsProgress : undefined,
+    },
+    {
+      key: "hours" as const,
+      icon: "clock-time-three" as const,
+      label: copy.stats.serviceHoursLabel,
+      detail: copy.stats.serviceHoursDetail,
+      value: serviceHoursDisplay,
+      chip: capacityMinutes ? copy.stats.utilization(utilizationPercent.toString()) : undefined,
+      chipIcon: "speedometer" as const,
+      progress: capacityMinutes ? utilizationRatio : undefined,
+    },
+    {
+      key: "revenue" as const,
+      icon: "cash-multiple" as const,
+      label: copy.stats.revenueLabel,
+      detail: copy.stats.revenueDetail,
+      value: formatPrice(weekSummary.totalRevenue),
+      chip: totalBookings ? copy.stats.avgTicket(formatPrice(avgTicketCents)) : undefined,
+      chipIcon: "cash-100" as const,
+      progress: revenueTarget ? revenueProgress : undefined,
+    },
+    {
+      key: "barber" as const,
+      icon: "account-tie" as const,
+      label: copy.stats.busiestBarberLabel,
+      detail: topBarberEntry ? copy.stats.busiestDetail(topBarberEntry[1]) : copy.noBookings,
+      value: topBarberEntry ? BARBER_MAP[topBarberEntry[0]]?.name ?? topBarberEntry[0] : "—",
+      chip:
+        topBarberEntry && totalBookings
+          ? copy.stats.topShare(topBarberSharePercent.toString())
+          : topBarberEntry
+            ? copy.stats.noBarberData
+            : undefined,
+      chipIcon: "chart-donut" as const,
+      progress: topBarberEntry && totalBookings ? Math.min(1, topBarberSharePercent / 100) : undefined,
+    },
+  ];
 
   const bookingsNavActive = activeScreen === "bookings" || activeScreen === "bookService";
 
@@ -2567,42 +2775,62 @@ export default function App() {
         </View>
 
         <View style={[styles.statsGrid, isCompactLayout && styles.statsGridCompact]}>
-          <View style={[styles.statCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-            <Text style={[styles.statLabel, { color: colors.subtext }]}>{copy.stats.bookingsLabel}</Text>
-            <Text style={[styles.statValue, { color: colors.text }]}>{weekSummary.total}</Text>
-            <Text style={[styles.statDetail, { color: colors.subtext }]}>
-              {copy.stats.averagePerDay(
-                weekDays.length ? (weekSummary.total / weekDays.length).toFixed(1) : "0.0",
-              )}
-            </Text>
-          </View>
-          <View style={[styles.statCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-            <Text style={[styles.statLabel, { color: colors.subtext }]}>{copy.stats.serviceHoursLabel}</Text>
-            <Text style={[styles.statValue, { color: colors.text }]}>
-              {(weekSummary.totalMinutes / 60).toFixed(weekSummary.totalMinutes / 60 >= 10 ? 0 : 1)}
-            </Text>
-            <Text style={[styles.statDetail, { color: colors.subtext }]}>
-              {copy.stats.serviceHoursDetail}
-            </Text>
-          </View>
-          <View style={[styles.statCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-            <Text style={[styles.statLabel, { color: colors.subtext }]}>{copy.stats.revenueLabel}</Text>
-            <Text style={[styles.statValue, { color: colors.text }]}>{formatPrice(weekSummary.totalRevenue)}</Text>
-            <Text style={[styles.statDetail, { color: colors.subtext }]}>
-              {copy.stats.revenueDetail}
-            </Text>
-          </View>
-          <View style={[styles.statCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-            <Text style={[styles.statLabel, { color: colors.subtext }]}>{copy.stats.busiestBarberLabel}</Text>
-            <Text style={[styles.statValue, { color: colors.text }]}>
-              {topBarberEntry ? BARBER_MAP[topBarberEntry[0]]?.name ?? topBarberEntry[0] : "—"}
-            </Text>
-            <Text style={[styles.statDetail, { color: colors.subtext }]}>
-              {topBarberEntry
-                ? copy.stats.busiestDetail(topBarberEntry[1])
-                : copy.noBookings}
-            </Text>
-          </View>
+          {statCards.map((card) => {
+            const progressWidth =
+              typeof card.progress === "number"
+                ? `${Math.max(8, Math.round(card.progress * 100))}%`
+                : "0%";
+            return (
+              <View
+                key={card.key}
+                style={[styles.statCard, { borderColor: colors.border, backgroundColor: colors.surface }]}
+              >
+                <View style={styles.statCardHeader}>
+                  <View
+                    style={[
+                      styles.statIconBubble,
+                      { backgroundColor: applyAlpha(colors.accent, 0.14) },
+                    ]}
+                  >
+                    <MaterialCommunityIcons name={card.icon} size={18} color={colors.accent} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.statLabel, { color: colors.subtext }]}>{card.label}</Text>
+                    <Text style={[styles.statDetail, { color: colors.subtext }]}>{card.detail}</Text>
+                  </View>
+                </View>
+                <Text style={[styles.statValue, { color: colors.text }]}>{card.value}</Text>
+                {card.chip ? (
+                  <View
+                    style={[
+                      styles.statChip,
+                      { backgroundColor: applyAlpha(colors.accent, 0.12) },
+                    ]}
+                  >
+                    <MaterialCommunityIcons name={card.chipIcon} size={14} color={colors.accent} />
+                    <Text style={{ color: colors.accent, fontWeight: "700", fontSize: 12 }}>
+                      {card.chip}
+                    </Text>
+                  </View>
+                ) : null}
+                {typeof card.progress === "number" ? (
+                  <View
+                    style={[
+                      styles.statProgressTrack,
+                      { backgroundColor: applyAlpha(colors.accent, 0.12) },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.statProgressFill,
+                        { width: progressWidth, backgroundColor: colors.accent },
+                      ]}
+                    />
+                  </View>
+                ) : null}
+              </View>
+            );
+          })}
         </View>
 
         <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 16 }]}>
@@ -2616,13 +2844,42 @@ export default function App() {
           ) : (
             <>
               {(() => {
-                const pizzaSlices = 8;
                 const topService = serviceBreakdown[0] ?? null;
-                const topServiceShare = topService ? (topService.count / weekSummary.total) * 100 : 0;
-                const filledSlices = topService
-                  ? Math.max(0, Math.min(pizzaSlices, Math.round((topServiceShare / 100) * pizzaSlices)))
-                  : 0;
-                const sliceSize = Math.round(100 / pizzaSlices);
+                const totalCount = weekSummary.total;
+                const additionalServices = serviceBreakdown.slice(1, 3);
+                const shareFor = (count: number) => (totalCount ? Math.round((count / totalCount) * 100) : 0);
+                const topShare = topService ? shareFor(topService.count) : 0;
+                const accountedCount =
+                  (topService?.count ?? 0) + additionalServices.reduce((sum, svc) => sum + svc.count, 0);
+                const otherCount = Math.max(0, totalCount - accountedCount);
+                const donutSize = isCompactLayout ? 140 : 156;
+                const legendItems = topService
+                  ? [
+                      {
+                        key: topService.id,
+                        label: topService.name,
+                        count: topService.count,
+                        share: topShare,
+                        color: colors.accent,
+                      },
+                      ...additionalServices.map((svc, index) => ({
+                        key: svc.id,
+                        label: svc.name,
+                        count: svc.count,
+                        share: shareFor(svc.count),
+                        color: applyAlpha(colors.accent, 0.6 - index * 0.15),
+                      })),
+                    ]
+                  : [];
+                if (topService && otherCount > 0) {
+                  legendItems.push({
+                    key: "other",
+                    label: copy.charts.pizzaOther,
+                    count: otherCount,
+                    share: shareFor(otherCount),
+                    color: applyAlpha(colors.text, 0.3),
+                  });
+                }
                 const busiest = busiestDay;
                 const quietest = quietestDay;
                 return (
@@ -2634,7 +2891,7 @@ export default function App() {
                       ]}
                     >
                       <View style={styles.insightSectionHeader}>
-                        <MaterialCommunityIcons name="pizza" size={20} color={colors.accent} />
+                        <MaterialCommunityIcons name="chart-pie" size={20} color={colors.accent} />
                         <View style={{ flex: 1 }}>
                           <Text style={[styles.insightSectionTitle, { color: colors.text }]}>
                             {copy.charts.pizzaTitle}
@@ -2646,30 +2903,75 @@ export default function App() {
                           </Text>
                         </View>
                       </View>
-                      <View style={styles.pizzaSlicesRow}>
-                        {Array.from({ length: pizzaSlices }).map((_, index) => (
-                          <MaterialCommunityIcons
-                            // eslint-disable-next-line react/no-array-index-key
-                            key={index}
-                            name="pizza-slice"
-                            size={26}
-                            color={index < filledSlices ? colors.accent : colors.border}
-                          />
-                        ))}
-                      </View>
                       {topService ? (
-                        <View style={{ gap: 4 }}>
-                          <Text style={[styles.pizzaStat, { color: colors.text }]}>
-                            {copy.charts.pizzaStat(Math.round(topServiceShare).toString())}
-                          </Text>
-                          <Text style={{ color: colors.subtext, fontWeight: "700" }}>
-                            {copy.charts.serviceCount(topService.count)}
-                          </Text>
+                        <View
+                          style={[
+                            styles.pieChartBlock,
+                            isCompactLayout && styles.pieChartBlockCompact,
+                          ]}
+                        >
+                          <View style={styles.pieChartWrapper}>
+                            <DonutChart
+                              percentage={topShare}
+                              size={donutSize}
+                              colors={{
+                                fill: colors.accent,
+                                track: applyAlpha(colors.accent, 0.15),
+                                background: colors.bg,
+                              }}
+                            />
+                            <View
+                              style={[
+                                styles.pieChartCenter,
+                                {
+                                  backgroundColor: colors.surface,
+                                  borderColor: colors.border,
+                                  borderWidth: 1,
+                                },
+                              ]}
+                            >
+                              <Text style={[styles.pieChartValue, { color: colors.text }]}>{`${topShare}%`}</Text>
+                              <Text style={[styles.pieChartLabel, { color: colors.subtext }]}>
+                                {copy.charts.serviceCount(topService.count)}
+                              </Text>
+                            </View>
+                          </View>
+                          <View style={styles.pieLegend}>
+                            <Text style={[styles.pieLegendTitle, { color: colors.subtext }]}>
+                              {copy.charts.pieLegendTitle}
+                            </Text>
+                            {legendItems.length ? (
+                              legendItems.map((item) => (
+                                <View key={item.key} style={styles.pieLegendItem}>
+                                  <View
+                                    style={[
+                                      styles.pieLegendSwatch,
+                                      { backgroundColor: item.color },
+                                    ]}
+                                  />
+                                  <View style={{ flex: 1 }}>
+                                    <Text
+                                      style={[styles.pieLegendLabel, { color: colors.text }]}
+                                      numberOfLines={1}
+                                    >
+                                      {item.label}
+                                    </Text>
+                                    <Text style={[styles.pieLegendMeta, { color: colors.subtext }]}>
+                                      {`${copy.charts.serviceCount(item.count)} • ${item.share}%`}
+                                    </Text>
+                                  </View>
+                                </View>
+                              ))
+                            ) : (
+                              <Text style={[styles.empty, { marginTop: 4 }]}>
+                                {copy.charts.pieLegendEmpty}
+                              </Text>
+                            )}
+                          </View>
                         </View>
-                      ) : null}
-                      <Text style={[styles.pizzaLegend, { color: colors.subtext }]}>
-                        {copy.charts.pizzaLegend(sliceSize)}
-                      </Text>
+                      ) : (
+                        <Text style={[styles.empty, { marginTop: 4 }]}>{copy.charts.pizzaEmpty}</Text>
+                      )}
                     </View>
 
                     <View
@@ -2690,14 +2992,11 @@ export default function App() {
                         </View>
                       </View>
                       <View style={styles.highlightGroup}>
-                        <View style={[styles.highlightPill, { backgroundColor: colors.accent }]}> 
+                        <View style={[styles.highlightPill, { backgroundColor: colors.accent }]}>
                           <MaterialCommunityIcons name="trending-up" size={18} color={colors.accentFgOn} />
                           <Text style={{ color: colors.accentFgOn, fontWeight: "700" }}>
                             {busiest
-                              ? copy.charts.busiestDay(
-                                  busiest.label,
-                                  busiest.count,
-                                )
+                              ? copy.charts.busiestDay(busiest.label, busiest.count)
                               : copy.charts.barsEmpty}
                           </Text>
                         </View>
@@ -2710,10 +3009,7 @@ export default function App() {
                           <MaterialCommunityIcons name="trending-down" size={18} color={colors.subtext} />
                           <Text style={{ color: colors.subtext, fontWeight: "700" }}>
                             {quietest
-                              ? copy.charts.quietestDay(
-                                  quietest.label,
-                                  quietest.count,
-                                )
+                              ? copy.charts.quietestDay(quietest.label, quietest.count)
                               : copy.charts.barsEmpty}
                           </Text>
                         </View>
@@ -3284,11 +3580,34 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
-    gap: 6,
+    gap: 12,
+  },
+  statCardHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
+  statIconBubble: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
   },
   statLabel: { fontSize: 12, fontWeight: "700", textTransform: "uppercase" },
   statValue: { fontSize: 24, fontWeight: "800" },
   statDetail: { fontSize: 12, fontWeight: "600" },
+  statChip: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 999,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+  },
+  statProgressTrack: {
+    height: 6,
+    borderRadius: 999,
+    overflow: "hidden",
+  },
+  statProgressFill: { height: "100%", borderRadius: 999 },
   insightsRow: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   insightSection: {
     flex: 1,
@@ -3301,9 +3620,26 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   insightSectionHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
   insightSectionTitle: { fontSize: 14, fontWeight: "800" },
   insightSectionSubtitle: { fontSize: 12, fontWeight: "600" },
-  pizzaSlicesRow: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 6 },
-  pizzaStat: { fontSize: 16, fontWeight: "800", textAlign: "center" },
-  pizzaLegend: { fontSize: 11, fontWeight: "700", textAlign: "center", marginTop: 6 },
+  pieChartBlock: { flexDirection: "row", alignItems: "center", gap: 16 },
+  pieChartBlockCompact: { flexDirection: "column" },
+  pieChartWrapper: { position: "relative", alignItems: "center", justifyContent: "center" },
+  pieChartCenter: {
+    position: "absolute",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 14,
+    gap: 2,
+  },
+  pieChartValue: { fontSize: 20, fontWeight: "800" },
+  pieChartLabel: { fontSize: 12, fontWeight: "700" },
+  pieLegend: { flex: 1, gap: 10 },
+  pieLegendTitle: { fontSize: 11, fontWeight: "700", textTransform: "uppercase" },
+  pieLegendItem: { flexDirection: "row", alignItems: "center", gap: 10 },
+  pieLegendSwatch: { width: 12, height: 12, borderRadius: 6 },
+  pieLegendLabel: { fontSize: 13, fontWeight: "700" },
+  pieLegendMeta: { fontSize: 12, fontWeight: "600" },
   highlightGroup: { gap: 8 },
   highlightPill: {
     flexDirection: "row",
