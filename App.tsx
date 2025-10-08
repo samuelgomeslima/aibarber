@@ -2108,15 +2108,9 @@ export default function App() {
                   </View>
                 </View>
 
-                {/* Barber selector (desabilita se não houver cliente) */}
-                <View style={{ opacity: selectedCustomer ? 1 : 0.6 }}>
-                  <Text style={styles.sectionLabel}>{bookServiceCopy.barberSectionTitle}</Text>
-                  <BarberSelector
-                    selected={selectedBarber}
-                    onChange={setSelectedBarber}
-                    disabled={!selectedCustomer}
-                  />
-                </View>
+                {/* Barber selector */}
+                <Text style={styles.sectionLabel}>{bookServiceCopy.barberSectionTitle}</Text>
+                <BarberSelector selected={selectedBarber} onChange={setSelectedBarber} />
               </View>
 
               {/* Date selector */}

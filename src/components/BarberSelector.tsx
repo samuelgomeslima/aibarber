@@ -10,20 +10,11 @@ export type Barber = DomainBarber;
 type Props = {
   selected: Barber;
   onChange: (b: Barber) => void;
-  /** novo */
-  disabled?: boolean;
 };
 
-export default function BarberSelector({ selected, onChange, disabled = false }: Props) {
+export default function BarberSelector({ selected, onChange }: Props) {
   return (
-    <View
-      style={[
-        styles.row,
-        disabled && { opacity: 0.6 },
-      ]}
-      // Quando desabilitado, não deixa clicar
-      pointerEvents={disabled ? "none" : "auto"}
-    >
+    <View style={styles.row}>
       {BARBERS.map((b) => {
         const active = b.id === selected.id;
         return (
