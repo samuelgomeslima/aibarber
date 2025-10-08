@@ -2838,23 +2838,56 @@ export default function App() {
             return (
               <View
                 key={card.key}
-                style={[styles.statCard, { borderColor: colors.border, backgroundColor: colors.surface }]}
+                style={[
+                  styles.statCard,
+                  isCompactLayout && styles.statCardCompact,
+                  { borderColor: colors.border, backgroundColor: colors.surface },
+                ]}
               >
                 <View style={styles.statCardHeader}>
                   <View
                     style={[
                       styles.statIconBubble,
+                      isCompactLayout && styles.statIconBubbleCompact,
                       { backgroundColor: applyAlpha(colors.accent, 0.14) },
                     ]}
                   >
-                    <MaterialCommunityIcons name={card.icon} size={18} color={colors.accent} />
+                    <MaterialCommunityIcons
+                      name={card.icon}
+                      size={isCompactLayout ? 16 : 18}
+                      color={colors.accent}
+                    />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.statLabel, { color: colors.subtext }]}>{card.label}</Text>
-                    <Text style={[styles.statDetail, { color: colors.subtext }]}>{card.detail}</Text>
+                    <Text
+                      style={[
+                        styles.statLabel,
+                        isCompactLayout && styles.statLabelCompact,
+                        { color: colors.subtext },
+                      ]}
+                    >
+                      {card.label}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.statDetail,
+                        isCompactLayout && styles.statDetailCompact,
+                        { color: colors.subtext },
+                      ]}
+                    >
+                      {card.detail}
+                    </Text>
                   </View>
                 </View>
-                <Text style={[styles.statValue, { color: colors.text }]}>{card.value}</Text>
+                <Text
+                  style={[
+                    styles.statValue,
+                    isCompactLayout && styles.statValueCompact,
+                    { color: colors.text },
+                  ]}
+                >
+                  {card.value}
+                </Text>
                 {card.chip ? (
                   <View
                     style={[
@@ -2863,7 +2896,13 @@ export default function App() {
                     ]}
                   >
                     <MaterialCommunityIcons name={card.chipIcon} size={14} color={colors.accent} />
-                    <Text style={{ color: colors.accent, fontWeight: "700", fontSize: 12 }}>
+                    <Text
+                      style={{
+                        color: colors.accent,
+                        fontWeight: "700",
+                        fontSize: isCompactLayout ? 11 : 12,
+                      }}
+                    >
                       {card.chip}
                     </Text>
                   </View>
@@ -2872,6 +2911,7 @@ export default function App() {
                   <View
                     style={[
                       styles.statProgressTrack,
+                      isCompactLayout && styles.statProgressTrackCompact,
                       { backgroundColor: applyAlpha(colors.accent, 0.12) },
                     ]}
                   >
@@ -3624,7 +3664,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexWrap: "wrap",
     gap: 12,
   },
-  statsGridCompact: { flexDirection: "column" },
+  statsGridCompact: { gap: 10, justifyContent: "space-between" },
   statCard: {
     flex: 1,
     minWidth: 180,
@@ -3635,6 +3675,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.surface,
     gap: 12,
   },
+  statCardCompact: {
+    flexGrow: 0,
+    flexBasis: "48%",
+    minWidth: "48%",
+    padding: 12,
+    borderRadius: 14,
+    gap: 8,
+  },
   statCardHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
   statIconBubble: {
     width: 34,
@@ -3643,9 +3691,17 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  statIconBubbleCompact: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+  },
   statLabel: { fontSize: 12, fontWeight: "700", textTransform: "uppercase" },
+  statLabelCompact: { fontSize: 11 },
   statValue: { fontSize: 24, fontWeight: "800" },
+  statValueCompact: { fontSize: 20 },
   statDetail: { fontSize: 12, fontWeight: "600" },
+  statDetailCompact: { fontSize: 11 },
   statChip: {
     alignSelf: "flex-start",
     flexDirection: "row",
@@ -3659,6 +3715,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     height: 6,
     borderRadius: 999,
     overflow: "hidden",
+  },
+  statProgressTrackCompact: {
+    height: 5,
   },
   statProgressFill: { height: "100%", borderRadius: 999 },
   insightsRow: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
