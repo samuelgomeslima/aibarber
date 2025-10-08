@@ -1,3 +1,4 @@
+import { logger } from "./logger";
 import { supabase } from "./supabase";
 
 export type DbBooking = {
@@ -54,8 +55,16 @@ export async function getBookings(dateKey: string): Promise<BookingWithCustomer[
     .eq("date", dateKey)
     .order("start");
 
-  console.log("[getBookings]", { dateKey, status, data, error });
-  if (error) throw error;
+  if (error) {
+    logger.error("bookings.getBookings failed", { dateKey, status, error });
+    throw error;
+  }
+
+  logger.debug("bookings.getBookings succeeded", {
+    dateKey,
+    status,
+    count: Array.isArray(data) ? data.length : 0,
+  });
 
   const rows = normalizeTimeFields((data ?? []) as DbBooking[]);
   return attachCustomers(rows);
@@ -75,8 +84,22 @@ export async function getBookingsForRange(
     .order("date")
     .order("start");
 
-  console.log("[getBookingsForRange]", { startDate, endDate, status, error });
-  if (error) throw error;
+  if (error) {
+    logger.error("bookings.getBookingsForRange failed", {
+      startDate,
+      endDate,
+      status,
+      error,
+    });
+    throw error;
+  }
+
+  logger.debug("bookings.getBookingsForRange succeeded", {
+    startDate,
+    endDate,
+    status,
+    count: Array.isArray(data) ? data.length : 0,
+  });
 
   const rows = normalizeTimeFields((data ?? []) as DbBooking[]);
   return attachCustomers(rows);
@@ -90,8 +113,16 @@ export async function listRecentBookings(limit = 200): Promise<BookingWithCustom
     .order("start", { ascending: false })
     .limit(limit);
 
-  console.log("[listRecentBookings]", { status, error, limit });
-  if (error) throw error;
+  if (error) {
+    logger.error("bookings.listRecentBookings failed", { status, error, limit });
+    throw error;
+  }
+
+  logger.debug("bookings.listRecentBookings succeeded", {
+    status,
+    limit,
+    count: Array.isArray(data) ? data.length : 0,
+  });
 
   const rows = normalizeTimeFields((data ?? []) as DbBooking[]);
   return attachCustomers(rows);
@@ -106,15 +137,24 @@ export async function createBooking(payload: {
   customer_id?: string | null;
 }) {
   const { data, error, status } = await supabase.from("bookings").insert(payload).select("id").single();
-  console.log("[createBooking]", { payload, status, error });
-  if (error) throw error;
-  return data?.id ?? null;
+  if (error) {
+    logger.error("bookings.createBooking failed", { status, error });
+    throw error;
+  }
+
+  const bookingId = data?.id ?? null;
+  logger.info("bookings.createBooking succeeded", { bookingId, status });
+  return bookingId;
 }
 
 export async function cancelBooking(id: string) {
   const { data, error, status } = await supabase.from("bookings").delete().eq("id", id);
-  console.log("[cancelBooking]", { id, status, data, error });
-  if (error) throw error;
+  if (error) {
+    logger.error("bookings.cancelBooking failed", { id, status, error });
+    throw error;
+  }
+
+  logger.info("bookings.cancelBooking succeeded", { id, status, deleted: Array.isArray(data) ? data.length : 0 });
 }
 
 export async function listCustomers(query: string) {
@@ -145,8 +185,12 @@ export async function getCustomerById(id: string) {
     .select("id,first_name,last_name,phone,email,date_of_birth")
     .eq("id", id.trim())
     .maybeSingle();
-  console.log("[getCustomerById]", { id, status, error });
-  if (error) throw error;
+  if (error) {
+    logger.error("customers.getCustomerById failed", { id, status, error });
+    throw error;
+  }
+
+  logger.debug("customers.getCustomerById succeeded", { id, status, found: Boolean(data) });
   return (data ?? null) as Customer | null;
 }
 
@@ -158,8 +202,16 @@ export async function findCustomerByPhone(phone: string) {
     .select("id,first_name,last_name,phone,email,date_of_birth")
     .eq("phone", digits)
     .maybeSingle();
-  console.log("[findCustomerByPhone]", { phone: digits, status, error });
-  if (error) throw error;
+  if (error) {
+    logger.error("customers.findCustomerByPhone failed", { phone: digits, status, error });
+    throw error;
+  }
+
+  logger.debug("customers.findCustomerByPhone succeeded", {
+    phone: digits,
+    status,
+    found: Boolean(data),
+  });
   return (data ?? null) as Customer | null;
 }
 
@@ -185,7 +237,11 @@ export async function createCustomer(payload: {
     })
     .select("id,first_name,last_name,phone,email,date_of_birth")
     .single();
-  console.log("[createCustomer]", { status, error });
-  if (error) throw error;
+  if (error) {
+    logger.error("customers.createCustomer failed", { status, error });
+    throw error;
+  }
+
+  logger.info("customers.createCustomer succeeded", { customerId: data?.id, status });
   return data as Customer;
 }
