@@ -2049,6 +2049,35 @@ export default function App() {
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
             >
               <View style={{ gap: isCompactLayout ? 16 : 20 }}>
+                {/* Client picker (now displayed before service selection) */}
+                <View style={{ gap: 8 }}>
+                  <Text style={{ color: colors.subtext, fontWeight: "800", fontSize: 12 }}>
+                    {bookServiceCopy.clientSection.title}
+                  </Text>
+                  <View style={[styles.cardRow, { borderColor: colors.border }, isCompactLayout && styles.cardRowStack]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: colors.text, fontWeight: "800" }}>
+                        {selectedCustomer
+                          ? `${selectedCustomer.first_name} ${selectedCustomer.last_name}`
+                          : bookServiceCopy.clientSection.noneSelected}
+                      </Text>
+                      {selectedCustomer?.phone ? (
+                        <Text style={{ color: colors.subtext, fontSize: 12 }}>
+                          {selectedCustomer.phone} · {selectedCustomer.email ?? ""}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Pressable
+                      onPress={() => setClientModalOpen(true)}
+                      style={[styles.smallBtn, { borderColor: colors.accent, backgroundColor: colors.accent }]}
+                    >
+                      <Text style={{ color: colors.accentFgOn, fontWeight: "900" }}>
+                        {selectedCustomer ? bookServiceCopy.clientSection.change : bookServiceCopy.clientSection.select}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+
                 <View>
                   <Text style={styles.sectionLabel}>{bookServiceCopy.serviceSection.title}</Text>
                   <View style={styles.chipsRow}>
@@ -2080,35 +2109,6 @@ export default function App() {
                         );
                       })
                     )}
-                  </View>
-                </View>
-
-                {/* Client picker (novo, antes do barbeiro) */}
-                <View style={{ gap: 8 }}>
-                  <Text style={{ color: colors.subtext, fontWeight: "800", fontSize: 12 }}>
-                    {bookServiceCopy.clientSection.title}
-                  </Text>
-                  <View style={[styles.cardRow, { borderColor: colors.border }, isCompactLayout && styles.cardRowStack]}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: colors.text, fontWeight: "800" }}>
-                        {selectedCustomer
-                          ? `${selectedCustomer.first_name} ${selectedCustomer.last_name}`
-                          : bookServiceCopy.clientSection.noneSelected}
-                      </Text>
-                      {selectedCustomer?.phone ? (
-                        <Text style={{ color: colors.subtext, fontSize: 12 }}>
-                          {selectedCustomer.phone} · {selectedCustomer.email ?? ""}
-                        </Text>
-                      ) : null}
-                    </View>
-                    <Pressable
-                      onPress={() => setClientModalOpen(true)}
-                      style={[styles.smallBtn, { borderColor: colors.accent, backgroundColor: colors.accent }]}
-                    >
-                      <Text style={{ color: colors.accentFgOn, fontWeight: "900" }}>
-                        {selectedCustomer ? bookServiceCopy.clientSection.change : bookServiceCopy.clientSection.select}
-                      </Text>
-                    </Pressable>
                   </View>
                 </View>
 
