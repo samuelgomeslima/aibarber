@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import DateTimePicker, {
   AndroidNativeProps,
+  DateTimePickerAndroid,
   DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -117,6 +118,7 @@ export default function DateTimeInput({
   const [tempValue, setTempValue] = useState<Date>(() =>
     mode === "date" ? parseDateValue(value) : parseTimeValue(value),
   );
+  const inlinePicker = Platform.OS === "ios" || Platform.OS === "web";
 
   const iconName = mode === "date" ? "calendar" : "clock-time-four-outline";
 
@@ -126,6 +128,23 @@ export default function DateTimeInput({
 
   const openPicker = () => {
     setTempValue(initialDate);
+    if (Platform.OS === "android") {
+      DateTimePickerAndroid.open({
+        mode: mode as NativeMode,
+        value: initialDate,
+        onChange: (event, selected) => {
+          if (event.type === "dismissed") {
+            return;
+          }
+          if (selected) {
+            const formatted =
+              mode === "date" ? formatDateValue(selected) : formatTimeValue(selected);
+            onChange(formatted);
+          }
+        },
+      });
+      return;
+    }
     setPickerVisible(true);
   };
 
@@ -136,11 +155,6 @@ export default function DateTimeInput({
   const handlePickerChange = (_event: DateTimePickerEvent, selected?: Date) => {
     if (selected) {
       setTempValue(selected);
-      if (Platform.OS === "android") {
-        const formatted = mode === "date" ? formatDateValue(selected) : formatTimeValue(selected);
-        onChange(formatted);
-        setPickerVisible(false);
-      }
     }
   };
 
@@ -150,15 +164,71 @@ export default function DateTimeInput({
     setPickerVisible(false);
   };
 
+  const flattenedInputStyle = StyleSheet.flatten([styles.textInput, inputStyle]) ?? {};
+  const {
+    margin,
+    marginTop,
+    marginBottom,
+    marginLeft,
+    marginRight,
+    marginHorizontal,
+    marginVertical,
+    borderRadius,
+    borderWidth,
+    borderColor,
+    backgroundColor,
+    paddingRight,
+    paddingHorizontal,
+    ...textStyle
+  } = flattenedInputStyle as TextStyle & ViewStyle;
+
+  const marginStyles: ViewStyle = {
+    ...(margin != null ? { margin } : {}),
+    ...(marginTop != null ? { marginTop } : {}),
+    ...(marginBottom != null ? { marginBottom } : {}),
+    ...(marginLeft != null ? { marginLeft } : {}),
+    ...(marginRight != null ? { marginRight } : {}),
+    ...(marginHorizontal != null ? { marginHorizontal } : {}),
+    ...(marginVertical != null ? { marginVertical } : {}),
+  };
+
+  const wrapperVisualStyle: ViewStyle = {
+    borderRadius: borderRadius ?? styles.inputWrapper.borderRadius ?? 10,
+    borderWidth: borderWidth ?? styles.inputWrapper.borderWidth ?? 1,
+    borderColor: borderColor ?? colors.border,
+    backgroundColor: backgroundColor ?? styles.inputWrapper.backgroundColor ?? "transparent",
+  };
+
+  const effectivePaddingRight = (() => {
+    if (typeof paddingRight === "number") return paddingRight;
+    if (typeof paddingHorizontal === "number") return paddingHorizontal;
+    return styles.textInput.paddingRight ?? 12;
+  })();
+
+  const finalTextInputStyle: TextStyle = {
+    ...textStyle,
+    flex: 1,
+    color: (textStyle.color as string | undefined) ?? colors.text,
+    paddingRight: effectivePaddingRight + 32,
+  };
+
+  if (typeof paddingHorizontal === "number" && typeof paddingRight !== "number") {
+    finalTextInputStyle.paddingRight = paddingHorizontal + 32;
+  }
+
+  if (typeof paddingHorizontal === "number") {
+    finalTextInputStyle.paddingLeft = paddingHorizontal;
+  }
+
   return (
     <View style={containerStyle}>
-      <View style={styles.inputWrapper}>
+      <View style={[styles.inputWrapper, wrapperVisualStyle, marginStyles]}>
         <TextInput
           value={value}
           onChangeText={onChange}
           placeholder={placeholder}
           placeholderTextColor={placeholderTextColor}
-          style={[styles.input, inputStyle]}
+          style={finalTextInputStyle}
           {...textInputProps}
         />
         <Pressable
@@ -170,26 +240,26 @@ export default function DateTimeInput({
           <MaterialCommunityIcons name={iconName} size={18} color={colors.subtext} />
         </Pressable>
       </View>
-      {pickerVisible ? (
+      {pickerVisible && inlinePicker ? (
         <Modal transparent animationType="fade" onRequestClose={closePicker}>
-          <Pressable style={styles.modalBackdrop} onPress={closePicker}>
-            <View />
-          </Pressable>
-          <View style={styles.modalContainer}>
-            <View
-              style={[
-                styles.modalContent,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-              ]}
-            >
-              <DateTimePicker
-                value={tempValue}
-                mode={mode as NativeMode}
-                display={Platform.OS === "ios" ? "spinner" : "default"}
-                onChange={handlePickerChange}
-                style={styles.picker}
-              />
-              {Platform.OS === "ios" ? (
+          <View style={styles.modalRoot}>
+            <Pressable style={styles.modalBackdrop} onPress={closePicker}>
+              <View />
+            </Pressable>
+            <View style={styles.modalContainer}>
+              <View
+                style={[
+                  styles.modalContent,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                ]}
+              >
+                <DateTimePicker
+                  value={tempValue}
+                  mode={mode as NativeMode}
+                  display={Platform.OS === "ios" ? "spinner" : "default"}
+                  onChange={handlePickerChange}
+                  style={styles.picker}
+                />
                 <View style={styles.modalActions}>
                   <Pressable
                     onPress={closePicker}
@@ -201,14 +271,17 @@ export default function DateTimeInput({
                   </Pressable>
                   <Pressable
                     onPress={applyPickerValue}
-                    style={[styles.modalButton, { borderColor: colors.accent, backgroundColor: colors.accent }]}
+                    style={[
+                      styles.modalButton,
+                      { borderColor: colors.accent, backgroundColor: colors.accent },
+                    ]}
                   >
                     <Text style={[styles.modalButtonText, { color: colors.accentFgOn }]}>
                       {confirmLabel}
                     </Text>
                   </Pressable>
                 </View>
-              ) : null}
+              </View>
             </View>
           </View>
         </Modal>
@@ -219,22 +292,29 @@ export default function DateTimeInput({
 
 const styles = StyleSheet.create({
   inputWrapper: {
-    position: "relative",
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 10,
+    backgroundColor: "transparent",
+    overflow: "hidden",
   },
-  input: {
-    width: "100%",
-    paddingRight: 44,
+  textInput: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    fontWeight: "700",
+    flex: 1,
   },
   iconButton: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    right: 0,
     paddingHorizontal: 12,
     justifyContent: "center",
     alignItems: "center",
-    borderLeftWidth: 1,
+    borderLeftWidth: StyleSheet.hairlineWidth,
     backgroundColor: "transparent",
+    alignSelf: "stretch",
+  },
+  modalRoot: {
+    flex: 1,
   },
   modalBackdrop: {
     position: "absolute",
