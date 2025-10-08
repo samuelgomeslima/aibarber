@@ -54,6 +54,52 @@ const applyAlpha = (hexColor: string, alpha: number) => {
   return `rgba(${r}, ${g}, ${b}, ${clampAlpha})`;
 };
 
+const mixHexColor = (base: string, mix: string, amount: number) => {
+  const normalize = (value: string) => {
+    const hex = value.replace("#", "");
+    if (hex.length === 3) {
+      return hex
+        .split("")
+        .map((char) => char + char)
+        .join("");
+    }
+    return hex;
+  };
+
+  const toRgb = (value: string): [number, number, number] | null => {
+    const hex = normalize(value);
+    if (hex.length !== 6) {
+      return null;
+    }
+    const r = parseInt(hex.slice(0, 2), 16);
+    const g = parseInt(hex.slice(2, 4), 16);
+    const b = parseInt(hex.slice(4, 6), 16);
+    if ([r, g, b].some((channel) => Number.isNaN(channel))) {
+      return null;
+    }
+    return [r, g, b];
+  };
+
+  const toHex = (value: number) => value.toString(16).padStart(2, "0");
+
+  const baseRgb = toRgb(base);
+  const mixRgb = toRgb(mix);
+  if (!baseRgb || !mixRgb) {
+    return base;
+  }
+
+  const clamp = Math.max(0, Math.min(amount, 1));
+  const [r1, g1, b1] = baseRgb;
+  const [r2, g2, b2] = mixRgb;
+  const r = Math.round(r1 + (r2 - r1) * clamp);
+  const g = Math.round(g1 + (g2 - g1) * clamp);
+  const b = Math.round(b1 + (b2 - b1) * clamp);
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+};
+
+const tintHexColor = (color: string, amount: number, mixColor = "#ffffff") =>
+  mixHexColor(color, mixColor, amount);
+
 const normalizeTimeInput = (input?: string | null): string | null => {
   if (!input) return null;
   const trimmed = input.trim();
@@ -2962,7 +3008,7 @@ export default function App() {
                         label: svc.name,
                         count: svc.count,
                         share: shareFor(svc.count),
-                        color: applyAlpha(colors.accent, 0.6 - index * 0.15),
+                        color: tintHexColor(colors.accent, 0.35 + index * 0.18),
                       })),
                     ]
                   : [];
@@ -2972,7 +3018,7 @@ export default function App() {
                     label: copy.charts.pizzaOther,
                     count: otherCount,
                     share: shareFor(otherCount),
-                    color: applyAlpha(colors.text, 0.3),
+                    color: mixHexColor(colors.text, colors.bg, 0.55),
                   });
                 }
                 const donutSegments = legendItems.map((item) => ({ value: item.count, color: item.color }));
