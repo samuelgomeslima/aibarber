@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { View, Text, TextInput, Pressable, StyleSheet, Alert } from "react-native";
+import { View, Text, TextInput, Pressable, StyleSheet, Alert, Modal, ScrollView } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import type { Service } from "../lib/domain";
@@ -71,9 +71,9 @@ const DEFAULT_COPY: ServiceFormCopy = {
     priceLabel: "Price",
     pricePlaceholder: "30.00",
     priceError: "Enter a valid price",
-    iconLabel: "Icon (MaterialCommunityIcons)",
-    iconPlaceholder: "content-cut",
-    iconError: "Unknown icon",
+    iconLabel: "Icon",
+    iconPlaceholder: "Choose an icon",
+    iconError: "Select an icon",
     previewLabel: "Preview:",
   },
   buttons: {
@@ -129,8 +129,65 @@ export default function ServiceForm({
       ? centsToInput(service.price_cents)
       : copy.fields.pricePlaceholder.replace(/[^0-9.,]/g, ""),
   );
-  const [iconName, setIconName] = useState(() => (isEditMode && service ? service.icon : "content-cut"));
+  const [iconName, setIconName] = useState<keyof typeof MaterialCommunityIcons.glyphMap>(
+    () => (isEditMode && service ? service.icon : "content-cut") as keyof typeof MaterialCommunityIcons.glyphMap,
+  );
   const [saving, setSaving] = useState(false);
+  const [iconPickerVisible, setIconPickerVisible] = useState(false);
+  const [iconSearch, setIconSearch] = useState("");
+
+  const iconNames = useMemo(
+    () => Object.keys(MaterialCommunityIcons.glyphMap) as string[],
+    [],
+  );
+
+  const curatedIconNames = useMemo(() => {
+    const keywords = [
+      "hair",
+      "cut",
+      "razor",
+      "scissor",
+      "comb",
+      "beard",
+      "spa",
+      "spray",
+      "brush",
+      "style",
+      "face",
+      "account",
+    ];
+    const keywordMatches = iconNames.filter((name) =>
+      keywords.some((keyword) => name.toLowerCase().includes(keyword)),
+    );
+    const extras = [
+      "content-cut",
+      "hair-dryer",
+      "spray-bottle",
+      "account-tie",
+      "account",
+      "face-woman-shimmer",
+      "face-man-shimmer",
+      "mustache",
+      "tshirt-crew",
+      "eyedropper",
+    ];
+    const extrasPresent = extras.filter((name) => iconNames.includes(name));
+    const unique = Array.from(new Set([...extrasPresent, ...keywordMatches]));
+    unique.sort();
+    return unique;
+  }, [iconNames]);
+
+  const filteredIcons = useMemo(() => {
+    const query = iconSearch.trim().toLowerCase();
+    const baseList = query ? iconNames : curatedIconNames;
+    const matches = baseList
+      .filter((name) => name.toLowerCase().includes(query))
+      .map((name) => name as keyof typeof MaterialCommunityIcons.glyphMap);
+    if (iconName && !matches.includes(iconName)) {
+      matches.unshift(iconName);
+    }
+    return matches.slice(0, 120);
+  }, [curatedIconNames, iconName, iconNames, iconSearch]);
 
   useEffect(() => {
     if (isEditMode && service) {
@@ -138,11 +195,15 @@ export default function ServiceForm({
       setMinutesText(String(service.estimated_minutes));
       setPriceText(centsToInput(service.price_cents));
       setIconName(service.icon);
+      setIconPickerVisible(false);
+      setIconSearch("");
     } else if (!isEditMode) {
       setName("");
       setMinutesText(copy.fields.durationPlaceholder.replace(/[^0-9]/g, ""));
       setPriceText(copy.fields.pricePlaceholder.replace(/[^0-9.,]/g, ""));
       setIconName("content-cut");
+      setIconPickerVisible(false);
+      setIconSearch("");
     }
   }, [copy.fields.durationPlaceholder, copy.fields.pricePlaceholder, isEditMode, service]);
 
@@ -185,7 +246,7 @@ export default function ServiceForm({
           name: name.trim(),
           estimated_minutes: minutes,
           price_cents: priceCents,
-          icon: iconName as keyof typeof MaterialCommunityIcons.glyphMap,
+          icon: iconName,
         });
         Alert.alert(
           copy.alerts.updatedTitle,
@@ -201,7 +262,7 @@ export default function ServiceForm({
           name: name.trim(),
           estimated_minutes: minutes,
           price_cents: priceCents,
-          icon: iconName as keyof typeof MaterialCommunityIcons.glyphMap,
+          icon: iconName,
         });
         Alert.alert(
           copy.alerts.createdTitle,
@@ -211,6 +272,8 @@ export default function ServiceForm({
         setMinutesText(copy.fields.durationPlaceholder.replace(/[^0-9]/g, ""));
         setPriceText(copy.fields.pricePlaceholder.replace(/[^0-9.,]/g, ""));
         setIconName("content-cut");
+        setIconPickerVisible(false);
+        setIconSearch("");
         onCreated?.(created);
       }
     } catch (err: any) {
@@ -264,15 +327,101 @@ export default function ServiceForm({
         />
       </View>
 
-      <FormField
-        label={copy.fields.iconLabel}
-        value={iconName}
-        onChangeText={(text) => setIconName(text.trim())}
-        autoCapitalize="none"
-        placeholder={copy.fields.iconPlaceholder}
-        error={errors.icon}
-        colors={colors}
-      />
+      <View>
+        <Text style={[styles.label, { color: colors.subtext }]}>{copy.fields.iconLabel}</Text>
+        <Pressable
+          onPress={() => setIconPickerVisible(true)}
+          style={[
+            styles.iconSelector,
+            {
+              borderColor: errors.icon ? colors.danger : colors.border,
+              backgroundColor: "rgba(15,23,42,0.35)",
+            },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel={copy.fields.iconLabel}
+        >
+          <View style={styles.iconSelectorContent}>
+            <MaterialCommunityIcons
+              name={(iconValid ? iconName : "help-circle") as keyof typeof MaterialCommunityIcons.glyphMap}
+              size={22}
+              color={iconValid ? colors.accent : colors.danger}
+            />
+            <Text style={[styles.iconSelectorText, { color: colors.text }]} numberOfLines={1}>
+              {iconValid ? iconName : copy.fields.iconPlaceholder}
+            </Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-down" size={20} color={colors.subtext} />
+        </Pressable>
+        {errors.icon ? <Text style={[styles.errorText, { color: colors.danger }]}>{errors.icon}</Text> : null}
+      </View>
+
+      <Modal
+        transparent
+        visible={iconPickerVisible}
+        animationType="fade"
+        onRequestClose={() => {
+          setIconPickerVisible(false);
+          setIconSearch("");
+        }}
+      >
+        <View style={styles.iconModalBackdrop}>
+          <View style={[styles.iconModalCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+            <Text style={[styles.iconModalTitle, { color: colors.text }]}>{copy.fields.iconLabel}</Text>
+            <Text style={[styles.iconModalSubtitle, { color: colors.subtext }]}>{copy.fields.iconPlaceholder}</Text>
+            <TextInput
+              value={iconSearch}
+              onChangeText={setIconSearch}
+              placeholder="Search icons"
+              placeholderTextColor="#94a3b8"
+              style={[styles.input, { borderColor: colors.border, color: colors.text }]}
+              autoCapitalize="none"
+            />
+            <ScrollView style={{ maxHeight: 320 }}>
+              <View style={styles.iconGrid}>
+                {filteredIcons.map((option) => {
+                  const selected = option === iconName;
+                  return (
+                    <Pressable
+                      key={option}
+                      onPress={() => {
+                        setIconName(option);
+                        setIconPickerVisible(false);
+                        setIconSearch("");
+                      }}
+                      style={[
+                        styles.iconOption,
+                        {
+                          borderColor: selected ? colors.accent : colors.border,
+                          backgroundColor: selected ? "rgba(96,165,250,0.15)" : "transparent",
+                        },
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel={option}
+                    >
+                      <MaterialCommunityIcons name={option} size={24} color={colors.text} />
+                      <Text style={[styles.iconOptionLabel, { color: colors.subtext }]} numberOfLines={1}>
+                        {option}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </ScrollView>
+            <Pressable
+              onPress={() => {
+                setIconPickerVisible(false);
+                setIconSearch("");
+              }}
+              style={[styles.iconCloseButton, { borderColor: colors.border }]}
+              accessibilityRole="button"
+              accessibilityLabel={copy.buttons.cancel}
+            >
+              <Text style={[styles.iconCloseText, { color: colors.subtext }]}>{copy.buttons.cancel}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
 
       <View style={styles.iconPreview}>
         <Text style={[styles.previewLabel, { color: colors.subtext }]}>{copy.fields.previewLabel}</Text>
@@ -374,6 +523,18 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(15,23,42,0.35)",
   },
   errorText: { marginTop: 4, fontSize: 12, fontWeight: "700" },
+  iconSelector: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  iconSelectorContent: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
+  iconSelectorText: { fontSize: 14, fontWeight: "700", flexShrink: 1 },
   iconPreview: { flexDirection: "row", alignItems: "center", gap: 10 },
   previewLabel: { fontSize: 12, fontWeight: "700" },
   button: {
@@ -390,4 +551,38 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   secondaryButtonText: { fontSize: 13, fontWeight: "800" },
+  iconModalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    justifyContent: "center",
+    padding: 20,
+  },
+  iconModalCard: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+  },
+  iconModalTitle: { fontSize: 18, fontWeight: "800" },
+  iconModalSubtitle: { fontSize: 12, fontWeight: "700" },
+  iconGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  iconOption: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    alignItems: "center",
+    width: "30%",
+    minWidth: 96,
+    flexGrow: 1,
+    gap: 6,
+  },
+  iconOptionLabel: { fontSize: 11, fontWeight: "700", textAlign: "center" },
+  iconCloseButton: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  iconCloseText: { fontSize: 13, fontWeight: "800" },
 });
