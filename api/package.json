@@ -1,7 +1,7 @@
 {
   "name": "aibarber-api",
   "version": "1.0.0",
-  "description": "Azure Functions backend for AiBarber image generation",
+  "description": "Azure Functions backend for AIBarber image generation",
   "main": "GenerateImage/index.js",
   "license": "MIT",
   "type": "commonjs",

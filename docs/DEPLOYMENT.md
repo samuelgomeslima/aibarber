@@ -1,4 +1,4 @@
-# AiBarber Backend Deployment Guide
+# AIBarber Backend Deployment Guide
 
 This guide walks through configuring the new Azure Functions backend under the `api/` folder and wiring it up to your Azure Static Web Apps (SWA) deployment pipeline.
 
@@ -119,4 +119,4 @@ Define `VITE_IMAGE_API_TOKEN` (Vite build) or `EXPO_PUBLIC_IMAGE_API_TOKEN` (Exp
 - [ ] Secrets are never committed to the repository.
 - [ ] `api/` folder is checked in so that SWA deploys the Functions app.
 
-Following this guide ensures your OpenAI-powered image generation endpoint is securely deployed alongside the AiBarber front-end using Azure Static Web Apps and GitHub Actions.
+Following this guide ensures your OpenAI-powered image generation endpoint is securely deployed alongside the AIBarber front-end using Azure Static Web Apps and GitHub Actions.
