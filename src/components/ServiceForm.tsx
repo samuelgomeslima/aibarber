@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback } from "react";
 import { View, Text, TextInput, Pressable, StyleSheet, Alert, Modal, ScrollView } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import type { Service } from "../lib/domain";
-import { createService, updateService } from "../lib/services";
+import { useServiceForm } from "../hooks/useServiceForm";
 
 const DEFAULT_COLORS = {
   text: "#e5e7eb",
@@ -116,175 +116,60 @@ export default function ServiceForm({
   colors = DEFAULT_COLORS,
   copy = DEFAULT_COPY,
 }: Props) {
-  const isEditMode = mode === "edit";
-
-  const [name, setName] = useState(() => (isEditMode && service ? service.name : ""));
-  const [minutesText, setMinutesText] = useState(() =>
-    isEditMode && service
-      ? String(service.estimated_minutes)
-      : copy.fields.durationPlaceholder.replace(/[^0-9]/g, ""),
-  );
-  const [priceText, setPriceText] = useState(() =>
-    isEditMode && service
-      ? centsToInput(service.price_cents)
-      : copy.fields.pricePlaceholder.replace(/[^0-9.,]/g, ""),
-  );
-  const [iconName, setIconName] = useState<keyof typeof MaterialCommunityIcons.glyphMap>(
-    () => (isEditMode && service ? service.icon : "content-cut") as keyof typeof MaterialCommunityIcons.glyphMap,
-  );
-  const [saving, setSaving] = useState(false);
-  const [iconPickerVisible, setIconPickerVisible] = useState(false);
-  const [iconSearch, setIconSearch] = useState("");
-
-  const iconNames = useMemo(
-    () => Object.keys(MaterialCommunityIcons.glyphMap) as string[],
-    [],
-  );
-
-  const curatedIconNames = useMemo(() => {
-    const keywords = [
-      "hair",
-      "cut",
-      "razor",
-      "scissor",
-      "comb",
-      "beard",
-      "spa",
-      "spray",
-      "brush",
-      "style",
-      "face",
-      "account",
-    ];
-    const keywordMatches = iconNames.filter((name) =>
-      keywords.some((keyword) => name.toLowerCase().includes(keyword)),
-    );
-    const extras = [
-      "content-cut",
-      "hair-dryer",
-      "spray-bottle",
-      "account-tie",
-      "account",
-      "face-woman-shimmer",
-      "face-man-shimmer",
-      "mustache",
-      "tshirt-crew",
-      "eyedropper",
-    ];
-    const extrasPresent = extras.filter((name) => iconNames.includes(name));
-    const unique = Array.from(new Set([...extrasPresent, ...keywordMatches]));
-    unique.sort();
-    return unique;
-  }, [iconNames]);
-
-  const filteredIcons = useMemo(() => {
-    const query = iconSearch.trim().toLowerCase();
-    const baseList = query ? iconNames : curatedIconNames;
-    const matches = baseList
-      .filter((name) => name.toLowerCase().includes(query))
-      .map((name) => name as keyof typeof MaterialCommunityIcons.glyphMap);
-    if (iconName && !matches.includes(iconName)) {
-      matches.unshift(iconName);
-    }
-    return matches.slice(0, 120);
-  }, [curatedIconNames, iconName, iconNames, iconSearch]);
-
-  useEffect(() => {
-    if (isEditMode && service) {
-      setName(service.name);
-      setMinutesText(String(service.estimated_minutes));
-      setPriceText(centsToInput(service.price_cents));
-      setIconName(service.icon);
-      setIconPickerVisible(false);
-      setIconSearch("");
-    } else if (!isEditMode) {
-      setName("");
-      setMinutesText(copy.fields.durationPlaceholder.replace(/[^0-9]/g, ""));
-      setPriceText(copy.fields.pricePlaceholder.replace(/[^0-9.,]/g, ""));
-      setIconName("content-cut");
-      setIconPickerVisible(false);
-      setIconSearch("");
-    }
-  }, [copy.fields.durationPlaceholder, copy.fields.pricePlaceholder, isEditMode, service]);
-
-  const minutes = useMemo(() => {
-    const numeric = Number(minutesText);
-    return Number.isFinite(numeric) ? Math.round(numeric) : NaN;
-  }, [minutesText]);
-
-  const priceCents = useMemo(() => parsePrice(priceText), [priceText]);
-  const iconValid = useMemo(() => !!MaterialCommunityIcons.glyphMap[iconName as keyof typeof MaterialCommunityIcons.glyphMap], [
-    iconName,
-  ]);
-
-  const errors = useMemo(() => {
-    const errs: Record<string, string> = {};
-    if (!name.trim()) errs.name = copy.fields.nameError;
-    if (!Number.isFinite(minutes) || minutes <= 0) errs.minutes = copy.fields.durationError;
-    if (!Number.isFinite(priceCents) || priceCents < 0) errs.price = copy.fields.priceError;
-    if (!iconValid) errs.icon = copy.fields.iconError;
-    return errs;
-  }, [
-    copy.fields.durationError,
-    copy.fields.iconError,
-    copy.fields.nameError,
-    copy.fields.priceError,
-    iconValid,
-    minutes,
+  const {
+    isEditMode,
     name,
-    priceCents,
-  ]);
+    setName,
+    minutesText,
+    handleMinutesChange,
+    priceText,
+    handlePriceChange,
+    iconName,
+    selectIcon,
+    iconPickerVisible,
+    showIconPicker,
+    hideIconPicker,
+    iconSearch,
+    setIconSearch,
+    filteredIcons,
+    iconValid,
+    errors,
+    valid,
+    saving,
+    submit,
+  } = useServiceForm({
+    mode,
+    service,
+    copy,
+    onCreated,
+    onUpdated,
+  });
 
-  const valid = Object.keys(errors).length === 0 && !saving && (!isEditMode || !!service);
-
-  const handleSubmit = async () => {
-    if (!valid) return;
-    setSaving(true);
+  const handleSubmit = useCallback(async () => {
     try {
-      if (isEditMode && service) {
-        const updated = await updateService(service.id, {
-          name: name.trim(),
-          estimated_minutes: minutes,
-          price_cents: priceCents,
-          icon: iconName,
-        });
-        Alert.alert(
-          copy.alerts.updatedTitle,
-          copy.alerts.updatedMessage(updated.name, updated.estimated_minutes),
-        );
-        setName(updated.name);
-        setMinutesText(String(updated.estimated_minutes));
-        setPriceText(centsToInput(updated.price_cents));
-        setIconName(updated.icon);
-        onUpdated?.(updated);
-      } else {
-        const created = await createService({
-          name: name.trim(),
-          estimated_minutes: minutes,
-          price_cents: priceCents,
-          icon: iconName,
-        });
+      const result = await submit();
+      if (!result || result.status === "invalid" || !result.service) {
+        return;
+      }
+
+      if (result.status === "created") {
         Alert.alert(
           copy.alerts.createdTitle,
-          copy.alerts.createdMessage(created.name, created.estimated_minutes),
+          copy.alerts.createdMessage(result.service.name, result.service.estimated_minutes),
         );
-        setName("");
-        setMinutesText(copy.fields.durationPlaceholder.replace(/[^0-9]/g, ""));
-        setPriceText(copy.fields.pricePlaceholder.replace(/[^0-9.,]/g, ""));
-        setIconName("content-cut");
-        setIconPickerVisible(false);
-        setIconSearch("");
-        onCreated?.(created);
+      } else if (result.status === "updated") {
+        Alert.alert(
+          copy.alerts.updatedTitle,
+          copy.alerts.updatedMessage(result.service.name, result.service.estimated_minutes),
+        );
       }
     } catch (err: any) {
       Alert.alert(
         isEditMode ? copy.alerts.updateErrorTitle : copy.alerts.createErrorTitle,
         err?.message ?? String(err),
       );
-    } finally {
-      setSaving(false);
     }
-  };
+  }, [copy.alerts, isEditMode, submit]);
 
   return (
     <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface }]}>
@@ -308,7 +193,7 @@ export default function ServiceForm({
         <FormField
           label={copy.fields.durationLabel}
           value={minutesText}
-          onChangeText={(text) => setMinutesText(text.replace(/[^0-9]/g, ""))}
+          onChangeText={handleMinutesChange}
           keyboardType="number-pad"
           placeholder={copy.fields.durationPlaceholder}
           error={errors.minutes}
@@ -318,7 +203,7 @@ export default function ServiceForm({
         <FormField
           label={copy.fields.priceLabel}
           value={priceText}
-          onChangeText={(text) => setPriceText(text.replace(/[^0-9.,]/g, ""))}
+          onChangeText={handlePriceChange}
           keyboardType="decimal-pad"
           placeholder={copy.fields.pricePlaceholder}
           error={errors.price}
@@ -330,7 +215,7 @@ export default function ServiceForm({
       <View>
         <Text style={[styles.label, { color: colors.subtext }]}>{copy.fields.iconLabel}</Text>
         <Pressable
-          onPress={() => setIconPickerVisible(true)}
+          onPress={showIconPicker}
           style={[
             styles.iconSelector,
             {
@@ -360,10 +245,7 @@ export default function ServiceForm({
         transparent
         visible={iconPickerVisible}
         animationType="fade"
-        onRequestClose={() => {
-          setIconPickerVisible(false);
-          setIconSearch("");
-        }}
+        onRequestClose={hideIconPicker}
       >
         <View style={styles.iconModalBackdrop}>
           <View style={[styles.iconModalCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
@@ -384,11 +266,7 @@ export default function ServiceForm({
                   return (
                     <Pressable
                       key={option}
-                      onPress={() => {
-                        setIconName(option);
-                        setIconPickerVisible(false);
-                        setIconSearch("");
-                      }}
+                      onPress={() => selectIcon(option)}
                       style={[
                         styles.iconOption,
                         {
@@ -409,10 +287,7 @@ export default function ServiceForm({
               </View>
             </ScrollView>
             <Pressable
-              onPress={() => {
-                setIconPickerVisible(false);
-                setIconSearch("");
-              }}
+              onPress={hideIconPicker}
               style={[styles.iconCloseButton, { borderColor: colors.border }]}
               accessibilityRole="button"
               accessibilityLabel={copy.buttons.cancel}
@@ -487,19 +362,6 @@ function FormField({ label, error, colors, style, ...rest }: {
       {error ? <Text style={[styles.errorText, { color: colors.danger }]}>{error}</Text> : null}
     </View>
   );
-}
-
-function parsePrice(input: string): number {
-  if (!input) return NaN;
-  const normalized = input.replace(/[^0-9.,]/g, "").replace(/,/g, ".");
-  const value = Number.parseFloat(normalized);
-  if (!Number.isFinite(value)) return NaN;
-  return Math.round(value * 100);
-}
-
-function centsToInput(cents: number) {
-  if (!Number.isFinite(cents)) return "0.00";
-  return (Math.round(cents) / 100).toFixed(2);
 }
 
 const styles = StyleSheet.create({
