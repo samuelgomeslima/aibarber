@@ -88,6 +88,8 @@ import BarberSelector, { Barber } from "./src/components/BarberSelector";
 import AssistantChat from "./src/components/AssistantChat";
 import ImageAssistant from "./src/components/ImageAssistant";
 import ServiceForm from "./src/components/ServiceForm";
+import FilterToggle from "./src/components/FilterToggle";
+import DateTimeInput from "./src/components/DateTimeInput";
 
 /* Novo: formulário de usuário (com date_of_birth e salvando no Supabase) */
 import UserForm from "./src/components/UserForm";
@@ -338,6 +340,10 @@ const LANGUAGE_COPY = {
         endTimePlaceholder: "18:00",
         clear: "Clear filters",
         all: "All",
+        toggleShow: "Show filters",
+        toggleHide: "Hide filters",
+        pickerConfirm: "Apply",
+        pickerCancel: "Cancel",
       },
       results: {
         title: "Results",
@@ -665,6 +671,10 @@ const LANGUAGE_COPY = {
         endTimePlaceholder: "18:00",
         clear: "Limpar filtros",
         all: "Todos",
+        toggleShow: "Mostrar filtros",
+        toggleHide: "Ocultar filtros",
+        pickerConfirm: "Aplicar",
+        pickerCancel: "Cancelar",
       },
       results: {
         title: "Resultados",
@@ -870,7 +880,7 @@ export default function App() {
   const [bookingFilterService, setBookingFilterService] = useState<string | null>(null);
   const [bookingFilterClient, setBookingFilterClient] = useState("");
   const [bookingFilterStartDate, setBookingFilterStartDate] = useState<string>(() => getTodayDateKey());
-  const [bookingFilterStartTime, setBookingFilterStartTime] = useState<string>(() => getCurrentTimeString());
+  const [bookingFilterStartTime, setBookingFilterStartTime] = useState<string>("");
   const [bookingFilterEndDate, setBookingFilterEndDate] = useState("");
   const [bookingFilterEndTime, setBookingFilterEndTime] = useState("");
 
@@ -1410,7 +1420,7 @@ export default function App() {
     setBookingFilterService(null);
     setBookingFilterClient("");
     setBookingFilterStartDate(getTodayDateKey());
-    setBookingFilterStartTime(getCurrentTimeString());
+    setBookingFilterStartTime("");
     setBookingFilterEndDate("");
     setBookingFilterEndTime("");
   }, []);
@@ -2012,147 +2022,178 @@ export default function App() {
             </Pressable>
           </View>
 
-          <View style={{ gap: 12 }}>
-            <View>
-              <Text style={styles.filterLabel}>{bookingsCopy.filters.barber}</Text>
-              <View style={styles.filterChipsRow}>
-                <Pressable
-                  onPress={() => setBookingFilterBarber(null)}
-                  style={[styles.chip, !bookingFilterBarber && styles.chipActive]}
-                >
-                  <MaterialCommunityIcons
-                    name="account-group"
-                    size={16}
-                    color={!bookingFilterBarber ? colors.accentFgOn : colors.subtext}
+          <FilterToggle
+            initiallyOpen={false}
+            showLabel={bookingsCopy.filters.toggleShow}
+            hideLabel={bookingsCopy.filters.toggleHide}
+            colors={colors}
+          >
+            <View style={{ gap: 12 }}>
+              <View>
+                <Text style={styles.filterLabel}>{bookingsCopy.filters.barber}</Text>
+                <View style={styles.filterChipsRow}>
+                  <Pressable
+                    onPress={() => setBookingFilterBarber(null)}
+                    style={[styles.chip, !bookingFilterBarber && styles.chipActive]}
+                  >
+                    <MaterialCommunityIcons
+                      name="account-group"
+                      size={16}
+                      color={!bookingFilterBarber ? colors.accentFgOn : colors.subtext}
+                    />
+                    <Text style={[styles.chipText, !bookingFilterBarber && styles.chipTextActive]}>
+                      {bookingsCopy.filters.all}
+                    </Text>
+                  </Pressable>
+                  {BARBERS.map((barber) => {
+                    const active = bookingFilterBarber === barber.id;
+                    return (
+                      <Pressable
+                        key={barber.id}
+                        onPress={() => setBookingFilterBarber(active ? null : barber.id)}
+                        style={[styles.chip, active && styles.chipActive]}
+                      >
+                        <MaterialCommunityIcons
+                          name={barber.icon}
+                          size={16}
+                          color={active ? colors.accentFgOn : colors.subtext}
+                        />
+                        <Text style={[styles.chipText, active && styles.chipTextActive]}>{barber.name}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <View>
+                <Text style={styles.filterLabel}>{bookingsCopy.filters.service}</Text>
+                <View style={styles.filterChipsRow}>
+                  <Pressable
+                    onPress={() => setBookingFilterService(null)}
+                    style={[styles.chip, !bookingFilterService && styles.chipActive]}
+                  >
+                    <MaterialCommunityIcons
+                      name="briefcase-outline"
+                      size={16}
+                      color={!bookingFilterService ? colors.accentFgOn : colors.subtext}
+                    />
+                    <Text style={[styles.chipText, !bookingFilterService && styles.chipTextActive]}>
+                      {bookingsCopy.filters.all}
+                    </Text>
+                  </Pressable>
+                  {services.map((svc) => {
+                    const localized = localizedServiceMap.get(svc.id) ?? svc;
+                    const active = bookingFilterService === svc.id;
+                    return (
+                      <Pressable
+                        key={svc.id}
+                        onPress={() => setBookingFilterService(active ? null : svc.id)}
+                        style={[styles.chip, active && styles.chipActive]}
+                      >
+                        <MaterialCommunityIcons
+                          name={svc.icon}
+                          size={16}
+                          color={active ? colors.accentFgOn : colors.subtext}
+                        />
+                        <Text style={[styles.chipText, active && styles.chipTextActive]}>{localized.name}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <View>
+                <Text style={styles.filterLabel}>{bookingsCopy.filters.client}</Text>
+                <TextInput
+                  placeholder={bookingsCopy.filters.clientPlaceholder}
+                  placeholderTextColor={`${colors.subtext}99`}
+                  value={bookingFilterClient}
+                  onChangeText={setBookingFilterClient}
+                  style={styles.input}
+                />
+              </View>
+
+              <View style={[styles.filterRow, isCompactLayout && styles.filterRowStack]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.filterLabel}>{bookingsCopy.filters.startDate}</Text>
+                  <DateTimeInput
+                    value={bookingFilterStartDate}
+                    onChange={setBookingFilterStartDate}
+                    placeholder={bookingsCopy.filters.startDatePlaceholder}
+                    placeholderTextColor={`${colors.subtext}99`}
+                    mode="date"
+                    colors={colors}
+                    confirmLabel={bookingsCopy.filters.pickerConfirm}
+                    cancelLabel={bookingsCopy.filters.pickerCancel}
+                    containerStyle={{ flex: 1 }}
+                    inputStyle={styles.input}
+                    textInputProps={{ autoCapitalize: "none" }}
+                    accessibilityLabel={`${bookingsCopy.filters.startDate} picker`}
                   />
-                  <Text style={[styles.chipText, !bookingFilterBarber && styles.chipTextActive]}>
-                    {bookingsCopy.filters.all}
-                  </Text>
-                </Pressable>
-                {BARBERS.map((barber) => {
-                  const active = bookingFilterBarber === barber.id;
-                  return (
-                    <Pressable
-                      key={barber.id}
-                      onPress={() => setBookingFilterBarber(active ? null : barber.id)}
-                      style={[styles.chip, active && styles.chipActive]}
-                    >
-                      <MaterialCommunityIcons
-                        name={barber.icon}
-                        size={16}
-                        color={active ? colors.accentFgOn : colors.subtext}
-                      />
-                      <Text style={[styles.chipText, active && styles.chipTextActive]}>{barber.name}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-
-            <View>
-              <Text style={styles.filterLabel}>{bookingsCopy.filters.service}</Text>
-              <View style={styles.filterChipsRow}>
-                <Pressable
-                  onPress={() => setBookingFilterService(null)}
-                  style={[styles.chip, !bookingFilterService && styles.chipActive]}
-                >
-                  <MaterialCommunityIcons
-                    name="briefcase-outline"
-                    size={16}
-                    color={!bookingFilterService ? colors.accentFgOn : colors.subtext}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.filterLabel}>{bookingsCopy.filters.startTime}</Text>
+                  <DateTimeInput
+                    value={bookingFilterStartTime}
+                    onChange={setBookingFilterStartTime}
+                    placeholder={bookingsCopy.filters.startTimePlaceholder}
+                    placeholderTextColor={`${colors.subtext}99`}
+                    mode="time"
+                    colors={colors}
+                    confirmLabel={bookingsCopy.filters.pickerConfirm}
+                    cancelLabel={bookingsCopy.filters.pickerCancel}
+                    containerStyle={{ flex: 1 }}
+                    inputStyle={styles.input}
+                    textInputProps={{ autoCapitalize: "none" }}
+                    accessibilityLabel={`${bookingsCopy.filters.startTime} picker`}
                   />
-                  <Text style={[styles.chipText, !bookingFilterService && styles.chipTextActive]}>
-                    {bookingsCopy.filters.all}
-                  </Text>
+                </View>
+              </View>
+
+              <View style={[styles.filterRow, isCompactLayout && styles.filterRowStack]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.filterLabel}>{bookingsCopy.filters.endDate}</Text>
+                  <DateTimeInput
+                    value={bookingFilterEndDate}
+                    onChange={setBookingFilterEndDate}
+                    placeholder={bookingsCopy.filters.endDatePlaceholder}
+                    placeholderTextColor={`${colors.subtext}99`}
+                    mode="date"
+                    colors={colors}
+                    confirmLabel={bookingsCopy.filters.pickerConfirm}
+                    cancelLabel={bookingsCopy.filters.pickerCancel}
+                    containerStyle={{ flex: 1 }}
+                    inputStyle={styles.input}
+                    textInputProps={{ autoCapitalize: "none" }}
+                    accessibilityLabel={`${bookingsCopy.filters.endDate} picker`}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.filterLabel}>{bookingsCopy.filters.endTime}</Text>
+                  <DateTimeInput
+                    value={bookingFilterEndTime}
+                    onChange={setBookingFilterEndTime}
+                    placeholder={bookingsCopy.filters.endTimePlaceholder}
+                    placeholderTextColor={`${colors.subtext}99`}
+                    mode="time"
+                    colors={colors}
+                    confirmLabel={bookingsCopy.filters.pickerConfirm}
+                    cancelLabel={bookingsCopy.filters.pickerCancel}
+                    containerStyle={{ flex: 1 }}
+                    inputStyle={styles.input}
+                    textInputProps={{ autoCapitalize: "none" }}
+                    accessibilityLabel={`${bookingsCopy.filters.endTime} picker`}
+                  />
+                </View>
+              </View>
+
+              <View style={[styles.filterActions, isCompactLayout && styles.filterActionsCompact]}>
+                <Pressable onPress={clearBookingFilters} style={[styles.smallBtn, { borderColor: colors.border }]}>
+                  <Text style={{ color: colors.subtext, fontWeight: "800" }}>{bookingsCopy.filters.clear}</Text>
                 </Pressable>
-                {services.map((svc) => {
-                  const localized = localizedServiceMap.get(svc.id) ?? svc;
-                  const active = bookingFilterService === svc.id;
-                  return (
-                    <Pressable
-                      key={svc.id}
-                      onPress={() => setBookingFilterService(active ? null : svc.id)}
-                      style={[styles.chip, active && styles.chipActive]}
-                    >
-                      <MaterialCommunityIcons
-                        name={svc.icon}
-                        size={16}
-                        color={active ? colors.accentFgOn : colors.subtext}
-                      />
-                      <Text style={[styles.chipText, active && styles.chipTextActive]}>{localized.name}</Text>
-                    </Pressable>
-                  );
-                })}
               </View>
             </View>
-
-            <View>
-              <Text style={styles.filterLabel}>{bookingsCopy.filters.client}</Text>
-              <TextInput
-                placeholder={bookingsCopy.filters.clientPlaceholder}
-                placeholderTextColor={`${colors.subtext}99`}
-                value={bookingFilterClient}
-                onChangeText={setBookingFilterClient}
-                style={styles.input}
-              />
-            </View>
-
-            <View style={[styles.filterRow, isCompactLayout && styles.filterRowStack]}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.filterLabel}>{bookingsCopy.filters.startDate}</Text>
-                <TextInput
-                  placeholder={bookingsCopy.filters.startDatePlaceholder}
-                  placeholderTextColor={`${colors.subtext}99`}
-                  value={bookingFilterStartDate}
-                  onChangeText={setBookingFilterStartDate}
-                  style={styles.input}
-                  autoCapitalize="none"
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.filterLabel}>{bookingsCopy.filters.startTime}</Text>
-                <TextInput
-                  placeholder={bookingsCopy.filters.startTimePlaceholder}
-                  placeholderTextColor={`${colors.subtext}99`}
-                  value={bookingFilterStartTime}
-                  onChangeText={setBookingFilterStartTime}
-                  style={styles.input}
-                  autoCapitalize="none"
-                />
-              </View>
-            </View>
-
-            <View style={[styles.filterRow, isCompactLayout && styles.filterRowStack]}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.filterLabel}>{bookingsCopy.filters.endDate}</Text>
-                <TextInput
-                  placeholder={bookingsCopy.filters.endDatePlaceholder}
-                  placeholderTextColor={`${colors.subtext}99`}
-                  value={bookingFilterEndDate}
-                  onChangeText={setBookingFilterEndDate}
-                  style={styles.input}
-                  autoCapitalize="none"
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.filterLabel}>{bookingsCopy.filters.endTime}</Text>
-                <TextInput
-                  placeholder={bookingsCopy.filters.endTimePlaceholder}
-                  placeholderTextColor={`${colors.subtext}99`}
-                  value={bookingFilterEndTime}
-                  onChangeText={setBookingFilterEndTime}
-                  style={styles.input}
-                  autoCapitalize="none"
-                />
-              </View>
-            </View>
-
-            <View style={[styles.filterActions, isCompactLayout && styles.filterActionsCompact]}>
-              <Pressable onPress={clearBookingFilters} style={[styles.smallBtn, { borderColor: colors.border }]}>
-                <Text style={{ color: colors.subtext, fontWeight: "800" }}>{bookingsCopy.filters.clear}</Text>
-              </Pressable>
-            </View>
-          </View>
+          </FilterToggle>
         </View>
 
         <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 10 }]}>
