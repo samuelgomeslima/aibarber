@@ -33,7 +33,6 @@ type ServiceFormCopy = {
     iconLabel: string;
     iconPlaceholder: string;
     iconError: string;
-    previewLabel: string;
   };
   buttons: {
     create: string;
@@ -74,7 +73,6 @@ const DEFAULT_COPY: ServiceFormCopy = {
     iconLabel: "Icon",
     iconPlaceholder: "Choose an icon",
     iconError: "Select an icon",
-    previewLabel: "Preview:",
   },
   buttons: {
     create: "Create service",
@@ -142,44 +140,47 @@ export default function ServiceForm({
   );
 
   const curatedIconNames = useMemo(() => {
-    const keywords = [
-      "hair",
-      "cut",
-      "razor",
-      "scissor",
+    const curated = [
+      "chair-barber",
       "comb",
-      "beard",
-      "spa",
-      "spray",
-      "brush",
-      "style",
-      "face",
-      "account",
+      "comb-variant",
+      "content-cut",
+      "eyedropper",
+      "face-man",
+      "face-man-outline",
+      "face-man-shimmer",
+      "face-man-shimmer-outline",
+      "face-woman",
+      "face-woman-outline",
+      "face-woman-shimmer",
+      "face-woman-shimmer-outline",
+      "hair-dryer",
+      "hair-dryer-outline",
+      "hand-mirror",
+      "lipstick",
+      "mirror-rectangle",
+      "mustache",
+      "razor",
+      "razor-double-edge",
+      "razor-electric",
+      "razor-single-edge",
+      "scissors-cutting",
+      "spray-bottle",
     ];
     const keywordMatches = iconNames.filter((name) =>
-      keywords.some((keyword) => name.toLowerCase().includes(keyword)),
+      ["hair", "cut", "razor", "scissor", "comb", "beard", "spa", "spray", "brush", "style", "barber", "face"].some(
+        (keyword) => name.toLowerCase().includes(keyword),
+      ),
     );
-    const extras = [
-      "content-cut",
-      "hair-dryer",
-      "spray-bottle",
-      "account-tie",
-      "account",
-      "face-woman-shimmer",
-      "face-man-shimmer",
-      "mustache",
-      "tshirt-crew",
-      "eyedropper",
-    ];
-    const extrasPresent = extras.filter((name) => iconNames.includes(name));
-    const unique = Array.from(new Set([...extrasPresent, ...keywordMatches]));
+    const availableCurated = curated.filter((name) => iconNames.includes(name));
+    const unique = Array.from(new Set([...availableCurated, ...keywordMatches]));
     unique.sort();
     return unique;
   }, [iconNames]);
 
   const filteredIcons = useMemo(() => {
     const query = iconSearch.trim().toLowerCase();
-    const baseList = query ? iconNames : curatedIconNames;
+    const baseList = curatedIconNames;
     const matches = baseList
       .filter((name) => name.toLowerCase().includes(query))
       .map((name) => name as keyof typeof MaterialCommunityIcons.glyphMap);
@@ -187,7 +188,7 @@ export default function ServiceForm({
       matches.unshift(iconName);
     }
     return matches.slice(0, 120);
-  }, [curatedIconNames, iconName, iconNames, iconSearch]);
+  }, [curatedIconNames, iconName, iconSearch]);
 
   useEffect(() => {
     if (isEditMode && service) {
@@ -366,7 +367,12 @@ export default function ServiceForm({
         }}
       >
         <View style={styles.iconModalBackdrop}>
-          <View style={[styles.iconModalCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+          <View
+            style={[
+              styles.iconModalCard,
+              { borderColor: colors.border, backgroundColor: "rgba(7,16,24,0.95)" },
+            ]}
+          >
             <Text style={[styles.iconModalTitle, { color: colors.text }]}>{copy.fields.iconLabel}</Text>
             <Text style={[styles.iconModalSubtitle, { color: colors.subtext }]}>{copy.fields.iconPlaceholder}</Text>
             <TextInput
@@ -422,15 +428,6 @@ export default function ServiceForm({
           </View>
         </View>
       </Modal>
-
-      <View style={styles.iconPreview}>
-        <Text style={[styles.previewLabel, { color: colors.subtext }]}>{copy.fields.previewLabel}</Text>
-        <MaterialCommunityIcons
-          name={(iconValid ? iconName : "help-circle") as keyof typeof MaterialCommunityIcons.glyphMap}
-          size={26}
-          color={iconValid ? colors.accent : colors.danger}
-        />
-      </View>
 
       <Pressable
         onPress={handleSubmit}
@@ -535,8 +532,6 @@ const styles = StyleSheet.create({
   },
   iconSelectorContent: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
   iconSelectorText: { fontSize: 14, fontWeight: "700", flexShrink: 1 },
-  iconPreview: { flexDirection: "row", alignItems: "center", gap: 10 },
-  previewLabel: { fontSize: 12, fontWeight: "700" },
   button: {
     borderWidth: 1,
     borderRadius: 12,

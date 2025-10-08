@@ -155,7 +155,6 @@ const LANGUAGE_COPY = {
         iconLabel: "Icon",
         iconPlaceholder: "Choose an icon",
         iconError: "Select an icon",
-        previewLabel: "Preview:",
       },
       buttons: {
         create: "Create service",
@@ -484,7 +483,6 @@ const LANGUAGE_COPY = {
         iconLabel: "Ícone",
         iconPlaceholder: "Escolha um ícone",
         iconError: "Selecione um ícone válido",
-        previewLabel: "Prévia:",
       },
       buttons: {
         create: "Criar serviço",
