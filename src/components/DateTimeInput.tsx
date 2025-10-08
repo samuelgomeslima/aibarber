@@ -100,6 +100,112 @@ const formatDateValue = (date: Date) =>
   `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 const formatTimeValue = (date: Date) => `${pad(date.getHours())}:${pad(date.getMinutes())}`;
 
+const maskDateInput = (raw: string): string => {
+  const cleaned = raw.replace(/\D/g, "").slice(0, 8);
+  if (!cleaned) return "";
+
+  const digits = cleaned.split("");
+
+  const year = digits.slice(0, 4).join("");
+  let month = digits.slice(4, 6).join("");
+  let day = digits.slice(6, 8).join("");
+
+  if (month.length === 1 && Number(month) > 1) {
+    month = `0${month}`;
+  }
+
+  if (month.length === 2) {
+    let monthNum = Number(month);
+    if (!Number.isFinite(monthNum)) {
+      monthNum = 1;
+    }
+    monthNum = Math.max(1, Math.min(12, monthNum));
+    month = pad(monthNum);
+  }
+
+  if (day.length === 1 && Number(day) > 3) {
+    day = `0${day}`;
+  }
+
+  if (day.length === 2) {
+    let dayNum = Number(day);
+    if (!Number.isFinite(dayNum)) {
+      dayNum = 1;
+    }
+
+    let maxDay = 31;
+    if (month.length === 2) {
+      const monthNum = Number(month);
+      if (monthNum === 2) {
+        if (year.length === 4) {
+          const yearNum = Number(year);
+          const isLeap = (yearNum % 4 === 0 && yearNum % 100 !== 0) || yearNum % 400 === 0;
+          maxDay = isLeap ? 29 : 28;
+        } else {
+          maxDay = 29;
+        }
+      } else if ([4, 6, 9, 11].includes(monthNum)) {
+        maxDay = 30;
+      }
+    }
+
+    dayNum = Math.max(1, Math.min(maxDay, dayNum));
+    day = pad(dayNum);
+  }
+
+  if (digits.length <= 4) {
+    return year;
+  }
+
+  if (digits.length <= 6) {
+    return `${year}-${month}`;
+  }
+
+  return `${year}-${month}-${day}`;
+};
+
+const maskTimeInput = (raw: string): string => {
+  const cleaned = raw.replace(/\D/g, "").slice(0, 4);
+  if (!cleaned) return "";
+
+  const digits = cleaned.split("");
+
+  let hours = digits.slice(0, 2).join("");
+  let minutes = digits.slice(2, 4).join("");
+
+  if (hours.length === 1 && Number(hours) > 2) {
+    hours = `0${hours}`;
+  }
+
+  if (hours.length === 2) {
+    let hourNum = Number(hours);
+    if (!Number.isFinite(hourNum)) {
+      hourNum = 0;
+    }
+    hourNum = Math.max(0, Math.min(23, hourNum));
+    hours = pad(hourNum);
+  }
+
+  if (minutes.length === 1 && Number(minutes) > 5) {
+    minutes = `0${minutes}`;
+  }
+
+  if (minutes.length === 2) {
+    let minuteNum = Number(minutes);
+    if (!Number.isFinite(minuteNum)) {
+      minuteNum = 0;
+    }
+    minuteNum = Math.max(0, Math.min(59, minuteNum));
+    minutes = pad(minuteNum);
+  }
+
+  if (digits.length <= 2) {
+    return hours;
+  }
+
+  return `${hours}:${minutes}`;
+};
+
 export default function DateTimeInput({
   value,
   onChange,
@@ -225,7 +331,9 @@ export default function DateTimeInput({
       <View style={[styles.inputWrapper, wrapperVisualStyle, marginStyles]}>
         <TextInput
           value={value}
-          onChangeText={onChange}
+          onChangeText={(text) =>
+            onChange(mode === "date" ? maskDateInput(text) : maskTimeInput(text))
+          }
           placeholder={placeholder}
           placeholderTextColor={placeholderTextColor}
           style={finalTextInputStyle}
