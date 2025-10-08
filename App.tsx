@@ -106,89 +106,79 @@ import DateTimeInput from "./src/components/DateTimeInput";
 /* Novo: formulário de usuário (com date_of_birth e salvando no Supabase) */
 import UserForm from "./src/components/UserForm";
 
+type DonutChartSegment = {
+  value: number;
+  color: string;
+};
+
 type DonutChartProps = {
-  percentage: number;
+  segments: DonutChartSegment[];
   size?: number;
   thickness?: number;
-  colors: {
-    fill: string;
-    track: string;
-    background: string;
-  };
+  trackColor: string;
+  backgroundColor: string;
 };
 
 const DONUT_STYLES = StyleSheet.create({
   container: { position: "relative" },
   track: { position: "absolute", top: 0, left: 0 },
+  segment: { position: "absolute", top: 0, left: 0 },
   halfContainer: { position: "absolute", top: 0, overflow: "hidden" },
   half: { position: "absolute", top: 0 },
   center: { position: "absolute" },
 });
 
 const DonutChart = ({
-  percentage,
+  segments,
   size = 150,
   thickness = 18,
-  colors: donutColors,
+  trackColor,
+  backgroundColor,
 }: DonutChartProps) => {
-  const normalized = Math.max(0, Math.min(100, percentage));
-  const angle = (normalized / 100) * 360;
   const radius = size / 2;
   const halfWidth = radius;
-  const rightRotation = Math.min(angle, 180);
-  const leftRotation = angle > 180 ? angle - 180 : 0;
+  const normalizedSegments = segments
+    .map((segment) => ({
+      value: Math.max(0, segment.value),
+      color: segment.color,
+    }))
+    .filter((segment) => segment.value > 0);
+  const totalValue = normalizedSegments.reduce((sum, segment) => sum + segment.value, 0);
 
-  return (
-    <View style={[DONUT_STYLES.container, { width: size, height: size }]}
-    >
+  const renderSegment = (
+    startAngle: number,
+    sweepAngle: number,
+    color: string,
+    key: string,
+  ) => {
+    if (sweepAngle <= 0) {
+      return null;
+    }
+
+    const rightRotation = Math.min(sweepAngle, 180);
+    const leftRotation = sweepAngle > 180 ? sweepAngle - 180 : 0;
+
+    return (
       <View
+        key={key}
         style={[
-          DONUT_STYLES.track,
+          DONUT_STYLES.segment,
           {
             width: size,
             height: size,
-            borderRadius: radius,
-            backgroundColor: donutColors.track,
-          },
-        ]}
-      />
-      <View
-        style={[
-          DONUT_STYLES.halfContainer,
-          {
-            width: halfWidth,
-            height: size,
-            left: halfWidth,
-            borderTopRightRadius: radius,
-            borderBottomRightRadius: radius,
+            transform: [{ rotate: `${startAngle}deg` }],
           },
         ]}
       >
-        <View
-          style={[
-            DONUT_STYLES.half,
-            {
-              width: size,
-              height: size,
-              borderRadius: radius,
-              left: -halfWidth,
-              backgroundColor: donutColors.fill,
-              transform: [{ rotate: `${rightRotation}deg` }],
-            },
-          ]}
-        />
-      </View>
-      {angle > 180 ? (
         <View
           style={[
             DONUT_STYLES.halfContainer,
             {
               width: halfWidth,
               height: size,
-              left: 0,
-              borderTopLeftRadius: radius,
-              borderBottomLeftRadius: radius,
-              transform: [{ rotate: "180deg" }],
+              left: halfWidth,
+              borderTopRightRadius: radius,
+              borderBottomRightRadius: radius,
             },
           ]}
         >
@@ -200,13 +190,78 @@ const DonutChart = ({
                 height: size,
                 borderRadius: radius,
                 left: -halfWidth,
-                backgroundColor: donutColors.fill,
-                transform: [{ rotate: `${leftRotation}deg` }],
+                backgroundColor: color,
+                transform: [{ rotate: `${rightRotation}deg` }],
               },
             ]}
           />
         </View>
-      ) : null}
+        {sweepAngle > 180 ? (
+          <View
+            style={[
+              DONUT_STYLES.halfContainer,
+              {
+                width: halfWidth,
+                height: size,
+                left: 0,
+                borderTopLeftRadius: radius,
+                borderBottomLeftRadius: radius,
+                transform: [{ rotate: "180deg" }],
+              },
+            ]}
+          >
+            <View
+              style={[
+                DONUT_STYLES.half,
+                {
+                  width: size,
+                  height: size,
+                  borderRadius: radius,
+                  left: -halfWidth,
+                  backgroundColor: color,
+                  transform: [{ rotate: `${leftRotation}deg` }],
+                },
+              ]}
+            />
+          </View>
+        ) : null}
+      </View>
+    );
+  };
+
+  let currentAngle = 0;
+  const segmentsToRender: React.ReactNode[] = [];
+
+  if (totalValue > 0) {
+    normalizedSegments.forEach((segment, index) => {
+      const startAngle = currentAngle;
+      let sweepAngle = index === normalizedSegments.length - 1
+        ? 360 - currentAngle
+        : (segment.value / totalValue) * 360;
+      const maxSweep = 360 - startAngle;
+      sweepAngle = Math.max(0, Math.min(maxSweep, sweepAngle));
+      currentAngle = Math.min(360, startAngle + sweepAngle);
+      segmentsToRender.push(
+        renderSegment(startAngle, sweepAngle, segment.color, `${index}-${segment.color}`),
+      );
+    });
+  }
+
+  return (
+    <View style={[DONUT_STYLES.container, { width: size, height: size }]}
+    >
+      <View
+        style={[
+          DONUT_STYLES.track,
+          {
+            width: size,
+            height: size,
+            borderRadius: radius,
+            backgroundColor: trackColor,
+          },
+        ]}
+      />
+      {segmentsToRender}
       <View
         style={[
           DONUT_STYLES.center,
@@ -214,7 +269,7 @@ const DonutChart = ({
             width: size - thickness * 2,
             height: size - thickness * 2,
             borderRadius: (size - thickness * 2) / 2,
-            backgroundColor: donutColors.background,
+            backgroundColor,
             top: thickness,
             left: thickness,
           },
@@ -2880,6 +2935,7 @@ export default function App() {
                     color: applyAlpha(colors.text, 0.3),
                   });
                 }
+                const donutSegments = legendItems.map((item) => ({ value: item.count, color: item.color }));
                 const busiest = busiestDay;
                 const quietest = quietestDay;
                 return (
@@ -2912,13 +2968,10 @@ export default function App() {
                         >
                           <View style={styles.pieChartWrapper}>
                             <DonutChart
-                              percentage={topShare}
+                              segments={donutSegments}
                               size={donutSize}
-                              colors={{
-                                fill: colors.accent,
-                                track: applyAlpha(colors.accent, 0.15),
-                                background: colors.bg,
-                              }}
+                              trackColor={applyAlpha(colors.accent, 0.15)}
+                              backgroundColor={colors.bg}
                             />
                             <View
                               style={[
