@@ -317,7 +317,24 @@ const LANGUAGE_COPY = {
       busiestBarberLabel: "Busiest barber",
       busiestDetail: (count: number) => `${count} booking${count === 1 ? "" : "s"}`,
     },
-    bookingsByDayTitle: "Bookings by day",
+    bookingsByDayTitle: "Booking insights",
+    charts: {
+      pizzaTitle: "Service spotlight",
+      pizzaSubtitle: (service: string) => `Weekly share for ${service}`,
+      pizzaEmpty: "No services booked this week.",
+      pizzaLegend: (sliceSize: number) => `1 slice ≈ ${sliceSize}%`,
+      pizzaStat: (percentage: string) => `${percentage}% of weekly bookings`,
+      barsTitle: "Bookings per day",
+      barsSubtitle: "Daily volume for the selected week.",
+      barsEmpty: "No bookings recorded for this range.",
+      highlightsTitle: "Peaks & lulls",
+      highlightsSubtitle: "Busiest and quietest days this week.",
+      barberTitle: "Barber leaderboard",
+      barberSubtitle: "Ranking by weekly appointments.",
+      busiestDay: (label: string, count: number) => `Busiest: ${label} (${count})`,
+      quietestDay: (label: string, count: number) => `Quietest: ${label} (${count})`,
+      serviceCount: (count: number) => `${count} booking${count === 1 ? "" : "s"}`,
+    },
     dayBookingCount: (count: number) => `${count} booking${count === 1 ? "" : "s"}`,
     noBookings: "No bookings",
     bookings: {
@@ -647,7 +664,24 @@ const LANGUAGE_COPY = {
       busiestDetail: (count: number) =>
         `${count} agendamento${count === 1 ? "" : "s"}`,
     },
-    bookingsByDayTitle: "Agendamentos por dia",
+    bookingsByDayTitle: "Painel de agendamentos",
+    charts: {
+      pizzaTitle: "Destaque de serviços",
+      pizzaSubtitle: (service: string) => `Participação semanal de ${service}`,
+      pizzaEmpty: "Nenhum serviço agendado nesta semana.",
+      pizzaLegend: (sliceSize: number) => `1 fatia ≈ ${sliceSize}%`,
+      pizzaStat: (percentage: string) => `${percentage}% dos agendamentos da semana`,
+      barsTitle: "Agendamentos por dia",
+      barsSubtitle: "Volume diário para a semana selecionada.",
+      barsEmpty: "Sem agendamentos neste período.",
+      highlightsTitle: "Picos e vales",
+      highlightsSubtitle: "Dias mais cheio e mais tranquilo da semana.",
+      barberTitle: "Ranking de barbeiros",
+      barberSubtitle: "Classificação por atendimentos na semana.",
+      busiestDay: (label: string, count: number) => `Dia mais cheio: ${label} (${count})`,
+      quietestDay: (label: string, count: number) => `Dia mais tranquilo: ${label} (${count})`,
+      serviceCount: (count: number) => `${count} atendimento${count === 1 ? "" : "s"}`,
+    },
     dayBookingCount: (count: number) =>
       `${count} agendamento${count === 1 ? "" : "s"}`,
     noBookings: "Nenhum agendamento",
@@ -1490,6 +1524,68 @@ export default function App() {
     entries.sort((a, b) => b[1] - a[1]);
     return entries[0] ?? null;
   }, [weekSummary.barberCounts]);
+
+  const serviceBreakdown = useMemo(() => {
+    const counts = new Map<
+      string,
+      {
+        count: number;
+        name: string;
+      }
+    >();
+
+    weekBookings.forEach((booking) => {
+      const localized = localizedServiceMap.get(booking.service_id);
+      const base = localized ?? serviceMap.get(booking.service_id);
+      const name = localized?.name ?? base?.name ?? booking.service_id;
+      const previous = counts.get(booking.service_id);
+      counts.set(booking.service_id, { count: (previous?.count ?? 0) + 1, name });
+    });
+
+    return Array.from(counts.entries())
+      .map(([serviceId, value]) => ({ id: serviceId, ...value }))
+      .sort((a, b) => b.count - a.count);
+  }, [localizedServiceMap, serviceMap, weekBookings]);
+
+  const barberBreakdown = useMemo(
+    () =>
+      Array.from(weekSummary.barberCounts.entries())
+        .map(([barberId, count]) => ({
+          id: barberId,
+          name: BARBER_MAP[barberId]?.name ?? barberId,
+          count,
+        }))
+        .sort((a, b) => b.count - a.count),
+    [weekSummary.barberCounts],
+  );
+
+  const dayTotals = useMemo(
+    () =>
+      weekDaySummaries.map(({ key, date, bookings }) => ({
+        key,
+        date,
+        count: bookings.length,
+        label: formatWeekday(date, locale),
+        shortLabel: date.toLocaleDateString(locale, { weekday: "short" }),
+      })),
+    [locale, weekDaySummaries],
+  );
+
+  const busiestDay = useMemo(() => {
+    let max: (typeof dayTotals)[number] | null = null;
+    dayTotals.forEach((day) => {
+      if (!max || day.count > max.count) max = day;
+    });
+    return max;
+  }, [dayTotals]);
+
+  const quietestDay = useMemo(() => {
+    let min: (typeof dayTotals)[number] | null = null;
+    dayTotals.forEach((day) => {
+      if (!min || day.count < min.count) min = day;
+    });
+    return min;
+  }, [dayTotals]);
 
   const bookingsNavActive = activeScreen === "bookings" || activeScreen === "bookService";
 
@@ -2509,50 +2605,236 @@ export default function App() {
           </View>
         </View>
 
-        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
-          <Text style={[styles.title, { color: colors.text }]}>{copy.bookingsByDayTitle}</Text>
-          {weekDaySummaries.map(({ key, date, bookings }) => (
-            <View key={key} style={styles.dayRow}>
-              <View style={styles.dayHeader}>
-                <Text style={[styles.dayTitle, { color: colors.text }]}>{formatWeekday(date, locale)}</Text>
-                <View style={[styles.dayCountBadge, { borderColor: colors.border, backgroundColor: colors.bg }]}>
-                  <Text style={[styles.dayCountText, { color: colors.subtext }]}>
-                    {copy.dayBookingCount(bookings.length)}
-                  </Text>
-                </View>
-              </View>
-              {bookings.length === 0 ? (
-                <Text style={[styles.empty, { marginLeft: 2 }]}>{copy.noBookings}</Text>
-              ) : (
-                bookings.map((b) => {
-                  const rawSvc = serviceMap.get(b.service_id);
-                  const localizedSvc = localizedServiceMap.get(b.service_id) ?? rawSvc;
-                  const barberName = BARBER_MAP[b.barber]?.name ?? b.barber;
-                  const customerName = b._customer
-                    ? `${b._customer.first_name}${b._customer.last_name ? ` ${b._customer.last_name}` : ""}`
-                    : "";
-                  return (
-                    <View key={b.id} style={styles.dayBookingRow}>
-                      <MaterialCommunityIcons
-                        name={(localizedSvc?.icon ?? rawSvc?.icon ?? "calendar") as keyof typeof MaterialCommunityIcons.glyphMap}
-                        size={18}
-                        color={colors.accent}
-                      />
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.dayBookingText, { color: colors.text }]}>
-                          {b.start} – {b.end} • {localizedSvc?.name ?? b.service_id}
-                        </Text>
-                        <Text style={[styles.dayBookingMeta, { color: colors.subtext }]}>
-                          {barberName}
-                          {customerName ? ` • ${customerName}` : ""}
-                        </Text>
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 16 }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <MaterialCommunityIcons name="chart-box-outline" size={22} color={colors.accent} />
+            <Text style={[styles.title, { color: colors.text }]}>{copy.bookingsByDayTitle}</Text>
+          </View>
+
+          {weekSummary.total === 0 ? (
+            <Text style={[styles.empty, { marginLeft: 2 }]}>{copy.charts.barsEmpty}</Text>
+          ) : (
+            <>
+              {(() => {
+                const pizzaSlices = 8;
+                const topService = serviceBreakdown[0] ?? null;
+                const topServiceShare = topService ? (topService.count / weekSummary.total) * 100 : 0;
+                const filledSlices = topService
+                  ? Math.max(0, Math.min(pizzaSlices, Math.round((topServiceShare / 100) * pizzaSlices)))
+                  : 0;
+                const sliceSize = Math.round(100 / pizzaSlices);
+                const busiest = busiestDay;
+                const quietest = quietestDay;
+                return (
+                  <View style={styles.insightsRow}>
+                    <View
+                      style={[
+                        styles.insightSection,
+                        { borderColor: colors.border, backgroundColor: colors.bg },
+                      ]}
+                    >
+                      <View style={styles.insightSectionHeader}>
+                        <MaterialCommunityIcons name="pizza" size={20} color={colors.accent} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.insightSectionTitle, { color: colors.text }]}>
+                            {copy.charts.pizzaTitle}
+                          </Text>
+                          <Text style={[styles.insightSectionSubtitle, { color: colors.subtext }]}>
+                            {topService
+                              ? copy.charts.pizzaSubtitle(topService.name)
+                              : copy.charts.pizzaEmpty}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.pizzaSlicesRow}>
+                        {Array.from({ length: pizzaSlices }).map((_, index) => (
+                          <MaterialCommunityIcons
+                            // eslint-disable-next-line react/no-array-index-key
+                            key={index}
+                            name="pizza-slice"
+                            size={26}
+                            color={index < filledSlices ? colors.accent : colors.border}
+                          />
+                        ))}
+                      </View>
+                      {topService ? (
+                        <View style={{ gap: 4 }}>
+                          <Text style={[styles.pizzaStat, { color: colors.text }]}>
+                            {copy.charts.pizzaStat(Math.round(topServiceShare).toString())}
+                          </Text>
+                          <Text style={{ color: colors.subtext, fontWeight: "700" }}>
+                            {copy.charts.serviceCount(topService.count)}
+                          </Text>
+                        </View>
+                      ) : null}
+                      <Text style={[styles.pizzaLegend, { color: colors.subtext }]}>
+                        {copy.charts.pizzaLegend(sliceSize)}
+                      </Text>
+                    </View>
+
+                    <View
+                      style={[
+                        styles.insightSection,
+                        { borderColor: colors.border, backgroundColor: colors.bg },
+                      ]}
+                    >
+                      <View style={styles.insightSectionHeader}>
+                        <MaterialCommunityIcons name="calendar-star" size={20} color={colors.accent} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.insightSectionTitle, { color: colors.text }]}>
+                            {copy.charts.highlightsTitle}
+                          </Text>
+                          <Text style={[styles.insightSectionSubtitle, { color: colors.subtext }]}>
+                            {copy.charts.highlightsSubtitle}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.highlightGroup}>
+                        <View style={[styles.highlightPill, { backgroundColor: colors.accent }]}> 
+                          <MaterialCommunityIcons name="trending-up" size={18} color={colors.accentFgOn} />
+                          <Text style={{ color: colors.accentFgOn, fontWeight: "700" }}>
+                            {busiest
+                              ? copy.charts.busiestDay(
+                                  busiest.label,
+                                  busiest.count,
+                                )
+                              : copy.charts.barsEmpty}
+                          </Text>
+                        </View>
+                        <View
+                          style={[
+                            styles.highlightPill,
+                            { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+                          ]}
+                        >
+                          <MaterialCommunityIcons name="trending-down" size={18} color={colors.subtext} />
+                          <Text style={{ color: colors.subtext, fontWeight: "700" }}>
+                            {quietest
+                              ? copy.charts.quietestDay(
+                                  quietest.label,
+                                  quietest.count,
+                                )
+                              : copy.charts.barsEmpty}
+                          </Text>
+                        </View>
                       </View>
                     </View>
-                  );
-                })
-              )}
-            </View>
-          ))}
+                  </View>
+                );
+              })()}
+
+              <View
+                style={[
+                  styles.chartCard,
+                  { borderColor: colors.border, backgroundColor: colors.bg },
+                ]}
+              >
+                <View style={styles.insightSectionHeader}>
+                  <MaterialCommunityIcons name="chart-bar" size={20} color={colors.accent} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.insightSectionTitle, { color: colors.text }]}>
+                      {copy.charts.barsTitle}
+                    </Text>
+                    <Text style={[styles.insightSectionSubtitle, { color: colors.subtext }]}>
+                      {copy.charts.barsSubtitle}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.barChart}>
+                  {(() => {
+                    const maxDayCount = dayTotals.reduce(
+                      (max, day) => (day.count > max ? day.count : max),
+                      0,
+                    );
+                    if (maxDayCount === 0) {
+                      return (
+                        <Text style={[styles.empty, { marginTop: 4 }]}>{copy.charts.barsEmpty}</Text>
+                      );
+                    }
+                    return dayTotals.map((day) => {
+                      const height = Math.max(6, (day.count / maxDayCount) * 110);
+                      return (
+                        <View key={day.key} style={styles.barColumn}>
+                          <Text style={[styles.barValue, { color: colors.text }]}>{day.count}</Text>
+                          <View style={[styles.barTrack, { backgroundColor: colors.border }]}>
+                            <View
+                              style={[
+                                styles.barFill,
+                                {
+                                  height,
+                                  backgroundColor: colors.accent,
+                                },
+                              ]}
+                            />
+                          </View>
+                          <Text style={[styles.barLabel, { color: colors.subtext }]}>{day.shortLabel}</Text>
+                        </View>
+                      );
+                    });
+                  })()}
+                </View>
+              </View>
+
+              <View
+                style={[
+                  styles.chartCard,
+                  { borderColor: colors.border, backgroundColor: colors.bg },
+                ]}
+              >
+                <View style={styles.insightSectionHeader}>
+                  <MaterialCommunityIcons name="account-tie" size={20} color={colors.accent} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.insightSectionTitle, { color: colors.text }]}>
+                      {copy.charts.barberTitle}
+                    </Text>
+                    <Text style={[styles.insightSectionSubtitle, { color: colors.subtext }]}>
+                      {copy.charts.barberSubtitle}
+                    </Text>
+                  </View>
+                </View>
+                {barberBreakdown.length === 0 ? (
+                  <Text style={[styles.empty, { marginTop: 4 }]}>{copy.noBookings}</Text>
+                ) : (
+                  <View style={styles.leaderboard}>
+                    {(() => {
+                      const maxCount = barberBreakdown[0]?.count ?? 0;
+                      return barberBreakdown.slice(0, 5).map((entry) => {
+                        const widthPercent = maxCount
+                          ? Math.min(100, Math.max(8, (entry.count / maxCount) * 100))
+                          : 0;
+                        return (
+                          <View key={entry.id} style={styles.leaderboardRow}>
+                            <View style={styles.leaderboardInfo}>
+                              <MaterialCommunityIcons
+                                name="account-outline"
+                                size={18}
+                                color={colors.accent}
+                              />
+                              <Text style={{ color: colors.text, fontWeight: "700" }}>{entry.name}</Text>
+                            </View>
+                            <Text style={{ color: colors.subtext, fontWeight: "700" }}>
+                              {copy.charts.serviceCount(entry.count)}
+                            </Text>
+                            <View style={[styles.leaderboardBarTrack, { backgroundColor: colors.border }]}>
+                              <View
+                                style={[
+                                  styles.leaderboardBarFill,
+                                  {
+                                    width: `${widthPercent}%`,
+                                    backgroundColor: colors.accent,
+                                  },
+                                ]}
+                              />
+                            </View>
+                          </View>
+                        );
+                      });
+                    })()}
+                  </View>
+                )}
+              </View>
+            </>
+          )}
         </View>
       </ScrollView>
     )}
@@ -3007,26 +3289,58 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   statLabel: { fontSize: 12, fontWeight: "700", textTransform: "uppercase" },
   statValue: { fontSize: 24, fontWeight: "800" },
   statDetail: { fontSize: 12, fontWeight: "600" },
-  dayRow: {
-    borderRadius: 14,
+  insightsRow: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  insightSection: {
+    flex: 1,
+    minWidth: 220,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: colors.border,
-    padding: 12,
-    gap: 10,
-    backgroundColor: colors.surface,
+    padding: 14,
+    gap: 12,
   },
-  dayHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
-  dayTitle: { fontSize: 14, fontWeight: "800", color: colors.text },
-  dayCountBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: 10,
+  insightSectionHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
+  insightSectionTitle: { fontSize: 14, fontWeight: "800" },
+  insightSectionSubtitle: { fontSize: 12, fontWeight: "600" },
+  pizzaSlicesRow: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 6 },
+  pizzaStat: { fontSize: 16, fontWeight: "800", textAlign: "center" },
+  pizzaLegend: { fontSize: 11, fontWeight: "700", textAlign: "center", marginTop: 6 },
+  highlightGroup: { gap: 8 },
+  highlightPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
     borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.bg,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
   },
-  dayCountText: { fontSize: 12, fontWeight: "700", color: colors.subtext },
-  dayBookingRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  dayBookingText: { fontSize: 13, fontWeight: "700", color: colors.text },
-  dayBookingMeta: { fontSize: 12, fontWeight: "600", color: colors.subtext },
+  chartCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    gap: 16,
+  },
+  barChart: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    gap: 12,
+    paddingVertical: 4,
+  },
+  barColumn: { flex: 1, minWidth: 36, alignItems: "center", gap: 8 },
+  barValue: { fontSize: 13, fontWeight: "700" },
+  barTrack: {
+    width: 28,
+    height: 120,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "flex-end",
+    overflow: "hidden",
+  },
+  barFill: { width: "100%", borderRadius: 14 },
+  barLabel: { fontSize: 11, fontWeight: "700", textTransform: "uppercase" },
+  leaderboard: { gap: 12 },
+  leaderboardRow: { gap: 8, paddingVertical: 4 },
+  leaderboardInfo: { flexDirection: "row", alignItems: "center", gap: 8 },
+  leaderboardBarTrack: { width: "100%", height: 6, borderRadius: 999, overflow: "hidden" },
+  leaderboardBarFill: { height: "100%", borderRadius: 999 },
 });
