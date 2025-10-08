@@ -152,157 +152,123 @@ import DateTimeInput from "./src/components/DateTimeInput";
 /* Novo: formulário de usuário (com date_of_birth e salvando no Supabase) */
 import UserForm from "./src/components/UserForm";
 
-type DonutChartSegment = {
+type PyramidChartSegment = {
   value: number;
   color: string;
 };
 
-type DonutChartProps = {
-  segments: DonutChartSegment[];
+type PyramidChartProps = {
+  segments: PyramidChartSegment[];
   size?: number;
-  thickness?: number;
+  height?: number;
+  gap?: number;
   trackColor: string;
   backgroundColor: string;
 };
 
-const DONUT_STYLES = StyleSheet.create({
-  container: { position: "relative" },
-  track: { position: "absolute", top: 0, left: 0 },
-  slice: {
+const PYRAMID_STYLES = StyleSheet.create({
+  container: {
+    position: "relative",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    overflow: "hidden",
+  },
+  backdrop: {
     position: "absolute",
+    bottom: 0,
     width: 0,
     height: 0,
     borderStyle: "solid",
     borderLeftColor: "transparent",
     borderRightColor: "transparent",
   },
-  center: { position: "absolute" },
+  layers: {
+    width: "100%",
+    justifyContent: "flex-end",
+    alignItems: "center",
+  },
+  layer: {
+    borderRadius: 999,
+  },
 });
 
-const DonutChart = ({
+const PyramidChart = ({
   segments,
   size = 150,
-  thickness = 18,
+  height,
+  gap = 8,
   trackColor,
   backgroundColor,
-}: DonutChartProps) => {
-  const radius = size / 2;
+}: PyramidChartProps) => {
   const normalizedSegments = segments
     .map((segment) => ({
       value: Math.max(0, segment.value),
       color: segment.color,
     }))
     .filter((segment) => segment.value > 0);
-  const totalValue = normalizedSegments.reduce((sum, segment) => sum + segment.value, 0);
-  const resolutionSteps = 240;
-  const stepAngle = 360 / resolutionSteps;
-  const halfAngleRadians = (stepAngle * Math.PI) / 360;
-  const sliceHalfWidth = Math.min(Math.max(radius * Math.tan(halfAngleRadians), 0.5), radius);
-
-  const createSlice = (angle: number, color: string, key: string) => (
-    <View
-      key={key}
-      style={[
-        DONUT_STYLES.slice,
-        {
-          top: radius,
-          left: radius,
-          borderLeftWidth: sliceHalfWidth,
-          borderRightWidth: sliceHalfWidth,
-          borderBottomWidth: radius,
-          borderBottomColor: color,
-          transform: [{ rotate: `${angle - 180}deg` }],
-        },
-      ]}
-    />
+  const maxValue = normalizedSegments.reduce(
+    (currentMax, segment) => Math.max(currentMax, segment.value),
+    0,
   );
-
-  const baseSlices = Array.from({ length: resolutionSteps }, (_, index) =>
-    createSlice(index * stepAngle, trackColor, `track-${index}`),
-  );
-
-  const segmentSlices: React.ReactNode[] = [];
-  if (totalValue > 0) {
-    const allocations = normalizedSegments.map((segment) => {
-      const share = segment.value / totalValue;
-      const rawSteps = share * resolutionSteps;
-      const baseSteps = Math.floor(rawSteps);
-      return {
-        segment,
-        steps: baseSteps,
-        remainder: rawSteps - baseSteps,
-      };
-    });
-
-    let allocated = allocations.reduce((sum, entry) => sum + entry.steps, 0);
-    let remaining = Math.max(0, resolutionSteps - allocated);
-
-    if (remaining > 0) {
-      const order = allocations
-        .map((entry, index) => ({ index, remainder: entry.remainder }))
-        .sort((a, b) => b.remainder - a.remainder);
-      let i = 0;
-      while (remaining > 0 && order.length > 0) {
-        const target = order[i % order.length];
-        allocations[target.index].steps += 1;
-        remaining -= 1;
-        i += 1;
-      }
-    }
-
-    if (remaining > 0 && allocations.length > 0) {
-      for (let i = 0; i < remaining; i += 1) {
-        allocations[i % allocations.length].steps += 1;
-      }
-      remaining = 0;
-    }
-
-    let currentStep = 0;
-    allocations.forEach((entry) => {
-      for (let step = 0; step < entry.steps && currentStep < resolutionSteps; step += 1) {
-        segmentSlices.push(
-          createSlice(
-            currentStep * stepAngle,
-            entry.segment.color,
-            `segment-${currentStep}-${entry.segment.color}`,
-          ),
-        );
-        currentStep += 1;
-      }
-    });
-  }
-
-  const innerSize = Math.max(0, size - thickness * 2);
+  const layerCount = normalizedSegments.length;
+  const baseWidth = size;
+  const baseHeight = height
+    ? Math.max(height, 0)
+    : Math.max(Math.round(baseWidth * 0.9), layerCount ? layerCount * 22 + gap * (layerCount - 1) : 0);
+  const totalGap = layerCount > 1 ? gap * (layerCount - 1) : 0;
+  const segmentHeight = layerCount
+    ? Math.max((baseHeight - totalGap) / layerCount, 12)
+    : 0;
+  const minWidthRatio = layerCount > 1 ? 0.25 : 0.5;
+  const sortedSegments = [...normalizedSegments].sort((a, b) => a.value - b.value);
+  const renderOrder = sortedSegments.slice().reverse();
 
   return (
-    <View style={[DONUT_STYLES.container, { width: size, height: size }]}
+    <View
+      style={[
+        PYRAMID_STYLES.container,
+        {
+          width: baseWidth,
+          height: baseHeight,
+          backgroundColor,
+        },
+      ]}
     >
       <View
         style={[
-          DONUT_STYLES.track,
+          PYRAMID_STYLES.backdrop,
           {
-            width: size,
-            height: size,
-            borderRadius: radius,
-            backgroundColor: trackColor,
+            borderLeftWidth: baseWidth / 2,
+            borderRightWidth: baseWidth / 2,
+            borderBottomWidth: baseHeight,
+            borderBottomColor: trackColor,
           },
         ]}
       />
-      {baseSlices}
-      {segmentSlices}
-      <View
-        style={[
-          DONUT_STYLES.center,
-          {
-            width: innerSize,
-            height: innerSize,
-            borderRadius: innerSize / 2,
-            backgroundColor,
-            top: thickness,
-            left: thickness,
-          },
-        ]}
-      />
+      <View style={[PYRAMID_STYLES.layers, { height: baseHeight }]}>
+        {renderOrder.map((segment, index) => {
+          if (maxValue <= 0) {
+            return null;
+          }
+          const ratio = segment.value / maxValue;
+          const widthRatio = minWidthRatio + (1 - minWidthRatio) * ratio;
+          const layerWidth = baseWidth * Math.min(Math.max(widthRatio, minWidthRatio), 1);
+          return (
+            <View
+              key={`${segment.color}-${index}`}
+              style={[
+                PYRAMID_STYLES.layer,
+                {
+                  width: layerWidth,
+                  height: segmentHeight,
+                  backgroundColor: segment.color,
+                  marginBottom: index === renderOrder.length - 1 ? 0 : gap,
+                },
+              ]}
+            />
+          );
+        })}
+      </View>
     </View>
   );
 };
@@ -3027,7 +2993,7 @@ export default function App() {
                     color: mixHexColor(colors.text, colors.bg, 0.55),
                   });
                 }
-                const donutSegments = legendItems.map((item) => ({ value: item.count, color: item.color }));
+                const pyramidSegments = legendItems.map((item) => ({ value: item.count, color: item.color }));
                 const busiest = busiestDay;
                 const quietest = quietestDay;
                 return (
@@ -3059,10 +3025,12 @@ export default function App() {
                           ]}
                         >
                           <View style={styles.pieChartWrapper}>
-                            <DonutChart
-                              segments={donutSegments}
+                            <PyramidChart
+                              segments={pyramidSegments}
                               size={donutSize}
-                              trackColor={applyAlpha(colors.accent, 0.15)}
+                              height={donutSize * 0.95}
+                              gap={10}
+                              trackColor={applyAlpha(colors.accent, 0.18)}
                               backgroundColor={colors.bg}
                             />
                             <View
@@ -3829,7 +3797,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   insightSectionSubtitle: { fontSize: 12, fontWeight: "600" },
   pieChartBlock: { flexDirection: "row", alignItems: "center", gap: 16 },
   pieChartBlockCompact: { flexDirection: "column" },
-  pieChartWrapper: { position: "relative", alignItems: "center", justifyContent: "center" },
+  pieChartWrapper: {
+    position: "relative",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
   pieChartCenter: {
     position: "absolute",
     alignItems: "center",
@@ -3838,6 +3812,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 14,
     gap: 2,
+    zIndex: 2,
   },
   pieChartValue: { fontSize: 20, fontWeight: "800" },
   pieChartLabel: { fontSize: 12, fontWeight: "700" },
