@@ -12,14 +12,15 @@ type Props = {
     border: string;
     accent: string;
   };
+  locale?: string;
 };
 
 const pad = (n: number) => n.toString().padStart(2, "0");
 const toDateKey = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const humanDow = (d: Date) => d.toLocaleDateString(undefined, { weekday: "short" });
-const humanDateKey = (dk: string) => {
+const humanDow = (d: Date, locale?: string) => d.toLocaleDateString(locale ?? undefined, { weekday: "short" });
+const humanDateKey = (dk: string, locale?: string) => {
   const d = new Date(`${dk}T00:00:00`);
-  return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  return d.toLocaleDateString(locale ?? undefined, { weekday: "short", month: "short", day: "numeric" });
 };
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -47,6 +48,7 @@ export default function DateSelector({
     border: "rgba(255,255,255,0.07)",
     accent: "#60a5fa",
   },
+  locale,
 }: Props) {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(value));
@@ -143,7 +145,9 @@ export default function DateSelector({
               accessibilityRole="button"
               accessibilityLabel={`Select ${d.toDateString()}`}
             >
-              <Text style={[styles.dayDow, { color: colors.subtext }, active && { color: colors.text }]}>{humanDow(d)}</Text>
+              <Text style={[styles.dayDow, { color: colors.subtext }, active && { color: colors.text }]}>
+                {humanDow(d, locale)}
+              </Text>
               <Text style={[styles.dayNum, { color: colors.text }]}>{d.getDate()}</Text>
             </Pressable>
           );
@@ -163,7 +167,7 @@ export default function DateSelector({
       />
 
       {/* Rótulo com resumo da data atual */}
-      <Text style={[styles.currentLabel, { color: colors.subtext }]}>{humanDateKey(dateKey)}</Text>
+      <Text style={[styles.currentLabel, { color: colors.subtext }]}>{humanDateKey(dateKey, locale)}</Text>
     </View>
   );
 }

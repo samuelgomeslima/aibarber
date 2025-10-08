@@ -67,9 +67,9 @@ export function overlap(aS: string, aE: string, bS: string, bE: string) {
   return Math.max(as, bs) < Math.min(ae, be);
 }
 
-export function humanDate(dk: string) {
+export function humanDate(dk: string, locale?: string) {
   const d = new Date(`${dk}T00:00:00`);
-  return d.toLocaleDateString(undefined, {
+  return d.toLocaleDateString(locale ?? undefined, {
     weekday: "short",
     month: "short",
     day: "numeric",
