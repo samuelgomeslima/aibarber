@@ -2,16 +2,71 @@ const API_URL = "https://api.openai.com/v1/chat/completions";
 const AUDIO_TRANSCRIPTION_URL = "https://api.openai.com/v1/audio/transcriptions";
 const API_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
 
-export type ChatMessage = {
-  role: "system" | "user" | "assistant";
-  content: string;
+export type ChatCompletionToolCall = {
+  id: string;
+  type: "function";
+  function: {
+    name: string;
+    arguments: string;
+  };
+};
+
+type OpenAIErrorBody = {
+  error?: {
+    message?: string;
+  };
+};
+
+export type ChatMessage =
+  | {
+      role: "system" | "user";
+      content: string;
+    }
+  | {
+      role: "assistant";
+      content: string | null;
+      tool_calls?: ChatCompletionToolCall[];
+    }
+  | {
+      role: "tool";
+      content: string;
+      tool_call_id: string;
+    };
+
+type ChatCompletionMessage = Extract<ChatMessage, { role: "assistant" }>;
+
+type ChatCompletionChoice = {
+  index: number;
+  message: ChatCompletionMessage;
+  finish_reason: string | null;
+};
+
+type ChatCompletionResponseBody = {
+  id: string;
+  choices: ChatCompletionChoice[];
+};
+
+type ChatCompletionToolDefinition = {
+  type: "function";
+  function: {
+    name: string;
+    description?: string;
+    parameters?: unknown;
+  };
+};
+
+type ChatCompletionPayload = {
+  model?: string;
+  temperature?: number;
+  messages: ChatMessage[];
+  tools?: ChatCompletionToolDefinition[];
 };
 
 export const isOpenAiConfigured = typeof API_KEY === "string" && API_KEY.length > 0;
 
-function buildErrorMessage(status: number, body: any) {
+function buildErrorMessage(status: number, body: unknown) {
   if (body && typeof body === "object" && "error" in body) {
-    const err = (body as any).error;
+    const err = (body as OpenAIErrorBody).error;
     if (err && typeof err === "object" && "message" in err) {
       return String(err.message);
     }
@@ -21,7 +76,9 @@ function buildErrorMessage(status: number, body: any) {
   return "Unexpected error calling OpenAI.";
 }
 
-export async function callOpenAIChatCompletion(payload: Record<string, any>) {
+export async function callOpenAIChatCompletion(
+  payload: ChatCompletionPayload,
+): Promise<ChatCompletionResponseBody> {
   if (!isOpenAiConfigured) {
     throw new Error("OpenAI API key is not configured. Set EXPO_PUBLIC_OPENAI_API_KEY in your environment.");
   }
@@ -41,12 +98,16 @@ export async function callOpenAIChatCompletion(payload: Record<string, any>) {
     body: JSON.stringify(bodyPayload),
   });
 
-  const body = await response.json();
+  const body: unknown = await response.json();
   if (!response.ok) {
     throw new Error(buildErrorMessage(response.status, body));
   }
 
-  return body;
+  if (!body || typeof body !== "object" || !Array.isArray((body as ChatCompletionResponseBody).choices)) {
+    throw new Error("Unexpected response format from OpenAI chat completion.");
+  }
+
+  return body as ChatCompletionResponseBody;
 }
 
 export async function fetchAssistantReply(messages: ChatMessage[]): Promise<string> {
@@ -59,7 +120,13 @@ export async function fetchAssistantReply(messages: ChatMessage[]): Promise<stri
   return content.trim();
 }
 
-type BlobLike = any;
+type BlobLike = Blob & { size?: number };
+
+type ReactNativeFileLike = {
+  uri: string;
+  name: string;
+  type: string;
+};
 
 type TranscribeAudioInput =
   | { uri: string; fileName?: string; mimeType?: string }
@@ -79,7 +146,7 @@ export async function transcribeAudio(input: TranscribeAudioInput) {
       mimeType && blob && typeof blob.slice === "function"
         ? blob.slice(0, blob.size ?? undefined, mimeType)
         : blob;
-    formData.append("file", typedBlob as any, fileName);
+    formData.append("file", typedBlob as Blob, fileName);
   } else {
     const { uri, fileName = "voice-message.m4a", mimeType = "audio/m4a" } = input;
     formData.append(
@@ -88,7 +155,7 @@ export async function transcribeAudio(input: TranscribeAudioInput) {
         uri,
         name: fileName,
         type: mimeType,
-      } as any,
+      } as ReactNativeFileLike,
     );
   }
 
@@ -100,12 +167,16 @@ export async function transcribeAudio(input: TranscribeAudioInput) {
     body: formData,
   });
 
-  const body = await response.json();
+  const body: unknown = await response.json();
   if (!response.ok) {
     throw new Error(buildErrorMessage(response.status, body));
   }
 
-  const text: unknown = body?.text;
+  if (!body || typeof body !== "object" || !("text" in body)) {
+    throw new Error("Unexpected response format from OpenAI transcription.");
+  }
+
+  const text: unknown = (body as { text?: unknown }).text;
   if (typeof text !== "string" || !text.trim()) {
     throw new Error("Transcription did not return any text.");
   }
