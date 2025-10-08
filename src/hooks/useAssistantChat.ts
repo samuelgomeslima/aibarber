@@ -4,46 +4,13 @@ import { Platform } from "react-native";
 import { runBookingAgent } from "../lib/bookingAgent";
 import { BARBERS, type Service } from "../lib/domain";
 import { isOpenAiConfigured, transcribeAudio } from "../lib/openai";
+import type { AssistantChatCopy } from "../locales/types";
 
 export type DisplayMessage = {
   role: "assistant" | "user";
   content: string;
 };
 
-export type AssistantChatCopy = {
-  initialMessage: string;
-  apiKeyWarning: string;
-  contextPrefix: string;
-  quickRepliesTitle: string;
-  quickRepliesToggleShow: string;
-  quickRepliesToggleHide: string;
-  quickReplyAccessibility: (suggestion: string) => string;
-  quickReplies: {
-    existingBookings: string;
-    bookService: string;
-    bookSpecificService: (serviceName: string) => string;
-    barberAvailability: (barberName: string) => string;
-  };
-  inputPlaceholder: string;
-  sendAccessibility: string;
-  suggestionsAccessibility: {
-    show: string;
-    hide: string;
-  };
-  voiceButtonAccessibility: {
-    start: string;
-    stop: string;
-  };
-  errors: {
-    generic: string;
-    missingApiKey: string;
-    voiceWebOnly: string;
-    voiceUnsupported: string;
-    voiceStartFailed: string;
-    noAudio: string;
-    processFailed: string;
-  };
-};
 
 type UseAssistantChatOptions = {
   systemPrompt: string;

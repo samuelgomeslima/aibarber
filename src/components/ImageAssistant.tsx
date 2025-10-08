@@ -15,75 +15,8 @@ import {
   isImageApiConfigured,
   type GenerateImageResponse,
 } from "../lib/imageApi";
-
-type ImageAssistantCopy = {
-  title: string;
-  subtitle: { before: string; highlight: string; after: string };
-  helperMessage: string;
-  promptLabel: string;
-  promptPlaceholder: string;
-  sizeLabel: string;
-  sizeOptions: ReadonlyArray<{ label: string; value: "256x256" | "512x512" | "1024x1024" }>;
-  qualityLabel: string;
-  qualityOptions: ReadonlyArray<{ label: string; value: "standard" | "hd"; helper: string }>;
-  optionAccessibility: {
-    size: (label: string) => string;
-    quality: (label: string) => string;
-  };
-  generateButton: string;
-  generateAccessibility: string;
-  errors: { generateFailed: string };
-  history: {
-    title: string;
-    clearLabel: string;
-    clearAccessibility: string;
-    promptLabel: string;
-    revisedPrefix: string;
-    meta: (size: string, quality: string) => string;
-    generatedAt: (timestamp: string) => string;
-  };
-};
-
-const DEFAULT_COPY: ImageAssistantCopy = {
-  title: "Image assistant",
-  subtitle: {
-    before: "Generate marketing visuals for your shop using the OpenAI image API deployed under ",
-    highlight: "/api/GenerateImage",
-    after: ".",
-  },
-  helperMessage: "Set EXPO_PUBLIC_IMAGE_API_TOKEN to authenticate requests to the GenerateImage function.",
-  promptLabel: "Prompt",
-  promptPlaceholder: "Create a premium hero image for a barber shop website featuring a modern haircut session.",
-  sizeLabel: "Size",
-  sizeOptions: [
-    { label: "Square • 256px", value: "256x256" },
-    { label: "Detailed • 512px", value: "512x512" },
-    { label: "Showcase • 1024px", value: "1024x1024" },
-  ],
-  qualityLabel: "Quality",
-  qualityOptions: [
-    { label: "Standard", value: "standard", helper: "Fastest option for quick previews." },
-    { label: "HD", value: "hd", helper: "Sharper output, slightly slower." },
-  ],
-  optionAccessibility: {
-    size: (label: string) => `Select ${label} size`,
-    quality: (label: string) => `Use ${label} quality`,
-  },
-  generateButton: "Generate image",
-  generateAccessibility: "Generate marketing image",
-  errors: {
-    generateFailed: "Unable to generate image.",
-  },
-  history: {
-    title: "Recent results",
-    clearLabel: "Clear",
-    clearAccessibility: "Clear generated images",
-    promptLabel: "Prompt:",
-    revisedPrefix: "Revised prompt:",
-    meta: (size: string, quality: string) => `Size: ${size} • Quality: ${quality}`,
-    generatedAt: (timestamp: string) => `Generated ${timestamp}`,
-  },
-};
+import { defaultComponentCopy } from "../locales/componentCopy";
+import type { ImageAssistantCopy } from "../locales/types";
 
 type ImageAssistantProps = {
   colors: {
@@ -114,7 +47,10 @@ function toDataUri(image: GenerateImageResponse["data"]): string {
   throw new Error("The image response did not include any renderable data.");
 }
 
-export default function ImageAssistant({ colors, copy = DEFAULT_COPY }: ImageAssistantProps) {
+export default function ImageAssistant({
+  colors,
+  copy = defaultComponentCopy.imageAssistant,
+}: ImageAssistantProps) {
   const [prompt, setPrompt] = useState("");
   const [size, setSize] = useState<"256x256" | "512x512" | "1024x1024">("1024x1024");
   const [quality, setQuality] = useState<"standard" | "hd">("standard");

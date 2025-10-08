@@ -4,98 +4,9 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import type { Service } from "../lib/domain";
 import { useServiceForm } from "../hooks/useServiceForm";
-
-const DEFAULT_COLORS = {
-  text: "#e5e7eb",
-  subtext: "#cbd5e1",
-  border: "rgba(255,255,255,0.12)",
-  surface: "rgba(255,255,255,0.06)",
-  accent: "#60a5fa",
-  accentFgOn: "#091016",
-  danger: "#ef4444",
-};
-
-type ServiceFormCopy = {
-  createTitle: string;
-  editTitle: string;
-  createSubtitle: string;
-  editSubtitle: string;
-  fields: {
-    nameLabel: string;
-    namePlaceholder: string;
-    nameError: string;
-    durationLabel: string;
-    durationPlaceholder: string;
-    durationError: string;
-    priceLabel: string;
-    pricePlaceholder: string;
-    priceError: string;
-    iconLabel: string;
-    iconPlaceholder: string;
-    iconError: string;
-    previewLabel: string;
-  };
-  buttons: {
-    create: string;
-    edit: string;
-    saving: string;
-    cancel: string;
-  };
-  accessibility: {
-    submitCreate: string;
-    submitEdit: string;
-    cancel: string;
-  };
-  alerts: {
-    createdTitle: string;
-    createdMessage: (name: string, minutes: number) => string;
-    updatedTitle: string;
-    updatedMessage: (name: string, minutes: number) => string;
-    createErrorTitle: string;
-    updateErrorTitle: string;
-  };
-};
-
-const DEFAULT_COPY: ServiceFormCopy = {
-  createTitle: "Register a service",
-  editTitle: "Edit service",
-  createSubtitle: "Services define the duration and price of each booking.",
-  editSubtitle: "Adjust the duration, price, or icon for this service.",
-  fields: {
-    nameLabel: "Name",
-    namePlaceholder: "Cut & Style",
-    nameError: "Name is required",
-    durationLabel: "Duration (minutes)",
-    durationPlaceholder: "45",
-    durationError: "Enter minutes > 0",
-    priceLabel: "Price",
-    pricePlaceholder: "30.00",
-    priceError: "Enter a valid price",
-    iconLabel: "Icon",
-    iconPlaceholder: "Choose an icon",
-    iconError: "Select an icon",
-    previewLabel: "Preview:",
-  },
-  buttons: {
-    create: "Create service",
-    edit: "Save changes",
-    saving: "Saving…",
-    cancel: "Cancel",
-  },
-  accessibility: {
-    submitCreate: "Create service",
-    submitEdit: "Save service changes",
-    cancel: "Cancel service form",
-  },
-  alerts: {
-    createdTitle: "Service created",
-    createdMessage: (name: string, minutes: number) => `${name} (${minutes} min)`,
-    updatedTitle: "Service updated",
-    updatedMessage: (name: string, minutes: number) => `${name} (${minutes} min)`,
-    createErrorTitle: "Create service failed",
-    updateErrorTitle: "Update service failed",
-  },
-};
+import { defaultComponentCopy } from "../locales/componentCopy";
+import type { ServiceFormCopy } from "../locales/types";
+import { formCardColors, type FormCardColors } from "../theme/colors";
 
 type Props = {
   mode?: "create" | "edit";
@@ -103,7 +14,7 @@ type Props = {
   onCreated?: (service: Service) => void;
   onUpdated?: (service: Service) => void;
   onCancel?: () => void;
-  colors?: typeof DEFAULT_COLORS;
+  colors?: FormCardColors;
   copy?: ServiceFormCopy;
 };
 
@@ -113,8 +24,8 @@ export default function ServiceForm({
   onCreated,
   onUpdated,
   onCancel,
-  colors = DEFAULT_COLORS,
-  copy = DEFAULT_COPY,
+  colors = formCardColors,
+  copy = defaultComponentCopy.serviceForm,
 }: Props) {
   const {
     isEditMode,
@@ -348,7 +259,7 @@ export default function ServiceForm({
 function FormField({ label, error, colors, style, ...rest }: {
   label: string;
   error?: string;
-  colors: typeof DEFAULT_COLORS;
+  colors: FormCardColors;
   style?: any;
 } & React.ComponentProps<typeof TextInput>) {
   return (
