@@ -13,6 +13,7 @@ import {
   TextInput,
   useWindowDimensions,
   useColorScheme,
+  Linking,
 } from "react-native";
 import Svg, { Circle, G } from "react-native-svg";
 import { supabase } from "./src/lib/supabase";
@@ -102,6 +103,7 @@ const tintHexColor = (color: string, amount: number, mixColor = "#ffffff") =>
   mixHexColor(color, mixColor, amount);
 
 const SLOT_MINUTES = 15;
+const WHATSAPP_BRAND_COLOR = "#25D366";
 const MORNING_END_MINUTES = 12 * 60;
 const AFTERNOON_END_MINUTES = 17 * 60;
 type SlotPeriod = "morning" | "afternoon" | "evening";
@@ -532,6 +534,22 @@ const LANGUAGE_COPY = {
         count: (current: number, total: number) => `${current} of ${total}`,
         empty: "No bookings match your filters.",
         walkIn: "Walk-in",
+        whatsappCta: "Send WhatsApp reminder",
+        whatsappAccessibility: (client: string) => `Send WhatsApp reminder to ${client}`,
+        whatsappErrorTitle: "WhatsApp reminder",
+        whatsappErrorMessage: "Unable to open WhatsApp. Please try again.",
+        whatsappMessage: ({
+          clientName,
+          serviceName,
+          date,
+          time,
+        }: {
+          clientName: string;
+          serviceName: string;
+          date: string;
+          time: string;
+        }) =>
+          `Hi ${clientName}, this is a reminder of your appointment for ${serviceName} on ${date} at ${time}.`,
       },
       alerts: {
         loadTitle: "Bookings list",
@@ -891,6 +909,22 @@ const LANGUAGE_COPY = {
         count: (current: number, total: number) => `${current} de ${total}`,
         empty: "Nenhum agendamento corresponde aos filtros.",
         walkIn: "Cliente avulso",
+        whatsappCta: "Enviar lembrete no WhatsApp",
+        whatsappAccessibility: (client: string) => `Enviar lembrete no WhatsApp para ${client}`,
+        whatsappErrorTitle: "Lembrete no WhatsApp",
+        whatsappErrorMessage: "Não foi possível abrir o WhatsApp. Tente novamente.",
+        whatsappMessage: ({
+          clientName,
+          serviceName,
+          date,
+          time,
+        }: {
+          clientName: string;
+          serviceName: string;
+          date: string;
+          time: string;
+        }) =>
+          `Olá ${clientName}, lembrando do seu horário para ${serviceName} em ${date} às ${time}.`,
       },
       alerts: {
         loadTitle: "Lista de agendamentos",
@@ -2637,6 +2671,29 @@ export default function App() {
               const customerName = booking._customer
                 ? `${booking._customer.first_name}${booking._customer.last_name ? ` ${booking._customer.last_name}` : ""}`
                 : bookingsCopy.results.walkIn;
+              const reminderName = booking._customer?.first_name?.trim()
+                ? booking._customer.first_name.trim()
+                : customerName;
+              const reminderTime = booking.start;
+              const reminderMessage = bookingsCopy.results.whatsappMessage({
+                clientName: reminderName,
+                serviceName: displayService?.name ?? booking.service_id,
+                date: humanDate(booking.date, locale),
+                time: reminderTime,
+              });
+              const phoneDigits = booking._customer?.phone?.replace(/\D/g, "");
+              const hasPhone = Boolean(phoneDigits);
+              const openWhatsAppReminder = () => {
+                if (!phoneDigits) return;
+                const url = `https://wa.me/${phoneDigits}?text=${encodeURIComponent(reminderMessage)}`;
+                Linking.openURL(url).catch((error) => {
+                  console.error(error);
+                  Alert.alert(
+                    bookingsCopy.results.whatsappErrorTitle,
+                    bookingsCopy.results.whatsappErrorMessage,
+                  );
+                });
+              };
               return (
                 <View
                   key={booking.id}
@@ -2653,6 +2710,46 @@ export default function App() {
                     <Text style={styles.bookingListMeta}>
                       {(barber?.name ?? booking.barber) + (customerName ? ` • ${customerName}` : "")}
                     </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.bookingListActions,
+                      isUltraCompactLayout && styles.bookingListActionsCompact,
+                    ]}
+                  >
+                    <Pressable
+                      onPress={openWhatsAppReminder}
+                      disabled={!hasPhone}
+                      style={[
+                        styles.smallBtn,
+                        styles.whatsappBtn,
+                        {
+                          borderColor: hasPhone ? WHATSAPP_BRAND_COLOR : colors.border,
+                          backgroundColor: hasPhone
+                            ? applyAlpha(WHATSAPP_BRAND_COLOR, 0.12)
+                            : colors.surface,
+                        },
+                        isUltraCompactLayout && styles.fullWidthButton,
+                        !hasPhone && styles.smallBtnDisabled,
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityState={{ disabled: !hasPhone }}
+                      accessibilityLabel={bookingsCopy.results.whatsappAccessibility(customerName)}
+                    >
+                      <MaterialCommunityIcons
+                        name="whatsapp"
+                        size={16}
+                        color={hasPhone ? WHATSAPP_BRAND_COLOR : colors.subtext}
+                      />
+                      <Text
+                        style={{
+                          color: hasPhone ? WHATSAPP_BRAND_COLOR : colors.subtext,
+                          fontWeight: "800",
+                        }}
+                      >
+                        {bookingsCopy.results.whatsappCta}
+                      </Text>
+                    </Pressable>
                   </View>
                 </View>
               );
@@ -3619,6 +3716,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   bookingListClock: { color: colors.subtext, fontWeight: "700", fontSize: 12 },
   bookingListTitle: { color: colors.text, fontWeight: "800", fontSize: 15 },
   bookingListMeta: { color: colors.subtext, fontWeight: "600", fontSize: 12, marginTop: 2 },
+  bookingListActions: { flexDirection: "row", alignItems: "center" },
+  bookingListActionsCompact: { width: "100%" },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
 
   slotGroup: { gap: 8 },
@@ -3757,7 +3856,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
+  smallBtnDisabled: { opacity: 0.5 },
   fullWidthButton: { alignSelf: "stretch", justifyContent: "center", alignItems: "center" },
+  whatsappBtn: { flexDirection: "row", alignItems: "center", gap: 6 },
   serviceRow: {
     flexDirection: "row",
     alignItems: "center",
