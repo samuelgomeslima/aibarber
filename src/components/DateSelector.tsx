@@ -72,12 +72,6 @@ export default function DateSelector({
     });
   }, [weekStart]);
 
-  const pickToday = () => {
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    onChange(now);
-  };
-
   const shiftWeek = (direction: 1 | -1) => {
     setWeekStart((prev) => {
       const next = addDays(prev, direction * 7);
@@ -94,50 +88,26 @@ export default function DateSelector({
 
   return (
     <View>
-      {/* Ações: Today + Calendar */}
-      <View style={styles.actionsRow}>
+      <View style={styles.dayStripContainer}>
         <Pressable
           onPress={() => shiftWeek(-1)}
-          style={[styles.actionBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
+          style={[styles.arrowButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
           accessibilityLabel="Show previous week"
         >
-          <Text style={[styles.actionText, { color: colors.text }]}>Prev</Text>
-        </Pressable>
-        <Pressable
-          onPress={pickToday}
-          style={[styles.actionBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
-          accessibilityLabel="Go to today"
-        >
-          <Text style={[styles.actionText, { color: colors.text }]}>Today</Text>
+          <Text style={[styles.arrowIcon, { color: colors.text }]}>←</Text>
         </Pressable>
 
-        <Pressable
-          onPress={() => setCalendarOpen(true)}
-          style={[styles.actionBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
-          accessibilityLabel="Open calendar"
+        {/* Tira horizontal de dias */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={[styles.dayStrip, { gap: 10, paddingVertical: 10 }]}
         >
-          <Text style={[styles.actionText, { color: colors.text }]}>Calendar</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => shiftWeek(1)}
-          style={[styles.actionBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
-          accessibilityLabel="Show next week"
-        >
-          <Text style={[styles.actionText, { color: colors.text }]}>Next</Text>
-        </Pressable>
-      </View>
-
-      {/* Tira horizontal de dias */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={[styles.dayStrip, { gap: 10, paddingVertical: 10 }]}
-      >
-        {days.map(({ d, key }) => {
-          const active = key === dateKey;
-          return (
-            <Pressable
-              key={key}
+          {days.map(({ d, key }) => {
+            const active = key === dateKey;
+            return (
+              <Pressable
+                key={key}
               onPress={() => onChange(new Date(d))}
               style={[
                 styles.dayPill,
@@ -166,9 +136,18 @@ export default function DateSelector({
                 {d.getDate()}
               </Text>
             </Pressable>
-          );
-        })}
-      </ScrollView>
+            );
+          })}
+        </ScrollView>
+
+        <Pressable
+          onPress={() => shiftWeek(1)}
+          style={[styles.arrowButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
+          accessibilityLabel="Show next week"
+        >
+          <Text style={[styles.arrowIcon, { color: colors.text }]}>→</Text>
+        </Pressable>
+      </View>
 
       {/* Modal do calendário (com buffer + Apply) */}
       <CalendarModal
@@ -183,7 +162,9 @@ export default function DateSelector({
       />
 
       {/* Rótulo com resumo da data atual */}
-      <Text style={[styles.currentLabel, { color: colors.subtext }]}>{humanDateKey(dateKey, locale)}</Text>
+      <Pressable onPress={() => setCalendarOpen(true)} accessibilityLabel="Open calendar">
+        <Text style={[styles.currentLabel, { color: colors.subtext }]}>{humanDateKey(dateKey, locale)}</Text>
+      </Pressable>
     </View>
   );
 }
@@ -315,20 +296,20 @@ function NativeDatePicker({
 }
 
 const styles = StyleSheet.create({
-  actionsRow: {
+  dayStripContainer: {
     flexDirection: "row",
-    gap: 10,
-    marginBottom: 6,
-    flexWrap: "wrap",
     alignItems: "center",
+    gap: 12,
   },
-  actionBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+  arrowButton: {
+    width: 48,
+    height: 64,
+    borderRadius: 14,
     borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  actionText: { fontWeight: "800", letterSpacing: 0.3 },
+  arrowIcon: { fontSize: 20, fontWeight: "800" },
 
   dayStrip: {},
   dayPill: {
