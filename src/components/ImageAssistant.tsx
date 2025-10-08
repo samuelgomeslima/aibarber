@@ -23,9 +23,9 @@ type ImageAssistantCopy = {
   promptLabel: string;
   promptPlaceholder: string;
   sizeLabel: string;
-  sizeOptions: Array<{ label: string; value: "256x256" | "512x512" | "1024x1024" }>;
+  sizeOptions: ReadonlyArray<{ label: string; value: "256x256" | "512x512" | "1024x1024" }>;
   qualityLabel: string;
-  qualityOptions: Array<{ label: string; value: "standard" | "hd"; helper: string }>;
+  qualityOptions: ReadonlyArray<{ label: string; value: "standard" | "hd"; helper: string }>;
   optionAccessibility: {
     size: (label: string) => string;
     quality: (label: string) => string;
