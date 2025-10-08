@@ -19,7 +19,7 @@ import {
   getCustomerById,
   type BookingWithCustomer,
 } from "./bookings";
-import { callOpenAIChatCompletion, isOpenAiConfigured } from "./openai";
+import { callOpenAIChatCompletion, isOpenAiConfigured, type ChatMessage } from "./openai";
 
 export type ConversationMessage = {
   role: "assistant" | "user";
@@ -173,18 +173,6 @@ function buildToolDefinitions(services: Service[]) {
     },
   ];
 }
-
-type ChatCompletionMessage = {
-  role: "system" | "user" | "assistant" | "tool";
-  content: string;
-  name?: string;
-  tool_call_id?: string;
-  tool_calls?: {
-    id: string;
-    type: "function";
-    function: { name: string; arguments: string };
-  }[];
-};
 
 async function listBookings(args: { date?: string }, serviceMap: Map<string, Service>): Promise<unknown> {
   if (!args?.date) {
@@ -394,7 +382,7 @@ export async function runBookingAgent(options: AgentRunOptions): Promise<string>
 
   const today = new Date();
   const currentDate = today.toISOString().split("T")[0];
-  const messages: ChatCompletionMessage[] = [
+  const messages: ChatMessage[] = [
     {
       role: "system",
       content: [
