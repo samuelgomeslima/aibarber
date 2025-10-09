@@ -924,7 +924,7 @@ export default function App() {
   const [allBookings, setAllBookings] = useState<BookingWithCustomer[]>([]);
   const [allBookingsLoading, setAllBookingsLoading] = useState(false);
   const [bookingResultLimit, setBookingResultLimit] = useState<BookingLimitOption>(BOOKING_LIMIT_OPTIONS[1]);
-  const [bookingSortOrder, setBookingSortOrder] = useState<"desc" | "asc">("desc");
+  const [bookingSortOrder, setBookingSortOrder] = useState<"desc" | "asc">("asc");
   const [bookingFilterBarber, setBookingFilterBarber] = useState<string | null>(null);
   const [bookingFilterService, setBookingFilterService] = useState<string | null>(null);
   const [bookingFilterClient, setBookingFilterClient] = useState("");
