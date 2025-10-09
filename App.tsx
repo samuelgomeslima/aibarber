@@ -151,7 +151,13 @@ import {
   type Customer,
 } from "./src/lib/bookings";
 import { deleteService, listServices } from "./src/lib/services";
-import { listProducts, deleteProduct, sellProduct, restockProduct } from "./src/lib/products";
+import {
+  listProducts,
+  deleteProduct,
+  sellProduct,
+  restockProduct,
+  listProductSalesTotals,
+} from "./src/lib/products";
 import { listStaffMembers, type StaffMember, type StaffRole } from "./src/lib/users";
 
 /* Components (mantidos) */
@@ -1217,12 +1223,12 @@ export default function App() {
   const loadProducts = useCallback(async () => {
     setProductsLoading(true);
     try {
-      const rows = await listProducts();
+      const [rows, totals] = await Promise.all([listProducts(), listProductSalesTotals()]);
       setProducts(sortProducts(rows));
-      setProductSalesTotals((prev) => {
+      setProductSalesTotals(() => {
         const next: Record<string, number> = {};
         rows.forEach((product) => {
-          next[product.id] = prev[product.id] ?? 0;
+          next[product.id] = totals[product.id] ?? 0;
         });
         return next;
       });
