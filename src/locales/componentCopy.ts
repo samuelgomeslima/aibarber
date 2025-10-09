@@ -39,6 +39,7 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
       },
       inputPlaceholder: "Ask about bookings...",
       sendAccessibility: "Send message",
+      typingIndicator: "Typing…",
       suggestionsAccessibility: {
         show: "Show quick suggestions",
         hide: "Hide quick suggestions",
@@ -284,6 +285,7 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
       },
       inputPlaceholder: "Pergunte sobre os agendamentos...",
       sendAccessibility: "Enviar mensagem",
+      typingIndicator: "Digitando…",
       suggestionsAccessibility: {
         show: "Mostrar sugestões rápidas",
         hide: "Ocultar sugestões rápidas",

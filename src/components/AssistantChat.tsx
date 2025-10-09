@@ -109,8 +109,20 @@ export default function AssistantChat({
             );
           })}
           {pending && (
-            <View style={[styles.bubble, { alignSelf: "flex-start", backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <ActivityIndicator size="small" color={colors.subtext} />
+            <View
+              style={[
+                styles.bubble,
+                {
+                  alignSelf: "flex-start",
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              <View style={styles.typingRow}>
+                <ActivityIndicator size="small" color={colors.subtext} />
+                <Text style={[styles.typingText, { color: colors.subtext }]}>{copy.typingIndicator}</Text>
+              </View>
             </View>
           )}
         </ScrollView>
@@ -233,6 +245,15 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 16,
     borderWidth: 1,
+  },
+  typingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  typingText: {
+    fontSize: 13,
+    fontWeight: "600",
   },
   messageText: { fontSize: 14, fontWeight: "600", lineHeight: 20 },
   errorText: { fontSize: 12, fontWeight: "700" },
