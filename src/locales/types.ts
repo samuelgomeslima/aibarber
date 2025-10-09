@@ -14,6 +14,7 @@ export type AssistantChatCopy = {
   };
   inputPlaceholder: string;
   sendAccessibility: string;
+  typingIndicator: string;
   suggestionsAccessibility: {
     show: string;
     hide: string;
