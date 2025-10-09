@@ -1721,24 +1721,36 @@ export default function App() {
     const first = new Date(opts.startFrom);
     first.setHours(hh, mm, 0, 0);
 
-    const baseDay = first.getDate();
+    const addDays = (date: Date, days: number) => {
+      const next = new Date(date);
+      next.setDate(next.getDate() + days);
+      return next;
+    };
+
+    const nextMonthlyOccurrence = (current: Date) => {
+      let candidate = addDays(current, 28);
+      while (candidate.getMonth() === current.getMonth()) {
+        candidate = addDays(candidate, 7);
+      }
+      return candidate;
+    };
+
+    const start = `${pad(hh)}:${pad(mm)}`;
+    const end = addMinutes(start, minutes);
+
+    let occurrenceDate = new Date(first);
 
     const raw = Array.from({ length: opts.count }, (_, index) => {
-      const occurrenceDate = new Date(first);
-      if (opts.frequency === "monthly") {
-        const targetMonthIndex = first.getMonth() + index;
-        const targetYear = first.getFullYear() + Math.floor(targetMonthIndex / 12);
-        const targetMonth = targetMonthIndex % 12;
-        const daysInTargetMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
-        const clampedDay = Math.min(baseDay, daysInTargetMonth);
-        occurrenceDate.setFullYear(targetYear, targetMonth, clampedDay);
-      } else {
-        const step = opts.frequency === "every-15-days" ? 15 : 7;
-        occurrenceDate.setDate(baseDay + index * step);
+      if (index > 0) {
+        if (opts.frequency === "monthly") {
+          occurrenceDate = nextMonthlyOccurrence(occurrenceDate);
+        } else {
+          const step = opts.frequency === "every-15-days" ? 15 : 7;
+          occurrenceDate = addDays(occurrenceDate, step);
+        }
       }
+
       const date = toDateKey(occurrenceDate);
-      const start = `${pad(hh)}:${pad(mm)}`;
-      const end = addMinutes(start, minutes);
       return { date, start, end };
     });
 
