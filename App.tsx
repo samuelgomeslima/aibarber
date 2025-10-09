@@ -23,6 +23,7 @@ import {
   BARBERS,
   BARBER_MAP,
   type Service,
+  type Product,
   openingHour,
   closingHour,
   pad,
@@ -149,6 +150,7 @@ import {
   type Customer,
 } from "./src/lib/bookings";
 import { deleteService, listServices } from "./src/lib/services";
+import { listProducts, deleteProduct, sellProduct, restockProduct } from "./src/lib/products";
 
 /* Components (mantidos) */
 import DateSelector from "./src/components/DateSelector";
@@ -158,6 +160,7 @@ import BarberSelector, { Barber } from "./src/components/BarberSelector";
 import AssistantChat from "./src/components/AssistantChat";
 import ImageAssistant from "./src/components/ImageAssistant";
 import ServiceForm from "./src/components/ServiceForm";
+import ProductForm from "./src/components/ProductForm";
 import FilterToggle from "./src/components/FilterToggle";
 import DateTimeInput from "./src/components/DateTimeInput";
 
@@ -266,6 +269,7 @@ const LANGUAGE_COPY = {
       overview: "Overview",
       bookings: "Bookings",
       services: "Services",
+      products: "Products",
       assistant: "Assistant",
       imageAssistant: "Image lab",
       settings: "Settings",
@@ -301,7 +305,49 @@ const LANGUAGE_COPY = {
         deleteErrorTitle: "Delete service",
       },
     },
+    productsPage: {
+      title: "Products",
+      subtitle: "Register the items you sell and keep inventory in sync with sales.",
+      createCta: { label: "Register product", accessibility: "Open create product form" },
+      listTitle: "Inventory",
+      empty: "— no products registered yet —",
+      productMeta: (price: string, stock: number) => `${price} • ${stock} in stock`,
+      descriptionLabel: "Description",
+      actions: {
+        edit: { label: "Edit", accessibility: (name: string) => `Edit ${name}` },
+        delete: { label: "Delete", accessibility: (name: string) => `Delete ${name}` },
+        sell: { label: "Sell", accessibility: (name: string) => `Register a sale for ${name}` },
+        restock: { label: "Restock", accessibility: (name: string) => `Restock ${name}` },
+      },
+      alerts: {
+        loadTitle: "Products",
+        deleteTitle: "Delete product",
+        deleteMessage: (name: string) => `Remove "${name}" from inventory?`,
+        cancel: "Cancel",
+        confirm: "Delete",
+        deleteErrorTitle: "Delete product",
+        sellErrorTitle: "Sell product",
+        restockErrorTitle: "Restock product",
+      },
+      stockModal: {
+        sellTitle: (name: string) => `Sell ${name}`,
+        sellSubtitle: (stock: number) => `Register a sale and reduce the ${stock} items available.`,
+        restockTitle: (name: string) => `Restock ${name}`,
+        restockSubtitle: "Add items back to inventory.",
+        quantityLabel: "Quantity",
+        quantityPlaceholder: "1",
+        quantityError: "Enter a quantity greater than zero",
+        confirmSell: "Confirm sale",
+        confirmRestock: "Add stock",
+        cancel: "Cancel",
+        sellSuccessTitle: "Sale registered",
+        sellSuccessMessage: (name: string, quantity: number) => `Sold ${quantity} unit(s) of ${name}.`,
+        restockSuccessTitle: "Stock updated",
+        restockSuccessMessage: (name: string, quantity: number) => `Added ${quantity} unit(s) to ${name}.`,
+      },
+    },
     serviceForm: COMPONENT_COPY.en.serviceForm,
+    productForm: COMPONENT_COPY.en.productForm,
     assistant: {
       chat: COMPONENT_COPY.en.assistantChat,
       contextSummary: {
@@ -537,6 +583,7 @@ const LANGUAGE_COPY = {
       overview: "Visão geral",
       bookings: "Agendamentos",
       services: "Serviços",
+      products: "Produtos",
       assistant: "Assistente",
       imageAssistant: "Laboratório de imagens",
       settings: "Configurações",
@@ -572,7 +619,51 @@ const LANGUAGE_COPY = {
         deleteErrorTitle: "Excluir serviço",
       },
     },
+    productsPage: {
+      title: "Produtos",
+      subtitle: "Cadastre os itens de venda e mantenha o estoque atualizado.",
+      createCta: { label: "Cadastrar produto", accessibility: "Abrir formulário de produto" },
+      listTitle: "Estoque",
+      empty: "— nenhum produto cadastrado —",
+      productMeta: (price: string, stock: number) => `${price} • ${stock} em estoque`,
+      descriptionLabel: "Descrição",
+      actions: {
+        edit: { label: "Editar", accessibility: (name: string) => `Editar ${name}` },
+        delete: { label: "Excluir", accessibility: (name: string) => `Excluir ${name}` },
+        sell: { label: "Vender", accessibility: (name: string) => `Registrar venda de ${name}` },
+        restock: { label: "Repor", accessibility: (name: string) => `Repor estoque de ${name}` },
+      },
+      alerts: {
+        loadTitle: "Produtos",
+        deleteTitle: "Excluir produto",
+        deleteMessage: (name: string) => `Remover "${name}" do estoque?`,
+        cancel: "Cancelar",
+        confirm: "Excluir",
+        deleteErrorTitle: "Excluir produto",
+        sellErrorTitle: "Registrar venda",
+        restockErrorTitle: "Repor estoque",
+      },
+      stockModal: {
+        sellTitle: (name: string) => `Vender ${name}`,
+        sellSubtitle: (stock: number) => `Registre a venda e desconte das ${stock} unidades disponíveis.`,
+        restockTitle: (name: string) => `Repor ${name}`,
+        restockSubtitle: "Adicione unidades de volta ao estoque.",
+        quantityLabel: "Quantidade",
+        quantityPlaceholder: "1",
+        quantityError: "Informe uma quantidade maior que zero",
+        confirmSell: "Registrar venda",
+        confirmRestock: "Adicionar estoque",
+        cancel: "Cancelar",
+        sellSuccessTitle: "Venda registrada",
+        sellSuccessMessage: (name: string, quantity: number) =>
+          `Foram vendidas ${quantity} unidade(s) de ${name}.`,
+        restockSuccessTitle: "Estoque atualizado",
+        restockSuccessMessage: (name: string, quantity: number) =>
+          `Adicionadas ${quantity} unidade(s) em ${name}.`,
+      },
+    },
     serviceForm: COMPONENT_COPY.pt.serviceForm,
+    productForm: COMPONENT_COPY.pt.productForm,
     assistant: {
       chat: COMPONENT_COPY.pt.assistantChat,
       contextSummary: {
@@ -881,11 +972,21 @@ export default function App() {
   const [serviceFormVisible, setServiceFormVisible] = useState(false);
   const [serviceFormMode, setServiceFormMode] = useState<"create" | "edit">("create");
   const [serviceBeingEdited, setServiceBeingEdited] = useState<Service | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [productFormVisible, setProductFormVisible] = useState(false);
+  const [productFormMode, setProductFormMode] = useState<"create" | "edit">("create");
+  const [productBeingEdited, setProductBeingEdited] = useState<Product | null>(null);
+  const [stockModalProduct, setStockModalProduct] = useState<Product | null>(null);
+  const [stockModalMode, setStockModalMode] = useState<"sell" | "restock">("sell");
+  const [stockQuantityText, setStockQuantityText] = useState("1");
+  const [stockSaving, setStockSaving] = useState(false);
   const [activeScreen, setActiveScreen] = useState<
     | "home"
     | "bookings"
     | "bookService"
     | "services"
+    | "products"
     | "assistant"
     | "imageAssistant"
     | "settings"
@@ -898,6 +999,8 @@ export default function App() {
   const bookingsCopy = copy.bookings;
   const assistantCopy = copy.assistant;
   const imageAssistantCopy = copy.imageAssistant;
+  const productsCopy = copy.productsPage;
+  const productFormCopy = copy.productForm;
   const colorScheme = useColorScheme();
   const [themePreference, setThemePreference] = useState<ThemePreference>("system");
   const resolvedTheme = themePreference === "system" ? (colorScheme === "dark" ? "dark" : "light") : themePreference;
@@ -956,6 +1059,11 @@ export default function App() {
     () => new Map(localizedServices.map((s) => [s.id, s])),
     [localizedServices],
   );
+  const sortProducts = useCallback(
+    (list: Product[]) =>
+      [...list].sort((a, b) => a.name.localeCompare(b.name, locale, { sensitivity: "base" })),
+    [locale],
+  );
 
   const loadServices = useCallback(async () => {
     setServicesLoading(true);
@@ -977,6 +1085,28 @@ export default function App() {
   }, [copy]);
 
   useEffect(() => { loadServices(); }, [loadServices]);
+
+  const loadProducts = useCallback(async () => {
+    setProductsLoading(true);
+    try {
+      const rows = await listProducts();
+      setProducts(sortProducts(rows));
+    } catch (e: any) {
+      console.error(e);
+      Alert.alert(productsCopy.alerts.loadTitle, e?.message ?? String(e));
+      setProducts([]);
+    } finally {
+      setProductsLoading(false);
+    }
+  }, [productsCopy.alerts.loadTitle, sortProducts]);
+
+  useEffect(() => {
+    loadProducts();
+  }, [loadProducts]);
+
+  useEffect(() => {
+    setProducts((prev) => sortProducts(prev));
+  }, [sortProducts]);
 
   const handleServiceFormClose = useCallback(() => {
     setServiceFormVisible(false);
@@ -1050,6 +1180,148 @@ export default function App() {
     },
     [copy, loadServices, localizedServiceMap],
   );
+
+  const handleProductFormClose = useCallback(() => {
+    setProductFormVisible(false);
+    setProductBeingEdited(null);
+    setProductFormMode("create");
+  }, []);
+
+  const handleOpenCreateProduct = useCallback(() => {
+    setProductFormMode("create");
+    setProductBeingEdited(null);
+    setProductFormVisible(true);
+  }, []);
+
+  const handleOpenEditProduct = useCallback((product: Product) => {
+    setProductFormMode("edit");
+    setProductBeingEdited(product);
+    setProductFormVisible(true);
+  }, []);
+
+  const handleProductCreated = useCallback(
+    (product: Product) => {
+      setProducts((prev) => sortProducts([...prev, product]));
+      handleProductFormClose();
+    },
+    [handleProductFormClose, sortProducts],
+  );
+
+  const handleProductUpdated = useCallback(
+    (product: Product) => {
+      setProducts((prev) => sortProducts(prev.map((item) => (item.id === product.id ? product : item))));
+      handleProductFormClose();
+    },
+    [handleProductFormClose, sortProducts],
+  );
+
+  const handleDeleteProduct = useCallback(
+    (product: Product) => {
+      if (!product?.id) return;
+
+      const confirmPrompt = `${productsCopy.alerts.deleteTitle}\n\n${productsCopy.alerts.deleteMessage(product.name)}`;
+      const executeDelete = async () => {
+        try {
+          await deleteProduct(product.id);
+          setProducts((prev) => prev.filter((item) => item.id !== product.id));
+        } catch (e: any) {
+          console.error(e);
+          Alert.alert(productsCopy.alerts.deleteErrorTitle, e?.message ?? String(e));
+        }
+      };
+
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        const confirmed = window.confirm(confirmPrompt);
+        if (confirmed) {
+          void executeDelete();
+        }
+        return;
+      }
+
+      Alert.alert(
+        productsCopy.alerts.deleteTitle,
+        productsCopy.alerts.deleteMessage(product.name),
+        [
+          { text: productsCopy.alerts.cancel, style: "cancel" },
+          { text: productsCopy.alerts.confirm, style: "destructive", onPress: () => void executeDelete() },
+        ],
+      );
+    },
+    [productsCopy],
+  );
+
+  const handleOpenSellProduct = useCallback((product: Product) => {
+    setStockModalMode("sell");
+    setStockModalProduct(product);
+    setStockQuantityText("1");
+  }, []);
+
+  const handleOpenRestockProduct = useCallback((product: Product) => {
+    setStockModalMode("restock");
+    setStockModalProduct(product);
+    setStockQuantityText("1");
+  }, []);
+
+  const handleCloseStockModal = useCallback(() => {
+    setStockModalProduct(null);
+    setStockQuantityText("1");
+    setStockSaving(false);
+  }, []);
+
+  const handleStockQuantityChange = useCallback((text: string) => {
+    setStockQuantityText(text.replace(/[^0-9]/g, ""));
+  }, []);
+
+  const handleConfirmStockModal = useCallback(async () => {
+    if (!stockModalProduct) return;
+    const numericText = stockQuantityText.replace(/[^0-9]/g, "");
+    const quantity = Number(numericText);
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      Alert.alert(productsCopy.stockModal.quantityError);
+      return;
+    }
+
+    setStockSaving(true);
+    try {
+      let updated: Product;
+      if (stockModalMode === "sell") {
+        updated = await sellProduct(stockModalProduct.id, quantity);
+        Alert.alert(
+          productsCopy.stockModal.sellSuccessTitle,
+          productsCopy.stockModal.sellSuccessMessage(updated.name, quantity),
+        );
+      } else {
+        updated = await restockProduct(stockModalProduct.id, quantity);
+        Alert.alert(
+          productsCopy.stockModal.restockSuccessTitle,
+          productsCopy.stockModal.restockSuccessMessage(updated.name, quantity),
+        );
+      }
+
+      setProducts((prev) =>
+        sortProducts(prev.map((item) => (item.id === updated.id ? updated : item))),
+      );
+      handleCloseStockModal();
+    } catch (e: any) {
+      const title =
+        stockModalMode === "sell"
+          ? productsCopy.alerts.sellErrorTitle
+          : productsCopy.alerts.restockErrorTitle;
+      console.error(e);
+      Alert.alert(title, e?.message ?? String(e));
+    } finally {
+      setStockSaving(false);
+    }
+  }, [
+    handleCloseStockModal,
+    productsCopy.alerts.restockErrorTitle,
+    productsCopy.alerts.sellErrorTitle,
+    productsCopy.stockModal,
+    sortProducts,
+    stockModalMode,
+    stockModalProduct,
+    stockQuantityText,
+  ]);
 
   const selectedService = useMemo(
     () => services.find((s) => s.id === selectedServiceId) ?? null,
@@ -1724,6 +1996,7 @@ export default function App() {
         | "bookings"
         | "bookService"
         | "services"
+        | "products"
         | "assistant"
         | "imageAssistant"
         | "settings",
@@ -1867,6 +2140,21 @@ export default function App() {
             />
             <Text style={[styles.sidebarItemText, activeScreen === "services" && styles.sidebarItemTextActive]}>
               {copy.navigation.services}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => handleNavigate("products")}
+            style={[styles.sidebarItem, activeScreen === "products" && styles.sidebarItemActive]}
+            accessibilityRole="button"
+            accessibilityLabel="Manage products"
+          >
+            <MaterialCommunityIcons
+              name="store-outline"
+              size={20}
+              color={activeScreen === "products" ? colors.accentFgOn : colors.subtext}
+            />
+            <Text style={[styles.sidebarItemText, activeScreen === "products" && styles.sidebarItemTextActive]}>
+              {copy.navigation.products}
             </Text>
           </Pressable>
           <Pressable
@@ -2679,6 +2967,231 @@ export default function App() {
           )}
         </View>
       </ScrollView>
+    ) : activeScreen === "products" ? (
+      <>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}
+          refreshControl={<RefreshControl refreshing={productsLoading} onRefresh={loadProducts} />}
+        >
+          <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
+            <View style={[styles.listHeaderRow, isCompactLayout && styles.listHeaderRowCompact]}>
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text style={[styles.title, { color: colors.text }]}>{productsCopy.title}</Text>
+                <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
+                  {productsCopy.subtitle}
+                </Text>
+              </View>
+              <Pressable
+                onPress={handleOpenCreateProduct}
+                style={[styles.defaultCta, { marginTop: 0 }, isCompactLayout && styles.fullWidthButton]}
+                accessibilityRole="button"
+                accessibilityLabel={productsCopy.createCta.accessibility}
+              >
+                <Text style={styles.defaultCtaText}>{productsCopy.createCta.label}</Text>
+              </Pressable>
+            </View>
+          </View>
+
+          {productFormVisible ? (
+            <ProductForm
+              mode={productFormMode}
+              product={productFormMode === "edit" ? productBeingEdited : null}
+              onCreated={handleProductCreated}
+              onUpdated={handleProductUpdated}
+              onCancel={handleProductFormClose}
+              colors={{
+                text: colors.text,
+                subtext: colors.subtext,
+                border: colors.border,
+                surface: colors.surface,
+                accent: colors.accent,
+                accentFgOn: colors.accentFgOn,
+                danger: colors.danger,
+              }}
+              copy={productFormCopy}
+            />
+          ) : null}
+
+          <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
+            <Text style={[styles.title, { color: colors.text }]}>{productsCopy.listTitle}</Text>
+            {products.length === 0 ? (
+              <Text style={[styles.empty, { marginVertical: 8 }]}>{productsCopy.empty}</Text>
+            ) : (
+              products.map((product) => {
+                const disableSell = product.stock_quantity <= 0;
+                return (
+                  <View key={product.id} style={styles.serviceRow}>
+                    <View style={{ flex: 1, gap: 4 }}>
+                      <Text style={{ color: colors.text, fontWeight: "800" }}>{product.name}</Text>
+                      <Text style={{ color: colors.subtext, fontSize: 12 }}>
+                        {productsCopy.productMeta(formatPrice(product.price_cents), product.stock_quantity)}
+                      </Text>
+                      {product.sku ? (
+                        <Text style={{ color: colors.subtext, fontSize: 12 }}>{`SKU: ${product.sku}`}</Text>
+                      ) : null}
+                      {product.description ? (
+                        <Text style={{ color: colors.subtext, fontSize: 12 }}>
+                          {`${productsCopy.descriptionLabel}: ${product.description}`}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <View style={[styles.serviceActions, { justifyContent: "flex-end" }]}>
+                      <Pressable
+                        onPress={() => handleOpenSellProduct(product)}
+                        disabled={disableSell}
+                        style={[
+                          styles.smallBtn,
+                          {
+                            borderColor: disableSell ? colors.border : colors.accent,
+                            backgroundColor: disableSell ? colors.surface : "rgba(37,99,235,0.12)",
+                          },
+                          disableSell && styles.smallBtnDisabled,
+                        ]}
+                        accessibilityRole="button"
+                        accessibilityLabel={productsCopy.actions.sell.accessibility(product.name)}
+                      >
+                        <Text
+                          style={{
+                            color: disableSell ? colors.subtext : colors.accent,
+                            fontWeight: "800",
+                          }}
+                        >
+                          {productsCopy.actions.sell.label}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => handleOpenRestockProduct(product)}
+                        style={[
+                          styles.smallBtn,
+                          {
+                            borderColor: colors.accent,
+                            backgroundColor: "rgba(37,99,235,0.12)",
+                          },
+                        ]}
+                        accessibilityRole="button"
+                        accessibilityLabel={productsCopy.actions.restock.accessibility(product.name)}
+                      >
+                        <Text style={{ color: colors.accent, fontWeight: "800" }}>
+                          {productsCopy.actions.restock.label}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => handleOpenEditProduct(product)}
+                        style={[styles.smallBtn, { borderColor: colors.border }]}
+                        accessibilityRole="button"
+                        accessibilityLabel={productsCopy.actions.edit.accessibility(product.name)}
+                      >
+                        <Text style={{ color: colors.subtext, fontWeight: "800" }}>
+                          {productsCopy.actions.edit.label}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => handleDeleteProduct(product)}
+                        style={[
+                          styles.smallBtn,
+                          {
+                            borderColor: colors.danger,
+                            backgroundColor: "rgba(239,68,68,0.1)",
+                          },
+                        ]}
+                        accessibilityRole="button"
+                        accessibilityLabel={productsCopy.actions.delete.accessibility(product.name)}
+                      >
+                        <Text style={{ color: colors.danger, fontWeight: "800" }}>
+                          {productsCopy.actions.delete.label}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </View>
+        </ScrollView>
+
+        <Modal
+          visible={!!stockModalProduct}
+          transparent
+          animationType="fade"
+          onRequestClose={handleCloseStockModal}
+        >
+          <View style={styles.stockModalBackdrop}>
+            <View
+              style={[
+                styles.stockModalCard,
+                { borderColor: colors.border, backgroundColor: colors.sidebarBg },
+              ]}
+            >
+              <Text style={[styles.stockModalTitle, { color: colors.text }]}>
+                {stockModalProduct
+                  ? stockModalMode === "sell"
+                    ? productsCopy.stockModal.sellTitle(stockModalProduct.name)
+                    : productsCopy.stockModal.restockTitle(stockModalProduct.name)
+                  : ""}
+              </Text>
+              <Text style={[styles.stockModalSubtitle, { color: colors.subtext }]}>
+                {stockModalProduct
+                  ? stockModalMode === "sell"
+                    ? productsCopy.stockModal.sellSubtitle(stockModalProduct.stock_quantity)
+                    : productsCopy.stockModal.restockSubtitle
+                  : ""}
+              </Text>
+              <Text style={[styles.stockModalLabel, { color: colors.subtext }]}>
+                {productsCopy.stockModal.quantityLabel}
+              </Text>
+              <TextInput
+                value={stockQuantityText}
+                onChangeText={handleStockQuantityChange}
+                keyboardType="number-pad"
+                placeholder={productsCopy.stockModal.quantityPlaceholder}
+                placeholderTextColor="#94a3b8"
+                style={[styles.stockQuantityInput, { borderColor: colors.border, color: colors.text }]}
+              />
+              <View style={styles.stockModalActions}>
+                <Pressable
+                  onPress={handleCloseStockModal}
+                  style={[styles.smallBtn, { borderColor: colors.border }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={productsCopy.stockModal.cancel}
+                >
+                  <Text style={{ color: colors.subtext, fontWeight: "800" }}>
+                    {productsCopy.stockModal.cancel}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleConfirmStockModal}
+                  disabled={stockSaving}
+                  style={[
+                    styles.smallBtn,
+                    {
+                      borderColor: colors.accent,
+                      backgroundColor: stockSaving
+                        ? "rgba(255,255,255,0.08)"
+                        : "rgba(37,99,235,0.12)",
+                    },
+                    stockSaving && styles.smallBtnDisabled,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    stockModalMode === "sell"
+                      ? productsCopy.stockModal.confirmSell
+                      : productsCopy.stockModal.confirmRestock
+                  }
+                >
+                  <Text style={{ color: colors.accent, fontWeight: "800" }}>
+                    {stockSaving
+                      ? productFormCopy.buttons.saving
+                      : stockModalMode === "sell"
+                        ? productsCopy.stockModal.confirmSell
+                        : productsCopy.stockModal.confirmRestock}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </>
     ) : activeScreen === "services" ? (
       <ScrollView
         style={{ flex: 1 }}
@@ -3797,6 +4310,31 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.surface,
   },
   smallBtnDisabled: { opacity: 0.5 },
+  stockModalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    justifyContent: "center",
+    padding: 20,
+  },
+  stockModalCard: {
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: 20,
+    gap: 12,
+  },
+  stockModalTitle: { fontSize: 18, fontWeight: "800" },
+  stockModalSubtitle: { fontSize: 13, fontWeight: "600" },
+  stockModalLabel: { fontSize: 12, fontWeight: "700" },
+  stockQuantityInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    fontWeight: "700",
+    backgroundColor: "rgba(15,23,42,0.35)",
+  },
+  stockModalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10 },
   fullWidthButton: { alignSelf: "stretch", justifyContent: "center", alignItems: "center" },
   whatsappBtn: { flexDirection: "row", alignItems: "center", gap: 6 },
   serviceRow: {
@@ -3816,6 +4354,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+    flexWrap: "wrap",
   },
   statsGrid: {
     flexDirection: "row",
