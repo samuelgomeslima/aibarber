@@ -66,6 +66,16 @@ const useMemoryStore = !hasSupabaseCredentials;
 const clone = (product: Product): Product => ({ ...product });
 const generateId = () => `prod_${Math.random().toString(36).slice(2, 10)}_${Date.now()}`;
 
+let memoryProductSalesTotals: Record<string, number> = memoryProducts.reduce(
+  (acc, product) => {
+    acc[product.id] = 0;
+    return acc;
+  },
+  {} as Record<string, number>,
+);
+
+const cloneSalesTotals = (totals: Record<string, number>) => ({ ...totals });
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -134,6 +144,10 @@ async function createProductInMemory(input: NormalizedProductInput): Promise<Pro
     updated_at: now,
   };
   memoryProducts = [...memoryProducts, product];
+  memoryProductSalesTotals = {
+    ...memoryProductSalesTotals,
+    [product.id]: memoryProductSalesTotals[product.id] ?? 0,
+  };
   return clone(product);
 }
 
@@ -162,6 +176,8 @@ async function updateProductInMemory(id: string, input: NormalizedProductInput):
 
 async function deleteProductFromMemory(id: string): Promise<void> {
   memoryProducts = memoryProducts.filter((product) => product.id !== id);
+  const { [id]: _ignored, ...rest } = memoryProductSalesTotals;
+  memoryProductSalesTotals = rest;
 }
 
 function ensureQuantity(quantity: number) {
@@ -196,7 +212,44 @@ async function adjustStockInMemory(id: string, delta: number): Promise<Product> 
     ...memoryProducts.slice(index + 1),
   ];
 
+  if (delta < 0) {
+    memoryProductSalesTotals = {
+      ...memoryProductSalesTotals,
+      [id]: (memoryProductSalesTotals[id] ?? 0) + Math.abs(delta),
+    };
+  }
+
   return clone(updated);
+}
+
+async function listProductSalesTotalsFromMemory(): Promise<Record<string, number>> {
+  return cloneSalesTotals(memoryProductSalesTotals);
+}
+
+type SupabaseProductMovementRow = {
+  product_id: string;
+  quantity: number;
+};
+
+async function listProductSalesTotalsFromSupabase(): Promise<Record<string, number>> {
+  const { data, error } = await supabase
+    .from("product_stock_movements")
+    .select("product_id,quantity")
+    .eq("movement_type", "sell");
+
+  if (error) {
+    throw new Error(error.message ?? "Failed to load product sales totals");
+  }
+
+  const totals: Record<string, number> = {};
+  for (const row of data ?? []) {
+    const movement = row as SupabaseProductMovementRow;
+    const quantity = Number(movement.quantity);
+    if (!movement.product_id || !Number.isFinite(quantity)) continue;
+    totals[movement.product_id] = (totals[movement.product_id] ?? 0) + Math.max(0, Math.round(quantity));
+  }
+
+  return totals;
 }
 
 async function listProductsFromSupabase(): Promise<Product[]> {
@@ -320,4 +373,11 @@ export async function restockProduct(id: string, quantity: number): Promise<Prod
     return adjustStockInMemory(id, qty);
   }
   return recordStockMovementInSupabase(id, qty, "restock");
+}
+
+export async function listProductSalesTotals(): Promise<Record<string, number>> {
+  if (useMemoryStore) {
+    return listProductSalesTotalsFromMemory();
+  }
+  return listProductSalesTotalsFromSupabase();
 }
