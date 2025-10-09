@@ -1221,12 +1221,6 @@ export default function App() {
     setProducts((prev) => sortProducts(prev));
   }, [sortProducts]);
 
-  useEffect(() => {
-    if (activeScreen === "settings") {
-      void loadTeamMembers();
-    }
-  }, [activeScreen, loadTeamMembers]);
-
   const loadTeamMembers = useCallback(async () => {
     setTeamLoading(true);
     try {
@@ -1240,6 +1234,12 @@ export default function App() {
       setTeamLoading(false);
     }
   }, [sortTeamMembers, teamCopy.alerts.loadTitle, listStaffMembers]);
+
+  useEffect(() => {
+    if (activeScreen === "settings") {
+      void loadTeamMembers();
+    }
+  }, [activeScreen, loadTeamMembers]);
 
   const handleServiceFormClose = useCallback(() => {
     setServiceFormVisible(false);
