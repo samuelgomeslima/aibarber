@@ -186,7 +186,7 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
       fields: {
         firstName: {
           label: "First name",
-          placeholder: "e.g., Ana",
+          placeholder: "e.g., Therese",
           required: "Required",
         },
         lastName: {
@@ -201,7 +201,7 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
         },
         email: {
           label: "Email",
-          placeholder: "ana@email.com",
+          placeholder: "therese@email.com",
           invalid: "Enter a valid email",
         },
         role: {
@@ -432,7 +432,7 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
       fields: {
         firstName: {
           label: "Nome",
-          placeholder: "ex.: Ana",
+          placeholder: "ex.: Terezinha",
           required: "Obrigatório",
         },
         lastName: {
@@ -447,7 +447,7 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
         },
         email: {
           label: "E-mail",
-          placeholder: "ana@email.com",
+          placeholder: "terezinha@email.com",
           invalid: "Informe um e-mail válido",
         },
         role: {
