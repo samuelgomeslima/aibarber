@@ -295,6 +295,7 @@ function WebDatePicker({
           color: colors.text,
           outline: "none",
           fontWeight: 700,
+          fontSize: 16,
         }}
       />
     </View>
