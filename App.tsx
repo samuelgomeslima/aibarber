@@ -273,6 +273,7 @@ const LANGUAGE_COPY = {
       products: "Products",
       assistant: "Assistant",
       imageAssistant: "Image lab",
+      team: "Team members",
       settings: "Settings",
     },
     settingsPage: {
@@ -285,50 +286,50 @@ const LANGUAGE_COPY = {
         light: "Light",
         dark: "Dark",
       },
-      team: {
-        title: "Team members",
-        subtitle: "Register administrators, managers, and professionals who can access the workspace.",
-        refresh: "Refresh list",
-        listTitle: "Current team",
-        empty: "No team members registered yet.",
-        alerts: {
-          loadTitle: "Team members",
+    },
+    teamPage: {
+      title: "Team members",
+      subtitle: "Register administrators, managers, and professionals who can access the workspace.",
+      refresh: "Refresh list",
+      listTitle: "Current team",
+      empty: "No team members registered yet.",
+      alerts: {
+        loadTitle: "Team members",
+      },
+      roles: [
+        {
+          value: "administrator",
+          label: "Administrator",
+          description: "Full access to schedules, inventory, and settings.",
         },
-        roles: [
-          {
-            value: "administrator",
-            label: "Administrator",
-            description: "Full access to schedules, inventory, and settings.",
-          },
-          {
-            value: "manager",
-            label: "Manager",
-            description: "Manages appointments, services, and daily operations.",
-          },
-          {
-            value: "professional",
-            label: "Professional",
-            description: "Sees their agenda and updates booking status.",
-          },
-          {
-            value: "assistant",
-            label: "Assistant",
-            description: "Helps with bookings and customer records.",
-          },
-        ],
-        userForm: {
-          ...COMPONENT_COPY.en.userForm,
-          title: "Register team member",
-          buttons: {
-            ...COMPONENT_COPY.en.userForm.buttons,
-            submit: "Save team member",
-            submitAccessibility: "Save team member",
-          },
-          alerts: {
-            ...COMPONENT_COPY.en.userForm.alerts,
-            savedTitle: "Team member saved",
-            failedFallback: "Unable to save the team member.",
-          },
+        {
+          value: "manager",
+          label: "Manager",
+          description: "Manages appointments, services, and daily operations.",
+        },
+        {
+          value: "professional",
+          label: "Professional",
+          description: "Sees their agenda and updates booking status.",
+        },
+        {
+          value: "assistant",
+          label: "Assistant",
+          description: "Helps with bookings and customer records.",
+        },
+      ],
+      userForm: {
+        ...COMPONENT_COPY.en.userForm,
+        title: "Register team member",
+        buttons: {
+          ...COMPONENT_COPY.en.userForm.buttons,
+          submit: "Save team member",
+          submitAccessibility: "Save team member",
+        },
+        alerts: {
+          ...COMPONENT_COPY.en.userForm.alerts,
+          savedTitle: "Team member saved",
+          failedFallback: "Unable to save the team member.",
         },
       },
     },
@@ -638,6 +639,7 @@ const LANGUAGE_COPY = {
       products: "Produtos",
       assistant: "Assistente",
       imageAssistant: "Laboratório de imagens",
+      team: "Equipe",
       settings: "Configurações",
     },
     settingsPage: {
@@ -650,50 +652,50 @@ const LANGUAGE_COPY = {
         light: "Claro",
         dark: "Escuro",
       },
-      team: {
-        title: "Equipe",
-        subtitle: "Cadastre administradores, gerentes e profissionais com acesso ao sistema.",
-        refresh: "Atualizar lista",
-        listTitle: "Equipe atual",
-        empty: "Nenhum membro cadastrado ainda.",
-        alerts: {
-          loadTitle: "Equipe",
+    },
+    teamPage: {
+      title: "Equipe",
+      subtitle: "Cadastre administradores, gerentes e profissionais com acesso ao sistema.",
+      refresh: "Atualizar lista",
+      listTitle: "Equipe atual",
+      empty: "Nenhum membro cadastrado ainda.",
+      alerts: {
+        loadTitle: "Equipe",
+      },
+      roles: [
+        {
+          value: "administrator",
+          label: "Administrador",
+          description: "Acesso total à agenda, estoque e configurações.",
         },
-        roles: [
-          {
-            value: "administrator",
-            label: "Administrador",
-            description: "Acesso total à agenda, estoque e configurações.",
-          },
-          {
-            value: "manager",
-            label: "Gerente",
-            description: "Gerencia agendamentos, serviços e operações diárias.",
-          },
-          {
-            value: "professional",
-            label: "Profissional",
-            description: "Visualiza sua agenda e atualiza o status dos atendimentos.",
-          },
-          {
-            value: "assistant",
-            label: "Assistente",
-            description: "Auxilia nos agendamentos e cadastros de clientes.",
-          },
-        ],
-        userForm: {
-          ...COMPONENT_COPY.pt.userForm,
-          title: "Cadastrar membro da equipe",
-          buttons: {
-            ...COMPONENT_COPY.pt.userForm.buttons,
-            submit: "Salvar membro",
-            submitAccessibility: "Salvar membro da equipe",
-          },
-          alerts: {
-            ...COMPONENT_COPY.pt.userForm.alerts,
-            savedTitle: "Membro salvo",
-            failedFallback: "Não foi possível salvar o membro da equipe.",
-          },
+        {
+          value: "manager",
+          label: "Gerente",
+          description: "Gerencia agendamentos, serviços e operações diárias.",
+        },
+        {
+          value: "professional",
+          label: "Profissional",
+          description: "Visualiza sua agenda e atualiza o status dos atendimentos.",
+        },
+        {
+          value: "assistant",
+          label: "Assistente",
+          description: "Auxilia nos agendamentos e cadastros de clientes.",
+        },
+      ],
+      userForm: {
+        ...COMPONENT_COPY.pt.userForm,
+        title: "Cadastrar membro da equipe",
+        buttons: {
+          ...COMPONENT_COPY.pt.userForm.buttons,
+          submit: "Salvar membro",
+          submitAccessibility: "Salvar membro da equipe",
+        },
+        alerts: {
+          ...COMPONENT_COPY.pt.userForm.alerts,
+          savedTitle: "Membro salvo",
+          failedFallback: "Não foi possível salvar o membro da equipe.",
         },
       },
     },
@@ -1095,6 +1097,7 @@ export default function App() {
     | "products"
     | "assistant"
     | "imageAssistant"
+    | "team"
     | "settings"
   >("home");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -1107,7 +1110,7 @@ export default function App() {
   const imageAssistantCopy = copy.imageAssistant;
   const productsCopy = copy.productsPage;
   const productFormCopy = copy.productForm;
-  const teamCopy = copy.settingsPage.team;
+  const teamCopy = copy.teamPage;
   const teamRoleLabelMap = useMemo(() => {
     const entries = teamCopy.roles.map((role) => [role.value, role.label]);
     return Object.fromEntries(entries) as Record<string, string>;
@@ -1255,7 +1258,7 @@ export default function App() {
   }, [sortTeamMembers, teamCopy.alerts.loadTitle, listStaffMembers]);
 
   useEffect(() => {
-    if (activeScreen === "settings") {
+    if (activeScreen === "team") {
       void loadTeamMembers();
     }
   }, [activeScreen, loadTeamMembers]);
@@ -2183,6 +2186,7 @@ export default function App() {
         | "products"
         | "assistant"
         | "imageAssistant"
+        | "team"
         | "settings",
     ) => {
       setActiveScreen(screen);
@@ -2371,6 +2375,21 @@ export default function App() {
               style={[styles.sidebarItemText, activeScreen === "imageAssistant" && styles.sidebarItemTextActive]}
             >
               {copy.navigation.imageAssistant}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => handleNavigate("team")}
+            style={[styles.sidebarItem, activeScreen === "team" && styles.sidebarItemActive]}
+            accessibilityRole="button"
+            accessibilityLabel="Manage team members"
+          >
+            <Ionicons
+              name="people-outline"
+              size={20}
+              color={activeScreen === "team" ? colors.accentFgOn : colors.subtext}
+            />
+            <Text style={[styles.sidebarItemText, activeScreen === "team" && styles.sidebarItemTextActive]}>
+              {copy.navigation.team}
             </Text>
           </Pressable>
           <Pressable
@@ -3532,89 +3551,17 @@ export default function App() {
         }}
         copy={imageAssistantCopy}
       />
-    ) : activeScreen === "settings" ? (
+    ) : activeScreen === "team" ? (
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}>
         <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <Ionicons name="settings-outline" size={22} color={colors.accent} />
-            <Text style={[styles.title, { color: colors.text }]}>{copy.settingsPage.title}</Text>
-          </View>
-          <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
-            {copy.settingsPage.subtitle}
-          </Text>
-        </View>
-
-        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 16 }]}>
-          <Text style={[styles.languageLabel, { color: colors.subtext }]}>{copy.languageLabel}</Text>
-          <View style={styles.languageOptions}>
-            {LANGUAGE_OPTIONS.map((option) => {
-              const isActive = option.code === language;
-              return (
-                <Pressable
-                  key={option.code}
-                  onPress={() => setLanguage(option.code)}
-                  style={[
-                    styles.languageOption,
-                    { borderColor: colors.border, backgroundColor: colors.surface },
-                    isActive && { backgroundColor: colors.accent, borderColor: colors.accent },
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${copy.switchLanguage} ${option.label}`}
-                >
-                  <Text
-                    style={[
-                      styles.languageOptionText,
-                      { color: isActive ? colors.accentFgOn : colors.subtext },
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
-          <Text style={[styles.languageLabel, { color: colors.subtext }]}>{copy.settingsPage.themeLabel}</Text>
-          <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
-            {copy.settingsPage.themeDescription}
-          </Text>
-          <View style={styles.languageOptions}>
-            {THEME_OPTIONS.map((option) => {
-              const isActive = option.value === themePreference;
-              return (
-                <Pressable
-                  key={option.value}
-                  onPress={() => setThemePreference(option.value)}
-                  style={[
-                    styles.languageOption,
-                    { borderColor: colors.border, backgroundColor: colors.surface },
-                    isActive && { backgroundColor: colors.accent, borderColor: colors.accent },
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${copy.settingsPage.themeLabel}: ${copy.settingsPage.themeOptions[option.value]}`}
-                >
-                  <Text
-                    style={[
-                      styles.languageOptionText,
-                      { color: isActive ? colors.accentFgOn : colors.subtext },
-                    ]}
-                  >
-                    {copy.settingsPage.themeOptions[option.value]}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 16 }]}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <Ionicons name="people-outline" size={22} color={colors.accent} />
             <Text style={[styles.title, { color: colors.text }]}>{teamCopy.title}</Text>
           </View>
           <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>{teamCopy.subtitle}</Text>
+        </View>
+
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 16 }]}>
           <Pressable
             onPress={() => void loadTeamMembers()}
             style={[styles.smallBtn, { alignSelf: "flex-start", borderColor: colors.border }]}
@@ -3703,6 +3650,84 @@ export default function App() {
             }}
           />
         </View>
+      </ScrollView>
+    ) : activeScreen === "settings" ? (
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}>
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <Ionicons name="settings-outline" size={22} color={colors.accent} />
+            <Text style={[styles.title, { color: colors.text }]}>{copy.settingsPage.title}</Text>
+          </View>
+          <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
+            {copy.settingsPage.subtitle}
+          </Text>
+        </View>
+
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 16 }]}>
+          <Text style={[styles.languageLabel, { color: colors.subtext }]}>{copy.languageLabel}</Text>
+          <View style={styles.languageOptions}>
+            {LANGUAGE_OPTIONS.map((option) => {
+              const isActive = option.code === language;
+              return (
+                <Pressable
+                  key={option.code}
+                  onPress={() => setLanguage(option.code)}
+                  style={[
+                    styles.languageOption,
+                    { borderColor: colors.border, backgroundColor: colors.surface },
+                    isActive && { backgroundColor: colors.accent, borderColor: colors.accent },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${copy.switchLanguage} ${option.label}`}
+                >
+                  <Text
+                    style={[
+                      styles.languageOptionText,
+                      { color: isActive ? colors.accentFgOn : colors.subtext },
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
+          <Text style={[styles.languageLabel, { color: colors.subtext }]}>{copy.settingsPage.themeLabel}</Text>
+          <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
+            {copy.settingsPage.themeDescription}
+          </Text>
+          <View style={styles.languageOptions}>
+            {THEME_OPTIONS.map((option) => {
+              const isActive = option.value === themePreference;
+              return (
+                <Pressable
+                  key={option.value}
+                  onPress={() => setThemePreference(option.value)}
+                  style={[
+                    styles.languageOption,
+                    { borderColor: colors.border, backgroundColor: colors.surface },
+                    isActive && { backgroundColor: colors.accent, borderColor: colors.accent },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${copy.settingsPage.themeLabel}: ${copy.settingsPage.themeOptions[option.value]}`}
+                >
+                  <Text
+                    style={[
+                      styles.languageOptionText,
+                      { color: isActive ? colors.accentFgOn : colors.subtext },
+                    ]}
+                  >
+                    {copy.settingsPage.themeOptions[option.value]}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
       </ScrollView>
     ) : (
       <ScrollView
