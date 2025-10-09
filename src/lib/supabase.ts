@@ -27,4 +27,23 @@ const defaultConfig: SupabaseClientConfig = {
   anonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? "",
 };
 
-export const supabase = createSupabaseClient(defaultConfig);
+export const hasSupabaseCredentials = Boolean(defaultConfig.url && defaultConfig.anonKey);
+
+export function isSupabaseConfigured() {
+  return hasSupabaseCredentials;
+}
+
+function createUnconfiguredClient(): SupabaseClient {
+  const message = "Supabase client is not configured";
+  const handler = () => {
+    throw new Error(message);
+  };
+  return {
+    from: handler as SupabaseClient["from"],
+    rpc: handler as SupabaseClient["rpc"],
+  } as SupabaseClient;
+}
+
+export const supabase = hasSupabaseCredentials
+  ? createSupabaseClient(defaultConfig)
+  : createUnconfiguredClient();

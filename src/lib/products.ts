@@ -1,4 +1,7 @@
+import type { PostgrestSingleResponse } from "@supabase/supabase-js";
+
 import type { Product } from "./domain";
+import { hasSupabaseCredentials, supabase } from "./supabase";
 
 export type ProductInput = {
   name: string;
@@ -8,6 +11,32 @@ export type ProductInput = {
   description?: string | null;
   cost_cents?: number | null;
 };
+
+type NormalizedProductInput = {
+  name: string;
+  price_cents: number;
+  stock_quantity: number;
+  sku: string | null;
+  description: string | null;
+  cost_cents: number | null;
+};
+
+type SupabaseProductRow = {
+  id: string;
+  name: string;
+  price_cents: number;
+  stock_quantity: number;
+  sku: string | null;
+  description: string | null;
+  cost_cents: number | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+type MovementType = "sell" | "restock";
+
+const PRODUCT_COLUMNS =
+  "id,name,price_cents,stock_quantity,sku,description,cost_cents,created_at,updated_at";
 
 let memoryProducts: Product[] = [
   {
@@ -32,15 +61,22 @@ let memoryProducts: Product[] = [
   },
 ];
 
-const clone = (product: Product): Product => ({ ...product });
+const useMemoryStore = !hasSupabaseCredentials;
 
+const clone = (product: Product): Product => ({ ...product });
 const generateId = () => `prod_${Math.random().toString(36).slice(2, 10)}_${Date.now()}`;
 
-export async function listProducts(): Promise<Product[]> {
-  return memoryProducts.map(clone);
+function nowIso() {
+  return new Date().toISOString();
 }
 
-export async function createProduct(payload: ProductInput): Promise<Product> {
+function ensureProductId(id: string) {
+  if (!id) {
+    throw new Error("Product ID is required");
+  }
+}
+
+function normalizeProductInput(payload: ProductInput): NormalizedProductInput {
   const name = payload.name?.trim();
   const price = Number(payload.price_cents);
   const stock = Number(payload.stock_quantity);
@@ -55,62 +91,63 @@ export async function createProduct(payload: ProductInput): Promise<Product> {
     throw new Error("Stock must be 0 or more");
   }
 
-  const now = new Date().toISOString();
-  const product: Product = {
-    id: generateId(),
+  let cost_cents: number | null = null;
+  if (payload.cost_cents !== undefined && payload.cost_cents !== null) {
+    const cost = Number(payload.cost_cents);
+    cost_cents = Number.isFinite(cost) ? Math.round(cost) : null;
+  }
+
+  return {
     name,
     price_cents: Math.round(price),
     stock_quantity: Math.round(stock),
     sku: payload.sku?.trim() || null,
     description: payload.description?.trim() || null,
-    cost_cents: Number.isFinite(payload.cost_cents ?? NaN)
-      ? Math.round(Number(payload.cost_cents))
-      : null,
+    cost_cents,
+  };
+}
+
+function mapProduct(row: SupabaseProductRow): Product {
+  return {
+    id: row.id,
+    name: row.name,
+    price_cents: row.price_cents,
+    stock_quantity: row.stock_quantity,
+    sku: row.sku,
+    description: row.description,
+    cost_cents: row.cost_cents ?? null,
+    created_at: row.created_at ?? undefined,
+    updated_at: row.updated_at ?? undefined,
+  };
+}
+
+async function listProductsFromMemory(): Promise<Product[]> {
+  return memoryProducts.map(clone);
+}
+
+async function createProductInMemory(input: NormalizedProductInput): Promise<Product> {
+  const now = nowIso();
+  const product: Product = {
+    id: generateId(),
+    ...input,
     created_at: now,
     updated_at: now,
   };
-
   memoryProducts = [...memoryProducts, product];
   return clone(product);
 }
 
-export async function updateProduct(
-  id: string,
-  payload: ProductInput,
-): Promise<Product> {
-  if (!id) throw new Error("Product ID is required");
-
+async function updateProductInMemory(id: string, input: NormalizedProductInput): Promise<Product> {
   const index = memoryProducts.findIndex((item) => item.id === id);
   if (index === -1) {
     throw new Error("Product not found");
   }
 
-  const name = payload.name?.trim();
-  const price = Number(payload.price_cents);
-  const stock = Number(payload.stock_quantity);
-
-  if (!name) {
-    throw new Error("Name is required");
-  }
-  if (!Number.isFinite(price) || price < 0) {
-    throw new Error("Price must be 0 or more");
-  }
-  if (!Number.isFinite(stock) || stock < 0) {
-    throw new Error("Stock must be 0 or more");
-  }
-
-  const now = new Date().toISOString();
+  const now = nowIso();
   const current = memoryProducts[index];
   const updated: Product = {
     ...current,
-    name,
-    price_cents: Math.round(price),
-    stock_quantity: Math.round(stock),
-    sku: payload.sku?.trim() || null,
-    description: payload.description?.trim() || null,
-    cost_cents: Number.isFinite(payload.cost_cents ?? NaN)
-      ? Math.round(Number(payload.cost_cents))
-      : null,
+    ...input,
     updated_at: now,
   };
 
@@ -123,8 +160,7 @@ export async function updateProduct(
   return clone(updated);
 }
 
-export async function deleteProduct(id: string): Promise<void> {
-  if (!id) throw new Error("Product ID is required");
+async function deleteProductFromMemory(id: string): Promise<void> {
   memoryProducts = memoryProducts.filter((product) => product.id !== id);
 }
 
@@ -135,7 +171,7 @@ function ensureQuantity(quantity: number) {
   return Math.round(quantity);
 }
 
-async function adjustStock(id: string, delta: number): Promise<Product> {
+async function adjustStockInMemory(id: string, delta: number): Promise<Product> {
   const index = memoryProducts.findIndex((item) => item.id === id);
   if (index === -1) {
     throw new Error("Product not found");
@@ -147,7 +183,7 @@ async function adjustStock(id: string, delta: number): Promise<Product> {
     throw new Error("Insufficient stock");
   }
 
-  const now = new Date().toISOString();
+  const now = nowIso();
   const updated: Product = {
     ...current,
     stock_quantity: nextStock,
@@ -163,12 +199,125 @@ async function adjustStock(id: string, delta: number): Promise<Product> {
   return clone(updated);
 }
 
+async function listProductsFromSupabase(): Promise<Product[]> {
+  const { data, error } = await supabase.from("products").select(PRODUCT_COLUMNS);
+  if (error) {
+    throw new Error(error.message ?? "Failed to load products");
+  }
+  return (data ?? []).map((row) => mapProduct(row as SupabaseProductRow));
+}
+
+async function createProductInSupabase(input: NormalizedProductInput): Promise<Product> {
+  const { data, error } = (await supabase
+    .from("products")
+    .insert(input)
+    .select(PRODUCT_COLUMNS)
+    .single()) as PostgrestSingleResponse<SupabaseProductRow>;
+
+  if (error) {
+    throw new Error(error.message ?? "Failed to create product");
+  }
+  if (!data) {
+    throw new Error("Product could not be created");
+  }
+
+  return mapProduct(data);
+}
+
+async function updateProductInSupabase(id: string, input: NormalizedProductInput): Promise<Product> {
+  const { data, error } = (await supabase
+    .from("products")
+    .update(input)
+    .eq("id", id)
+    .select(PRODUCT_COLUMNS)
+    .single()) as PostgrestSingleResponse<SupabaseProductRow>;
+
+  if (error) {
+    throw new Error(error.message ?? "Failed to update product");
+  }
+  if (!data) {
+    throw new Error("Product not found");
+  }
+
+  return mapProduct(data);
+}
+
+async function deleteProductFromSupabase(id: string): Promise<void> {
+  const { error } = await supabase.from("products").delete().eq("id", id);
+  if (error) {
+    throw new Error(error.message ?? "Failed to delete product");
+  }
+}
+
+async function recordStockMovementInSupabase(
+  id: string,
+  quantity: number,
+  movement: MovementType,
+): Promise<Product> {
+  const { data, error } = (await supabase.rpc("record_product_movement", {
+    p_product_id: id,
+    p_quantity: quantity,
+    p_movement_type: movement,
+  })) as PostgrestSingleResponse<SupabaseProductRow>;
+
+  if (error) {
+    const action = movement === "sell" ? "sell" : "restock";
+    throw new Error(error.message ?? `Failed to ${action} product`);
+  }
+  if (!data) {
+    throw new Error("No product returned from stock movement");
+  }
+
+  return mapProduct(data);
+}
+
+export async function listProducts(): Promise<Product[]> {
+  if (useMemoryStore) {
+    return listProductsFromMemory();
+  }
+  return listProductsFromSupabase();
+}
+
+export async function createProduct(payload: ProductInput): Promise<Product> {
+  const input = normalizeProductInput(payload);
+  if (useMemoryStore) {
+    return createProductInMemory(input);
+  }
+  return createProductInSupabase(input);
+}
+
+export async function updateProduct(id: string, payload: ProductInput): Promise<Product> {
+  ensureProductId(id);
+  const input = normalizeProductInput(payload);
+  if (useMemoryStore) {
+    return updateProductInMemory(id, input);
+  }
+  return updateProductInSupabase(id, input);
+}
+
+export async function deleteProduct(id: string): Promise<void> {
+  ensureProductId(id);
+  if (useMemoryStore) {
+    await deleteProductFromMemory(id);
+    return;
+  }
+  await deleteProductFromSupabase(id);
+}
+
 export async function sellProduct(id: string, quantity: number): Promise<Product> {
+  ensureProductId(id);
   const qty = ensureQuantity(quantity);
-  return adjustStock(id, -qty);
+  if (useMemoryStore) {
+    return adjustStockInMemory(id, -qty);
+  }
+  return recordStockMovementInSupabase(id, qty, "sell");
 }
 
 export async function restockProduct(id: string, quantity: number): Promise<Product> {
+  ensureProductId(id);
   const qty = ensureQuantity(quantity);
-  return adjustStock(id, qty);
+  if (useMemoryStore) {
+    return adjustStockInMemory(id, qty);
+  }
+  return recordStockMovementInSupabase(id, qty, "restock");
 }
