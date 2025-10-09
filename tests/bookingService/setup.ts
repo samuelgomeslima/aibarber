@@ -1,12 +1,15 @@
-import { beforeEach, vi } from "vitest";
+import { beforeAll, beforeEach } from "vitest";
 import { supabaseMock } from "./testUtils/supabaseMock";
-import { resetBookingGateway } from "../../src/lib/gateways/bookingGateway";
+import {
+  createSupabaseBookingGateway,
+  setBookingGateway,
+} from "../../src/lib/gateways/bookingGateway";
 
-vi.mock("../../src/lib/supabase", () => ({
-  supabase: supabaseMock.client,
-}));
+beforeAll(() => {
+  setBookingGateway(createSupabaseBookingGateway(supabaseMock.client));
+});
 
 beforeEach(() => {
   supabaseMock.reset();
-  resetBookingGateway();
+  setBookingGateway(createSupabaseBookingGateway(supabaseMock.client));
 });

@@ -54,9 +54,12 @@ export function createSupabaseMock() {
     return handler;
   });
 
+  const rpc = vi.fn(async () => ({ data: null, error: null, status: 200 }));
+
   return {
-    client: { from },
+    client: { from, rpc },
     from,
+    rpc,
     useTable<T>(table: string, response: SupabaseResponse<T> = { data: null, error: null, status: 200 }) {
       const builder = new MockQueryBuilder<T>(response);
       tables.set(table, builder);
@@ -67,7 +70,8 @@ export function createSupabaseMock() {
     },
     reset() {
       tables.clear();
-      from.mockReset();
+      from.mockClear();
+      rpc.mockClear();
     },
   };
 }
