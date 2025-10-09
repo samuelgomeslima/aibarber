@@ -4,6 +4,7 @@ import type {
   OccurrencePreviewCopy,
   RecurrenceModalCopy,
   ServiceFormCopy,
+  ProductFormCopy,
   UserFormCopy,
 } from "./types";
 
@@ -13,6 +14,7 @@ type ComponentCopy = {
   assistantChat: AssistantChatCopy;
   imageAssistant: ImageAssistantCopy;
   serviceForm: ServiceFormCopy;
+  productForm: ProductFormCopy;
   userForm: UserFormCopy;
   recurrenceModal: RecurrenceModalCopy;
   occurrencePreview: OccurrencePreviewCopy;
@@ -134,6 +136,49 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
         updatedMessage: (name: string, minutes: number) => `${name} (${minutes} min)`,
         createErrorTitle: "Create service failed",
         updateErrorTitle: "Update service failed",
+      },
+    },
+    productForm: {
+      createTitle: "Register a product",
+      editTitle: "Edit product",
+      createSubtitle: "Track retail items, pricing and stock from a single place.",
+      editSubtitle: "Update the price, stock level or description for this product.",
+      fields: {
+        nameLabel: "Name",
+        namePlaceholder: "Shampoo",
+        nameError: "Name is required",
+        priceLabel: "Price",
+        pricePlaceholder: "49.90",
+        priceError: "Enter a valid price",
+        costLabel: "Cost",
+        costPlaceholder: "18.50",
+        costError: "Enter a valid cost",
+        stockLabel: "Stock",
+        stockPlaceholder: "12",
+        stockError: "Enter a stock quantity",
+        skuLabel: "SKU",
+        skuPlaceholder: "SKU-001",
+        descriptionLabel: "Description",
+        descriptionPlaceholder: "Notes about the product, scent or usage.",
+      },
+      buttons: {
+        create: "Save product",
+        edit: "Save changes",
+        saving: "Saving…",
+        cancel: "Cancel",
+      },
+      accessibility: {
+        submitCreate: "Save product",
+        submitEdit: "Save product changes",
+        cancel: "Cancel product form",
+      },
+      alerts: {
+        createdTitle: "Product saved",
+        createdMessage: (name: string, stock: number) => `${name} (${stock} in stock)`,
+        updatedTitle: "Product updated",
+        updatedMessage: (name: string, stock: number) => `${name} (${stock} in stock)`,
+        createErrorTitle: "Create product failed",
+        updateErrorTitle: "Update product failed",
       },
     },
     userForm: {
@@ -331,6 +376,49 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
         updatedMessage: (name: string, minutes: number) => `${name} (${minutes} min)`,
         createErrorTitle: "Falha ao criar serviço",
         updateErrorTitle: "Falha ao atualizar serviço",
+      },
+    },
+    productForm: {
+      createTitle: "Cadastrar produto",
+      editTitle: "Editar produto",
+      createSubtitle: "Controle itens de venda, preços e estoque em um só lugar.",
+      editSubtitle: "Atualize preço, estoque ou descrição deste produto.",
+      fields: {
+        nameLabel: "Nome",
+        namePlaceholder: "Shampoo",
+        nameError: "Nome é obrigatório",
+        priceLabel: "Preço",
+        pricePlaceholder: "49,90",
+        priceError: "Informe um preço válido",
+        costLabel: "Custo",
+        costPlaceholder: "18,50",
+        costError: "Informe um custo válido",
+        stockLabel: "Estoque",
+        stockPlaceholder: "12",
+        stockError: "Informe a quantidade em estoque",
+        skuLabel: "SKU",
+        skuPlaceholder: "SKU-001",
+        descriptionLabel: "Descrição",
+        descriptionPlaceholder: "Anotações sobre o produto, fragrância ou uso.",
+      },
+      buttons: {
+        create: "Salvar produto",
+        edit: "Salvar alterações",
+        saving: "Salvando…",
+        cancel: "Cancelar",
+      },
+      accessibility: {
+        submitCreate: "Salvar produto",
+        submitEdit: "Salvar alterações do produto",
+        cancel: "Cancelar formulário de produto",
+      },
+      alerts: {
+        createdTitle: "Produto salvo",
+        createdMessage: (name: string, stock: number) => `${name} (${stock} em estoque)`,
+        updatedTitle: "Produto atualizado",
+        updatedMessage: (name: string, stock: number) => `${name} (${stock} em estoque)`,
+        createErrorTitle: "Falha ao criar produto",
+        updateErrorTitle: "Falha ao atualizar produto",
       },
     },
     userForm: {

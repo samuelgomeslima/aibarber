@@ -74,6 +74,50 @@ export type ServiceFormCopy = {
   };
 };
 
+export type ProductFormCopy = {
+  createTitle: string;
+  editTitle: string;
+  createSubtitle: string;
+  editSubtitle: string;
+  fields: {
+    nameLabel: string;
+    namePlaceholder: string;
+    nameError: string;
+    priceLabel: string;
+    pricePlaceholder: string;
+    priceError: string;
+    costLabel: string;
+    costPlaceholder: string;
+    costError: string;
+    stockLabel: string;
+    stockPlaceholder: string;
+    stockError: string;
+    skuLabel: string;
+    skuPlaceholder: string;
+    descriptionLabel: string;
+    descriptionPlaceholder: string;
+  };
+  buttons: {
+    create: string;
+    edit: string;
+    saving: string;
+    cancel: string;
+  };
+  accessibility: {
+    submitCreate: string;
+    submitEdit: string;
+    cancel: string;
+  };
+  alerts: {
+    createdTitle: string;
+    createdMessage: (name: string, stock: number) => string;
+    updatedTitle: string;
+    updatedMessage: (name: string, stock: number) => string;
+    createErrorTitle: string;
+    updateErrorTitle: string;
+  };
+};
+
 export type ImageAssistantCopy = {
   title: string;
   subtitle: { before: string; highlight: string; after: string };

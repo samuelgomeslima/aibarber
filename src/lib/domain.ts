@@ -10,6 +10,19 @@ export type Service = {
   created_at?: string | null;
 };
 
+export type ProductId = string;
+export type Product = {
+  id: ProductId;
+  name: string;
+  price_cents: number;
+  stock_quantity: number;
+  sku?: string | null;
+  description?: string | null;
+  cost_cents?: number | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
 export type BarberId = "joao" | "maria" | "carlos";
 export type Barber = {
   id: BarberId;
