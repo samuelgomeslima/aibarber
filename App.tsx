@@ -107,6 +107,8 @@ const WHATSAPP_BRAND_COLOR = "#25D366";
 const MORNING_END_MINUTES = 12 * 60;
 const AFTERNOON_END_MINUTES = 17 * 60;
 type SlotPeriod = "morning" | "afternoon" | "evening";
+const BOOKING_LIMIT_OPTIONS = [200, 500, 1000] as const;
+type BookingLimitOption = (typeof BOOKING_LIMIT_OPTIONS)[number];
 
 const normalizeTimeInput = (input?: string | null): string | null => {
   if (!input) return null;
@@ -405,6 +407,11 @@ const LANGUAGE_COPY = {
         service: "Service",
         client: "Client",
         clientPlaceholder: "Search by client name",
+        sort: "Order",
+        sortNewest: "Newest first",
+        sortOldest: "Oldest first",
+        limit: "Records",
+        limitOption: (limit: number) => `${limit}`,
         startDate: "Start date (YYYY-MM-DD)",
         startDatePlaceholder: "2025-01-30",
         startTime: "Start time (HH:MM)",
@@ -423,6 +430,9 @@ const LANGUAGE_COPY = {
       results: {
         title: "Results",
         count: (current: number, total: number) => `${current} of ${total}`,
+        limitNotice: (visible: number, requested: number) =>
+          `Showing ${visible} booking${visible === 1 ? "" : "s"} (limit ${requested}).`,
+        sectionCount: (count: number) => `${count} booking${count === 1 ? "" : "s"}`,
         empty: "No bookings match your filters.",
         walkIn: "Walk-in",
         whatsappCta: "Send WhatsApp reminder",
@@ -669,6 +679,11 @@ const LANGUAGE_COPY = {
         service: "Serviço",
         client: "Cliente",
         clientPlaceholder: "Buscar pelo nome do cliente",
+        sort: "Ordem",
+        sortNewest: "Mais recentes primeiro",
+        sortOldest: "Mais antigos primeiro",
+        limit: "Registros",
+        limitOption: (limit: number) => `${limit}`,
         startDate: "Data inicial (AAAA-MM-DD)",
         startDatePlaceholder: "2025-01-30",
         startTime: "Horário inicial (HH:MM)",
@@ -687,6 +702,9 @@ const LANGUAGE_COPY = {
       results: {
         title: "Resultados",
         count: (current: number, total: number) => `${current} de ${total}`,
+        limitNotice: (visible: number, requested: number) =>
+          `Exibindo ${visible} agendamento${visible === 1 ? "" : "s"} (limite ${requested}).`,
+        sectionCount: (count: number) => `${count} agendamento${count === 1 ? "" : "s"}`,
         empty: "Nenhum agendamento corresponde aos filtros.",
         walkIn: "Cliente avulso",
         whatsappCta: "Enviar lembrete no WhatsApp",
@@ -905,6 +923,8 @@ export default function App() {
 
   const [allBookings, setAllBookings] = useState<BookingWithCustomer[]>([]);
   const [allBookingsLoading, setAllBookingsLoading] = useState(false);
+  const [bookingResultLimit, setBookingResultLimit] = useState<BookingLimitOption>(BOOKING_LIMIT_OPTIONS[1]);
+  const [bookingSortOrder, setBookingSortOrder] = useState<"desc" | "asc">("asc");
   const [bookingFilterBarber, setBookingFilterBarber] = useState<string | null>(null);
   const [bookingFilterService, setBookingFilterService] = useState<string | null>(null);
   const [bookingFilterClient, setBookingFilterClient] = useState("");
@@ -1083,7 +1103,7 @@ export default function App() {
   const loadAllBookings = useCallback(async () => {
     setAllBookingsLoading(true);
     try {
-      const rows = await listRecentBookings();
+      const rows = await listRecentBookings(bookingResultLimit);
       setAllBookings(Array.isArray(rows) ? rows : []);
     } catch (e: any) {
       console.error(e);
@@ -1092,7 +1112,7 @@ export default function App() {
     } finally {
       setAllBookingsLoading(false);
     }
-  }, [language]);
+  }, [bookingResultLimit, language]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -1435,7 +1455,7 @@ export default function App() {
     const rangeStartMs = startDateTime?.getTime() ?? null;
     const rangeEndMs = endDateTime?.getTime() ?? null;
 
-    return [...allBookings]
+    return allBookings
       .filter((booking) => {
         if (barber && booking.barber !== barber) return false;
         if (service && booking.service_id !== service) return false;
@@ -1461,11 +1481,18 @@ export default function App() {
         return true;
       })
       .sort((a, b) => {
-        if (a.date === b.date) return a.start.localeCompare(b.start);
-        return a.date.localeCompare(b.date);
+        if (a.date === b.date) {
+          const startA = a.start ?? "";
+          const startB = b.start ?? "";
+          const compare = startA.localeCompare(startB);
+          return bookingSortOrder === "asc" ? compare : -compare;
+        }
+        const dateCompare = a.date.localeCompare(b.date);
+        return bookingSortOrder === "asc" ? dateCompare : -dateCompare;
       });
   }, [
     allBookings,
+    bookingSortOrder,
     bookingFilterBarber,
     bookingFilterService,
     bookingFilterClient,
@@ -1474,6 +1501,23 @@ export default function App() {
     bookingFilterEndDate,
     bookingFilterEndTime,
   ]);
+
+  const groupedBookings = useMemo(() => {
+    const groups: { date: string; bookings: BookingWithCustomer[] }[] = [];
+    const indexByDate = new Map<string, number>();
+
+    filteredBookingsList.forEach((booking) => {
+      const existingIndex = indexByDate.get(booking.date);
+      if (existingIndex === undefined) {
+        indexByDate.set(booking.date, groups.length);
+        groups.push({ date: booking.date, bookings: [booking] });
+      } else {
+        groups[existingIndex].bookings.push(booking);
+      }
+    });
+
+    return groups;
+  }, [filteredBookingsList]);
 
   const clearBookingFilters = useCallback(() => {
     setBookingFilterBarber(null);
@@ -2335,6 +2379,71 @@ export default function App() {
               </View>
 
               <View>
+                <Text style={styles.filterLabel}>{bookingsCopy.filters.sort}</Text>
+                <View style={styles.filterChipsRow}>
+                  <Pressable
+                    onPress={() => {
+                      if (bookingSortOrder !== "desc") setBookingSortOrder("desc");
+                    }}
+                    style={[styles.chip, bookingSortOrder === "desc" && styles.chipActive]}
+                  >
+                    <MaterialCommunityIcons
+                      name="sort-clock-descending"
+                      size={16}
+                      color={bookingSortOrder === "desc" ? colors.accentFgOn : colors.subtext}
+                    />
+                    <Text style={[styles.chipText, bookingSortOrder === "desc" && styles.chipTextActive]}>
+                      {bookingsCopy.filters.sortNewest}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      if (bookingSortOrder !== "asc") setBookingSortOrder("asc");
+                    }}
+                    style={[styles.chip, bookingSortOrder === "asc" && styles.chipActive]}
+                  >
+                    <MaterialCommunityIcons
+                      name="sort-clock-ascending"
+                      size={16}
+                      color={bookingSortOrder === "asc" ? colors.accentFgOn : colors.subtext}
+                    />
+                    <Text style={[styles.chipText, bookingSortOrder === "asc" && styles.chipTextActive]}>
+                      {bookingsCopy.filters.sortOldest}
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              <View>
+                <Text style={styles.filterLabel}>{bookingsCopy.filters.limit}</Text>
+                <View style={styles.filterChipsRow}>
+                  {BOOKING_LIMIT_OPTIONS.map((option) => {
+                    const active = bookingResultLimit === option;
+                    return (
+                      <Pressable
+                        key={option}
+                        onPress={() => {
+                          if (bookingResultLimit !== option) {
+                            setBookingResultLimit(option);
+                          }
+                        }}
+                        style={[styles.chip, active && styles.chipActive]}
+                      >
+                        <MaterialCommunityIcons
+                          name="format-list-numbered"
+                          size={16}
+                          color={active ? colors.accentFgOn : colors.subtext}
+                        />
+                        <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                          {bookingsCopy.filters.limitOption(option)}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <View>
                 <Text style={styles.filterLabel}>{bookingsCopy.filters.client}</Text>
                 <TextInput
                   placeholder={bookingsCopy.filters.clientPlaceholder}
@@ -2428,106 +2537,142 @@ export default function App() {
           </FilterToggle>
         </View>
 
-        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 10 }]}>
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 14 }]}>
           <View style={[styles.listHeaderRow, isCompactLayout && styles.listHeaderRowCompact]}>
             <Text style={[styles.title, { color: colors.text }]}>{bookingsCopy.results.title}</Text>
-            <Text style={{ color: colors.subtext, fontWeight: "700" }}>
-              {bookingsCopy.results.count(filteredBookingsList.length, allBookings.length)}
-            </Text>
+            <View
+              style={[
+                styles.listHeaderMeta,
+                isCompactLayout && styles.listHeaderMetaCompact,
+              ]}
+            >
+              <Text style={{ color: colors.subtext, fontWeight: "700" }}>
+                {bookingsCopy.results.count(filteredBookingsList.length, allBookings.length)}
+              </Text>
+              <Text style={styles.bookingListNotice}>
+                {bookingsCopy.results.limitNotice(allBookings.length, bookingResultLimit)}
+              </Text>
+            </View>
           </View>
 
           {allBookingsLoading ? (
             <ActivityIndicator />
-          ) : filteredBookingsList.length === 0 ? (
+          ) : groupedBookings.length === 0 ? (
             <Text style={styles.empty}>{bookingsCopy.results.empty}</Text>
           ) : (
-            filteredBookingsList.map((booking) => {
-              const rawService = serviceMap.get(booking.service_id);
-              const displayService = localizedServiceMap.get(booking.service_id) ?? rawService;
-              const barber = BARBER_MAP[booking.barber];
-              const customerName = booking._customer
-                ? `${booking._customer.first_name}${booking._customer.last_name ? ` ${booking._customer.last_name}` : ""}`
-                : bookingsCopy.results.walkIn;
-              const reminderName = booking._customer?.first_name?.trim()
-                ? booking._customer.first_name.trim()
-                : customerName;
-              const reminderTime = booking.start;
-              const reminderMessage = bookingsCopy.results.whatsappMessage({
-                clientName: reminderName,
-                serviceName: displayService?.name ?? booking.service_id,
-                date: humanDate(booking.date, locale),
-                time: reminderTime,
-              });
-              const phoneDigits = booking._customer?.phone?.replace(/\D/g, "");
-              const hasPhone = Boolean(phoneDigits);
-              const openWhatsAppReminder = () => {
-                if (!phoneDigits) return;
-                const url = `https://wa.me/${phoneDigits}?text=${encodeURIComponent(reminderMessage)}`;
-                Linking.openURL(url).catch((error) => {
-                  console.error(error);
-                  Alert.alert(
-                    bookingsCopy.results.whatsappErrorTitle,
-                    bookingsCopy.results.whatsappErrorMessage,
-                  );
-                });
-              };
+            groupedBookings.map((group, groupIndex) => {
+              const dateLabel = humanDate(group.date, locale);
+              const countLabel = bookingsCopy.results.sectionCount(group.bookings.length);
               return (
                 <View
-                  key={booking.id}
-                  style={[styles.bookingListRow, isUltraCompactLayout && styles.bookingListRowCompact]}
+                  key={group.date}
+                  style={[
+                    styles.bookingListSection,
+                    groupIndex === 0 && styles.bookingListSectionFirst,
+                  ]}
                 >
-                  <View style={[styles.bookingListTime, isUltraCompactLayout && styles.bookingListTimeCompact]}>
-                    <Text style={styles.bookingListDate}>{humanDate(booking.date, locale)}</Text>
-                    <Text style={styles.bookingListClock}>
-                      {booking.start} – {booking.end}
-                    </Text>
+                  <View style={styles.bookingListSectionHeader}>
+                    <Text style={styles.bookingListSectionTitle}>{dateLabel}</Text>
+                    <Text style={styles.bookingListSectionCount}>{countLabel}</Text>
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.bookingListTitle}>{displayService?.name ?? booking.service_id}</Text>
-                    <Text style={styles.bookingListMeta}>
-                      {(barber?.name ?? booking.barber) + (customerName ? ` • ${customerName}` : "")}
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.bookingListActions,
-                      isUltraCompactLayout && styles.bookingListActionsCompact,
-                    ]}
-                  >
-                    <Pressable
-                      onPress={openWhatsAppReminder}
-                      disabled={!hasPhone}
-                      style={[
-                        styles.smallBtn,
-                        styles.whatsappBtn,
-                        {
-                          borderColor: hasPhone ? WHATSAPP_BRAND_COLOR : colors.border,
-                          backgroundColor: hasPhone
-                            ? applyAlpha(WHATSAPP_BRAND_COLOR, 0.12)
-                            : colors.surface,
-                        },
-                        isUltraCompactLayout && styles.fullWidthButton,
-                        !hasPhone && styles.smallBtnDisabled,
-                      ]}
-                      accessibilityRole="button"
-                      accessibilityState={{ disabled: !hasPhone }}
-                      accessibilityLabel={bookingsCopy.results.whatsappAccessibility(customerName)}
-                    >
-                      <MaterialCommunityIcons
-                        name="whatsapp"
-                        size={16}
-                        color={hasPhone ? WHATSAPP_BRAND_COLOR : colors.subtext}
-                      />
-                      <Text
-                        style={{
-                          color: hasPhone ? WHATSAPP_BRAND_COLOR : colors.subtext,
-                          fontWeight: "800",
-                        }}
+                  {group.bookings.map((booking) => {
+                    const rawService = serviceMap.get(booking.service_id);
+                    const displayService = localizedServiceMap.get(booking.service_id) ?? rawService;
+                    const barber = BARBER_MAP[booking.barber];
+                    const customerName = booking._customer
+                      ? `${booking._customer.first_name}${booking._customer.last_name ? ` ${booking._customer.last_name}` : ""}`
+                      : bookingsCopy.results.walkIn;
+                    const reminderName = booking._customer?.first_name?.trim()
+                      ? booking._customer.first_name.trim()
+                      : customerName;
+                    const reminderTime = booking.start;
+                    const reminderMessage = bookingsCopy.results.whatsappMessage({
+                      clientName: reminderName,
+                      serviceName: displayService?.name ?? booking.service_id,
+                      date: dateLabel,
+                      time: reminderTime,
+                    });
+                    const phoneDigits = booking._customer?.phone?.replace(/\D/g, "");
+                    const hasPhone = Boolean(phoneDigits);
+                    const openWhatsAppReminder = () => {
+                      if (!phoneDigits) return;
+                      const url = `https://wa.me/${phoneDigits}?text=${encodeURIComponent(reminderMessage)}`;
+                      Linking.openURL(url).catch((error) => {
+                        console.error(error);
+                        Alert.alert(
+                          bookingsCopy.results.whatsappErrorTitle,
+                          bookingsCopy.results.whatsappErrorMessage,
+                        );
+                      });
+                    };
+
+                    return (
+                      <View
+                        key={booking.id}
+                        style={[
+                          styles.bookingListRow,
+                          isUltraCompactLayout && styles.bookingListRowCompact,
+                        ]}
                       >
-                        {bookingsCopy.results.whatsappCta}
-                      </Text>
-                    </Pressable>
-                  </View>
+                        <View
+                          style={[
+                            styles.bookingListTime,
+                            isUltraCompactLayout && styles.bookingListTimeCompact,
+                          ]}
+                        >
+                          <Text style={styles.bookingListClock}>
+                            {booking.start} – {booking.end}
+                          </Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.bookingListTitle}>{displayService?.name ?? booking.service_id}</Text>
+                          <Text style={styles.bookingListMeta}>
+                            {(barber?.name ?? booking.barber) + (customerName ? ` • ${customerName}` : "")}
+                          </Text>
+                        </View>
+                        <View
+                          style={[
+                            styles.bookingListActions,
+                            isUltraCompactLayout && styles.bookingListActionsCompact,
+                          ]}
+                        >
+                          <Pressable
+                            onPress={openWhatsAppReminder}
+                            disabled={!hasPhone}
+                            style={[
+                              styles.smallBtn,
+                              styles.whatsappBtn,
+                              {
+                                borderColor: hasPhone ? WHATSAPP_BRAND_COLOR : colors.border,
+                                backgroundColor: hasPhone
+                                  ? applyAlpha(WHATSAPP_BRAND_COLOR, 0.12)
+                                  : colors.surface,
+                              },
+                              isUltraCompactLayout && styles.fullWidthButton,
+                              !hasPhone && styles.smallBtnDisabled,
+                            ]}
+                            accessibilityRole="button"
+                            accessibilityState={{ disabled: !hasPhone }}
+                            accessibilityLabel={bookingsCopy.results.whatsappAccessibility(customerName)}
+                          >
+                            <MaterialCommunityIcons
+                              name="whatsapp"
+                              size={16}
+                              color={hasPhone ? WHATSAPP_BRAND_COLOR : colors.subtext}
+                            />
+                            <Text
+                              style={{
+                                color: hasPhone ? WHATSAPP_BRAND_COLOR : colors.subtext,
+                                fontWeight: "800",
+                              }}
+                            >
+                              {bookingsCopy.results.whatsappCta}
+                            </Text>
+                          </Pressable>
+                        </View>
+                      </View>
+                    );
+                  })}
                 </View>
               );
             })
@@ -3476,6 +3621,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   filterActionsCompact: { justifyContent: "flex-start" },
   listHeaderRow: { flexDirection: "row", alignItems: "center", gap: 12, justifyContent: "space-between" },
   listHeaderRowCompact: { flexDirection: "column", alignItems: "stretch", gap: 12 },
+  listHeaderMeta: { alignItems: "flex-end", gap: 4 },
+  listHeaderMetaCompact: { alignItems: "flex-start" },
+  bookingListNotice: { color: colors.subtext, fontSize: 12, fontWeight: "600" },
   bookingListRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -3488,9 +3636,23 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.surface,
   },
   bookingListRowCompact: { flexDirection: "column", alignItems: "flex-start", gap: 8 },
-  bookingListTime: { width: 140 },
+  bookingListSection: { gap: 12, marginTop: 18 },
+  bookingListSectionFirst: { marginTop: 8 },
+  bookingListSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  bookingListSectionTitle: {
+    color: colors.text,
+    fontWeight: "800",
+    fontSize: 13,
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+  },
+  bookingListSectionCount: { color: colors.subtext, fontWeight: "700", fontSize: 12 },
+  bookingListTime: { width: 120, alignItems: "flex-start" },
   bookingListTimeCompact: { width: "100%" },
-  bookingListDate: { color: colors.text, fontWeight: "800", fontSize: 13 },
   bookingListClock: { color: colors.subtext, fontWeight: "700", fontSize: 12 },
   bookingListTitle: { color: colors.text, fontWeight: "800", fontSize: 15 },
   bookingListMeta: { color: colors.subtext, fontWeight: "600", fontSize: 12, marginTop: 2 },

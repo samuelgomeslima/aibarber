@@ -72,7 +72,7 @@ export async function getBookingsForRange(
   }
 }
 
-export async function listRecentBookings(limit = 200): Promise<BookingWithCustomer[]> {
+export async function listRecentBookings(limit = 500): Promise<BookingWithCustomer[]> {
   const gateway = getBookingGateway();
   try {
     const { data, status } = await gateway.fetchRecentBookings(limit);
