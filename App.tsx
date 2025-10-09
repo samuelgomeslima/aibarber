@@ -484,6 +484,11 @@ const LANGUAGE_COPY = {
       highlightsSubtitle: "Busiest and quietest days this week.",
       barberTitle: "Barber leaderboard",
       barberSubtitle: "Ranking by weekly appointments.",
+      productsTitle: "Products sold",
+      productsSubtitle: "Unit sales compared to item price.",
+      productsEmpty: "No product sales recorded yet.",
+      productPriceLabel: (price: string) => `Unit price ${price}`,
+      productUnits: (count: number) => `${count} sold`,
       busiestDay: (label: string, count: number) => `Busiest: ${label} (${count})`,
       quietestDay: (label: string, count: number) => `Quietest: ${label} (${count})`,
       serviceCount: (count: number) => `${count} booking${count === 1 ? "" : "s"}`,
@@ -846,6 +851,11 @@ const LANGUAGE_COPY = {
       highlightsSubtitle: "Dias mais cheio e mais tranquilo da semana.",
       barberTitle: "Ranking de barbeiros",
       barberSubtitle: "Classificação por atendimentos na semana.",
+      productsTitle: "Produtos vendidos",
+      productsSubtitle: "Unidades vendidas e preço de cada item.",
+      productsEmpty: "Nenhuma venda de produto registrada ainda.",
+      productPriceLabel: (price: string) => `Preço unitário ${price}`,
+      productUnits: (count: number) => `${count} vendido${count === 1 ? "" : "s"}`,
       busiestDay: (label: string, count: number) => `Dia mais cheio: ${label} (${count})`,
       quietestDay: (label: string, count: number) => `Dia mais tranquilo: ${label} (${count})`,
       serviceCount: (count: number) => `${count} atendimento${count === 1 ? "" : "s"}`,
@@ -1066,6 +1076,7 @@ export default function App() {
   const [serviceFormMode, setServiceFormMode] = useState<"create" | "edit">("create");
   const [serviceBeingEdited, setServiceBeingEdited] = useState<Service | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
+  const [productSalesTotals, setProductSalesTotals] = useState<Record<string, number>>({});
   const [productsLoading, setProductsLoading] = useState(false);
   const [productFormVisible, setProductFormVisible] = useState(false);
   const [productFormMode, setProductFormMode] = useState<"create" | "edit">("create");
@@ -1204,10 +1215,18 @@ export default function App() {
     try {
       const rows = await listProducts();
       setProducts(sortProducts(rows));
+      setProductSalesTotals((prev) => {
+        const next: Record<string, number> = {};
+        rows.forEach((product) => {
+          next[product.id] = prev[product.id] ?? 0;
+        });
+        return next;
+      });
     } catch (e: any) {
       console.error(e);
       Alert.alert(productsCopy.alerts.loadTitle, e?.message ?? String(e));
       setProducts([]);
+      setProductSalesTotals({});
     } finally {
       setProductsLoading(false);
     }
@@ -1335,6 +1354,10 @@ export default function App() {
   const handleProductCreated = useCallback(
     (product: Product) => {
       setProducts((prev) => sortProducts([...prev, product]));
+      setProductSalesTotals((prev) => ({
+        ...prev,
+        [product.id]: prev[product.id] ?? 0,
+      }));
       handleProductFormClose();
     },
     [handleProductFormClose, sortProducts],
@@ -1343,6 +1366,10 @@ export default function App() {
   const handleProductUpdated = useCallback(
     (product: Product) => {
       setProducts((prev) => sortProducts(prev.map((item) => (item.id === product.id ? product : item))));
+      setProductSalesTotals((prev) => ({
+        ...prev,
+        [product.id]: prev[product.id] ?? 0,
+      }));
       handleProductFormClose();
     },
     [handleProductFormClose, sortProducts],
@@ -1357,6 +1384,10 @@ export default function App() {
         try {
           await deleteProduct(product.id);
           setProducts((prev) => prev.filter((item) => item.id !== product.id));
+          setProductSalesTotals((prev) => {
+            const { [product.id]: _ignored, ...rest } = prev;
+            return rest;
+          });
         } catch (e: any) {
           console.error(e);
           Alert.alert(productsCopy.alerts.deleteErrorTitle, e?.message ?? String(e));
@@ -1434,6 +1465,12 @@ export default function App() {
       setProducts((prev) =>
         sortProducts(prev.map((item) => (item.id === updated.id ? updated : item))),
       );
+      if (stockModalMode === "sell") {
+        setProductSalesTotals((prev) => ({
+          ...prev,
+          [updated.id]: (prev[updated.id] ?? 0) + quantity,
+        }));
+      }
       handleCloseStockModal();
     } catch (e: any) {
       const title =
@@ -2026,6 +2063,20 @@ export default function App() {
         .sort((a, b) => b.count - a.count),
     [weekSummary.barberCounts],
   );
+
+  const productSalesBreakdown = useMemo(() => {
+    if (!products.length) return [];
+    const entries = products.map((product) => ({
+      id: product.id,
+      name: product.name,
+      price_cents: product.price_cents,
+      sold: productSalesTotals[product.id] ?? 0,
+    }));
+    return entries.sort((a, b) => {
+      if (b.sold !== a.sold) return b.sold - a.sold;
+      return b.price_cents - a.price_cents;
+    });
+  }, [productSalesTotals, products]);
 
   const dayTotals = useMemo(
     () =>
@@ -4068,6 +4119,72 @@ export default function App() {
                   </View>
                 )}
               </View>
+
+              <View
+                style={[
+                  styles.chartCard,
+                  { borderColor: colors.border, backgroundColor: colors.bg },
+                ]}
+              >
+                <View style={styles.insightSectionHeader}>
+                  <MaterialCommunityIcons name="basket-outline" size={20} color={colors.accent} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.insightSectionTitle, { color: colors.text }]}>
+                      {copy.charts.productsTitle}
+                    </Text>
+                    <Text style={[styles.insightSectionSubtitle, { color: colors.subtext }]}>
+                      {copy.charts.productsSubtitle}
+                    </Text>
+                  </View>
+                </View>
+                {(() => {
+                  const entries = productSalesBreakdown.slice(0, 5);
+                  const hasSales = entries.some((entry) => entry.sold > 0);
+                  if (!hasSales) {
+                    return (
+                      <Text style={[styles.empty, { marginTop: 4 }]}>{copy.charts.productsEmpty}</Text>
+                    );
+                  }
+                  const maxSold = entries.reduce(
+                    (max, entry) => (entry.sold > max ? entry.sold : max),
+                    0,
+                  );
+                  return (
+                    <View style={styles.barChart}>
+                      {entries.map((entry) => {
+                        const height = maxSold ? Math.max(6, (entry.sold / maxSold) * 110) : 6;
+                        return (
+                          <View key={entry.id} style={styles.barColumn}>
+                            <Text style={[styles.productBarUnits, { color: colors.text }]}>
+                              {copy.charts.productUnits(entry.sold)}
+                            </Text>
+                            <View style={[styles.barTrack, { backgroundColor: colors.border }]}>
+                              <View
+                                style={[
+                                  styles.barFill,
+                                  {
+                                    height,
+                                    backgroundColor: colors.accent,
+                                  },
+                                ]}
+                              />
+                            </View>
+                            <Text style={[styles.productBarPrice, { color: colors.subtext }]}>
+                              {copy.charts.productPriceLabel(formatPrice(entry.price_cents))}
+                            </Text>
+                            <Text
+                              style={[styles.productBarName, { color: colors.text }]}
+                              numberOfLines={2}
+                            >
+                              {entry.name}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  );
+                })()}
+              </View>
             </>
           )}
         </View>
@@ -4760,6 +4877,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   barColumn: { flex: 1, minWidth: 36, alignItems: "center", gap: 8 },
   barValue: { fontSize: 13, fontWeight: "700" },
+  productBarUnits: { fontSize: 13, fontWeight: "700", textAlign: "center" },
   barTrack: {
     width: 28,
     height: 120,
@@ -4770,6 +4888,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   barFill: { width: "100%", borderRadius: 14 },
   barLabel: { fontSize: 11, fontWeight: "700", textTransform: "uppercase" },
+  productBarPrice: { fontSize: 11, fontWeight: "600", textAlign: "center" },
+  productBarName: { fontSize: 12, fontWeight: "700", textAlign: "center" },
   leaderboard: { gap: 12 },
   leaderboardRow: { gap: 8, paddingVertical: 4 },
   leaderboardInfo: { flexDirection: "row", alignItems: "center", gap: 8 },
