@@ -18,6 +18,12 @@ import { subtleFormCardColors, type SubtleFormCardColors } from "../theme/colors
 const DEFAULT_FORM_AGE = 18;
 const MINIMUM_AGE = 13;
 
+export type RoleOption = {
+  value: string;
+  label: string;
+  description?: string;
+};
+
 /* ========= Types ========= */
 export type NewUser = {
   firstName: string;
@@ -25,6 +31,7 @@ export type NewUser = {
   phone: string;        // digits
   email: string;
   date_of_birth: Date;  // <-- renamed
+  role?: string;
 };
 
 type UserFormErrors = {
@@ -33,6 +40,7 @@ type UserFormErrors = {
   phone?: string;
   email?: string;
   date_of_birth?: string;
+  role?: string;
 };
 
 /* ========= Component ========= */
@@ -43,6 +51,7 @@ export default function UserForm({
   colors = subtleFormCardColors,
   copy = defaultComponentCopy.userForm,
   table = "customers",
+  availableRoles,
 }: {
   initial?: Partial<NewUser>;
   onSaved?: (row: { id: string } & Record<string, any>) => void;
@@ -50,6 +59,7 @@ export default function UserForm({
   colors?: SubtleFormCardColors;
   copy?: UserFormCopy;
   table?: string;
+  availableRoles?: ReadonlyArray<RoleOption>;
 }) {
   const [firstName, setFirstName]     = useState(initial?.firstName ?? "");
   const [lastName, setLastName]       = useState(initial?.lastName ?? "");
@@ -58,6 +68,7 @@ export default function UserForm({
   const [dateOfBirth, setDateOfBirth] = useState<Date>(
     initial?.date_of_birth ?? todayMinusYears(DEFAULT_FORM_AGE),
   );
+  const [role, setRole]               = useState(initial?.role ?? availableRoles?.[0]?.value ?? "");
   const [saving, setSaving]           = useState(false);
 
   // phone mask (store digits)
@@ -86,8 +97,16 @@ export default function UserForm({
       e.date_of_birth = copy.fields.dateOfBirth.minAge(MINIMUM_AGE);
     }
 
+    if (availableRoles?.length) {
+      if (!role) {
+        e.role = copy.fields.role?.required ?? copy.fields.firstName.required;
+      } else if (!availableRoles.some((option) => option.value === role)) {
+        e.role = copy.fields.role?.invalid ?? copy.fields.role?.required ?? copy.fields.firstName.required;
+      }
+    }
+
     return e;
-  }, [copy, dateOfBirth, email, firstName, lastName, phoneDigits]);
+  }, [availableRoles, copy, dateOfBirth, email, firstName, lastName, phoneDigits, role]);
 
   const valid = Object.keys(errs).length === 0;
 
@@ -101,12 +120,16 @@ export default function UserForm({
         phone:         phoneDigits,
         email:         email.trim(),
         date_of_birth: dateOfBirth.toISOString().slice(0, 10), // YYYY-MM-DD
+        ...(availableRoles?.length ? { role } : {}),
       };
+
+      const selectColumns = ["id", "first_name", "last_name", "phone", "email", "date_of_birth"];
+      if (availableRoles?.length) selectColumns.push("role");
 
       const { data, error, status } = await supabase
         .from(table)
         .insert(payload)
-        .select("id, first_name, last_name, phone, email, date_of_birth")
+        .select(selectColumns.join(", "))
         .single();
 
       if (error) throw new Error(error.message || `Insert failed (${status})`);
@@ -120,6 +143,7 @@ export default function UserForm({
       setPhoneRaw("");
       setEmail("");
       setDateOfBirth(todayMinusYears(DEFAULT_FORM_AGE));
+      setRole(initial?.role ?? availableRoles?.[0]?.value ?? "");
     } catch (e: any) {
       Alert.alert(copy.alerts.failedTitle, e?.message ?? copy.alerts.failedFallback);
     } finally {
@@ -174,6 +198,18 @@ export default function UserForm({
           error={errs.email}
           colors={colors}
         />
+
+        {availableRoles?.length ? (
+          <RolePicker
+            value={role}
+            onChange={setRole}
+            options={availableRoles}
+            colors={colors}
+            label={copy.fields.role?.label ?? "Role"}
+            placeholder={copy.fields.role?.placeholder ?? copy.fields.role?.label ?? ""}
+            error={errs.role}
+          />
+        ) : null}
 
         {/* Date of birth */}
         <Text style={[styles.label, { color: colors.subtext }]}>{copy.fields.dateOfBirth.label}</Text>
@@ -291,6 +327,94 @@ function InlineDatePicker({
   );
 }
 
+function RolePicker({
+  value,
+  onChange,
+  options,
+  colors,
+  label,
+  placeholder,
+  error,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  options: ReadonlyArray<RoleOption>;
+  colors: SubtleFormCardColors;
+  label: string;
+  placeholder?: string;
+  error?: string;
+}) {
+  if (!options.length) return null;
+
+  return (
+    <View style={{ marginBottom: 10 }}>
+      <Text style={[styles.label, { color: colors.subtext }]}>{label}</Text>
+      {Platform.OS === "web" ? (
+        <select
+          value={value}
+          onChange={(event: any) => onChange(event.target.value)}
+          style={{
+            padding: 10,
+            borderRadius: 12,
+            border: `1px solid ${error ? colors.danger : colors.border}`,
+            background: colors.surface,
+            color: colors.text,
+            fontWeight: 700,
+            outline: "none",
+            width: "100%",
+          }}
+        >
+          <option value="">{placeholder || label}</option>
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <View style={styles.roleOptions}>
+          {options.map((option) => {
+            const isSelected = option.value === value;
+            return (
+              <Pressable
+                key={option.value}
+                onPress={() => onChange(option.value)}
+                style={[
+                  styles.roleOption,
+                  { borderColor: colors.border, backgroundColor: colors.surface },
+                  isSelected && { borderColor: colors.accent, backgroundColor: colors.accent },
+                ]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isSelected }}
+              >
+                <Text
+                  style={[
+                    styles.roleOptionLabel,
+                    { color: isSelected ? colors.accentFgOn : colors.text },
+                  ]}
+                >
+                  {option.label}
+                </Text>
+                {option.description ? (
+                  <Text
+                    style={[
+                      styles.roleOptionDescription,
+                      { color: isSelected ? colors.accentFgOn : colors.subtext },
+                    ]}
+                  >
+                    {option.description}
+                  </Text>
+                ) : null}
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+      {error ? <Text style={[styles.error, { color: colors.danger }]}>{error}</Text> : null}
+    </View>
+  );
+}
+
 /* ========= Utils & styles ========= */
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
@@ -343,4 +467,8 @@ const styles = StyleSheet.create({
   btnGhostText: { fontWeight: "800" },
   btnPrimary: { paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1 },
   btnPrimaryText: { fontWeight: "900", letterSpacing: 0.3 },
+  roleOptions: { flexDirection: "column", gap: 8 },
+  roleOption: { borderWidth: 1, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 12, gap: 4 },
+  roleOptionLabel: { fontWeight: "800", fontSize: 14 },
+  roleOptionDescription: { fontSize: 12, fontWeight: "600" },
 });
