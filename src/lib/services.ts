@@ -152,7 +152,19 @@ export function createServicesRepository(client: SupabaseClientLike) {
       if (!id) throw new Error("Service ID is required");
 
       const { error } = await client.from("services").delete().eq("id", id);
-      if (error) throw error;
+      if (error) {
+        const isForeignKeyViolation =
+          typeof error === "object" &&
+          error !== null &&
+          "code" in error &&
+          (error as { code?: string }).code === "23503";
+
+        if (isForeignKeyViolation) {
+          throw new Error("This service is currently being used and cannot be deleted.");
+        }
+
+        throw error;
+      }
     },
   };
 }
