@@ -114,7 +114,15 @@ const styles = StyleSheet.create({
   sheet: { width: 560, maxWidth: "100%", borderRadius: 16, borderWidth: 1, padding: 16, gap: 12 },
   title: { fontSize: 18, fontWeight: "800" },
   label: { fontSize: 12, fontWeight: "700", marginBottom: 6 },
-  input: { paddingVertical: 10, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, fontWeight: "700", letterSpacing: 0.5 },
+  input: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    fontSize: 16,
+  },
 
   infoRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   infoLabel: { fontSize: 12, fontWeight: "700" },

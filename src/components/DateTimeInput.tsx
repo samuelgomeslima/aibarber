@@ -411,6 +411,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     fontWeight: "700",
+    fontSize: 16,
     flex: 1,
   },
   iconButton: {

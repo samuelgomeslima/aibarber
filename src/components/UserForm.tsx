@@ -268,6 +268,7 @@ function InlineDatePicker({
           color: colors.text,
           outline: "none",
           fontWeight: 700,
+          fontSize: 16,
           width: "100%",
         }}
       />
@@ -328,7 +329,14 @@ const styles = StyleSheet.create({
   title: { fontWeight: "800", fontSize: 16, marginBottom: 6 },
   rowGap: { gap: 10 },
   label: { fontSize: 12, fontWeight: "800", marginBottom: 6, letterSpacing: 0.3 },
-  input: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontWeight: "700" },
+  input: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontWeight: "700",
+    fontSize: 16,
+  },
   error: { marginTop: 4, fontSize: 12, fontWeight: "700" },
   actions: { flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 6 },
   btnGhost: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1 },
