@@ -151,6 +151,12 @@ import {
 } from "./src/lib/bookings";
 import { deleteService, listServices } from "./src/lib/services";
 import { listProducts, deleteProduct, sellProduct, restockProduct } from "./src/lib/products";
+import {
+  listCashMovements,
+  recordProductSaleRevenue,
+  recordServiceRevenue,
+  type CashMovement,
+} from "./src/lib/cashRegister";
 import { listStaffMembers, type StaffMember, type StaffRole } from "./src/lib/users";
 
 /* Components (mantidos) */
@@ -271,6 +277,7 @@ const LANGUAGE_COPY = {
       bookings: "Bookings",
       services: "Services",
       products: "Products",
+      cashRegister: "Cash register",
       assistant: "Assistant",
       imageAssistant: "Image lab",
       team: "Team members",
@@ -389,9 +396,61 @@ const LANGUAGE_COPY = {
         confirmRestock: "Add stock",
         cancel: "Cancel",
         sellSuccessTitle: "Sale registered",
-        sellSuccessMessage: (name: string, quantity: number) => `Sold ${quantity} unit(s) of ${name}.`,
+        sellSuccessMessage: (name: string, quantity: number) =>
+          `Sold ${quantity} unit(s) of ${name}. Revenue credited to the cash register.`,
         restockSuccessTitle: "Stock updated",
         restockSuccessMessage: (name: string, quantity: number) => `Added ${quantity} unit(s) to ${name}.`,
+      },
+    },
+    cashRegisterPage: {
+      title: "Cash register",
+      subtitle: "Track confirmed services and product sales credited to the barbershop.",
+      refresh: "Refresh register",
+      balanceLabel: "Current balance",
+      servicesLabel: "Services",
+      productsLabel: "Products",
+      historyTitle: "Recent movements",
+      empty: "No cash movements recorded yet.",
+      alerts: {
+        loadTitle: "Cash register",
+        recordTitle: "Cash register",
+        productFailure: "The sale was saved, but the cash register entry could not be created.",
+      },
+      entryTags: {
+        service: "Service",
+        product: "Product",
+      },
+      descriptions: {
+        service: ({
+          serviceName,
+          barberName,
+        }: {
+          serviceName: string;
+          barberName?: string | null;
+        }) => (barberName ? `${serviceName} • ${barberName}` : serviceName),
+        product: ({ productName, quantity }: { productName: string; quantity: number }) =>
+          `${quantity} × ${productName}`,
+      },
+      subtitles: {
+        service: ({
+          dateLabel,
+          time,
+        }: {
+          dateLabel?: string | null;
+          time?: string | null;
+        }) => [dateLabel, time].filter(Boolean).join(" • "),
+        product: ({
+          dateLabel,
+          unitPrice,
+        }: {
+          dateLabel?: string | null;
+          unitPrice?: string | null;
+        }) => [dateLabel, unitPrice].filter(Boolean).join(" • "),
+      },
+      card: {
+        label: "Cash register",
+        detail: (services: string, products: string) => `Services ${services} • Products ${products}`,
+        chip: (count: number) => `${count} movement${count === 1 ? "" : "s"}`,
       },
     },
     serviceForm: COMPONENT_COPY.en.serviceForm,
@@ -550,6 +609,14 @@ const LANGUAGE_COPY = {
           time: string;
         }) =>
           `Hi ${clientName}, this is a reminder of your appointment for ${serviceName} on ${date} at ${time}.`,
+        confirmServiceCta: "Confirm service",
+        confirmServiceAccessibility: (service: string, time: string) =>
+          `Confirm that ${service} at ${time} was completed`,
+        confirmServiceSuccessTitle: "Service confirmed",
+        confirmServiceSuccessMessage: (value: string) => `${value} added to the cash register.`,
+        confirmServiceErrorTitle: "Confirm service",
+        confirmServiceAlready: "This service has already been confirmed.",
+        confirmedBadge: "Confirmed",
       },
       alerts: {
         loadTitle: "Bookings list",
@@ -637,6 +704,7 @@ const LANGUAGE_COPY = {
       bookings: "Agendamentos",
       services: "Serviços",
       products: "Produtos",
+      cashRegister: "Caixa",
       assistant: "Assistente",
       imageAssistant: "Laboratório de imagens",
       team: "Equipe",
@@ -756,10 +824,61 @@ const LANGUAGE_COPY = {
         cancel: "Cancelar",
         sellSuccessTitle: "Venda registrada",
         sellSuccessMessage: (name: string, quantity: number) =>
-          `Foram vendidas ${quantity} unidade(s) de ${name}.`,
+          `Foram vendidas ${quantity} unidade(s) de ${name}. Receita lançada no caixa.`,
         restockSuccessTitle: "Estoque atualizado",
         restockSuccessMessage: (name: string, quantity: number) =>
           `Adicionadas ${quantity} unidade(s) em ${name}.`,
+      },
+    },
+    cashRegisterPage: {
+      title: "Caixa",
+      subtitle: "Acompanhe serviços confirmados e vendas de produtos lançados no caixa.",
+      refresh: "Atualizar caixa",
+      balanceLabel: "Saldo atual",
+      servicesLabel: "Serviços",
+      productsLabel: "Produtos",
+      historyTitle: "Movimentações recentes",
+      empty: "Nenhuma movimentação registrada ainda.",
+      alerts: {
+        loadTitle: "Caixa",
+        recordTitle: "Caixa",
+        productFailure: "A venda foi registrada, mas não foi possível lançar no caixa.",
+      },
+      entryTags: {
+        service: "Serviço",
+        product: "Produto",
+      },
+      descriptions: {
+        service: ({
+          serviceName,
+          barberName,
+        }: {
+          serviceName: string;
+          barberName?: string | null;
+        }) => (barberName ? `${serviceName} • ${barberName}` : serviceName),
+        product: ({ productName, quantity }: { productName: string; quantity: number }) =>
+          `${quantity} × ${productName}`,
+      },
+      subtitles: {
+        service: ({
+          dateLabel,
+          time,
+        }: {
+          dateLabel?: string | null;
+          time?: string | null;
+        }) => [dateLabel, time].filter(Boolean).join(" • "),
+        product: ({
+          dateLabel,
+          unitPrice,
+        }: {
+          dateLabel?: string | null;
+          unitPrice?: string | null;
+        }) => [dateLabel, unitPrice].filter(Boolean).join(" • "),
+      },
+      card: {
+        label: "Caixa",
+        detail: (services: string, products: string) => `Serviços ${services} • Produtos ${products}`,
+        chip: (count: number) => `${count} movimentação${count === 1 ? "" : "s"}`,
       },
     },
     serviceForm: COMPONENT_COPY.pt.serviceForm,
@@ -919,6 +1038,14 @@ const LANGUAGE_COPY = {
           time: string;
         }) =>
           `Olá ${clientName}, lembrando do seu horário para ${serviceName} em ${date} às ${time}.`,
+        confirmServiceCta: "Confirmar serviço",
+        confirmServiceAccessibility: (service: string, time: string) =>
+          `Confirmar que ${service} às ${time} foi realizado`,
+        confirmServiceSuccessTitle: "Serviço confirmado",
+        confirmServiceSuccessMessage: (value: string) => `${value} lançado no caixa.`,
+        confirmServiceErrorTitle: "Confirmar serviço",
+        confirmServiceAlready: "Este atendimento já foi confirmado.",
+        confirmedBadge: "Confirmado",
       },
       alerts: {
         loadTitle: "Lista de agendamentos",
@@ -1087,6 +1214,8 @@ export default function App() {
   const [stockModalMode, setStockModalMode] = useState<"sell" | "restock">("sell");
   const [stockQuantityText, setStockQuantityText] = useState("1");
   const [stockSaving, setStockSaving] = useState(false);
+  const [cashMovements, setCashMovements] = useState<CashMovement[]>([]);
+  const [cashLoading, setCashLoading] = useState(false);
   const [teamMembers, setTeamMembers] = useState<StaffMember[]>([]);
   const [teamLoading, setTeamLoading] = useState(false);
   const [activeScreen, setActiveScreen] = useState<
@@ -1095,6 +1224,7 @@ export default function App() {
     | "bookService"
     | "services"
     | "products"
+    | "cashRegister"
     | "assistant"
     | "imageAssistant"
     | "team"
@@ -1110,6 +1240,7 @@ export default function App() {
   const imageAssistantCopy = copy.imageAssistant;
   const productsCopy = copy.productsPage;
   const productFormCopy = copy.productForm;
+  const cashRegisterCopy = copy.cashRegisterPage;
   const teamCopy = copy.teamPage;
   const teamRoleLabelMap = useMemo(() => {
     const entries = teamCopy.roles.map((role) => [role.value, role.label]);
@@ -1149,6 +1280,7 @@ export default function App() {
   const [bookingFilterStartTime, setBookingFilterStartTime] = useState<string>("");
   const [bookingFilterEndDate, setBookingFilterEndDate] = useState("");
   const [bookingFilterEndTime, setBookingFilterEndTime] = useState("");
+  const [confirmingServiceId, setConfirmingServiceId] = useState<string | null>(null);
 
   const [recurrenceOpen, setRecurrenceOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -1243,6 +1375,30 @@ export default function App() {
     setProducts((prev) => sortProducts(prev));
   }, [sortProducts]);
 
+  const loadCashMovements = useCallback(async () => {
+    setCashLoading(true);
+    try {
+      const rows = await listCashMovements();
+      setCashMovements(rows);
+    } catch (e: any) {
+      console.error(e);
+      Alert.alert(cashRegisterCopy.alerts.loadTitle, e?.message ?? String(e));
+      setCashMovements([]);
+    } finally {
+      setCashLoading(false);
+    }
+  }, [cashRegisterCopy.alerts.loadTitle]);
+
+  useEffect(() => {
+    void loadCashMovements();
+  }, [loadCashMovements]);
+
+  useEffect(() => {
+    if (activeScreen === "cashRegister") {
+      void loadCashMovements();
+    }
+  }, [activeScreen, loadCashMovements]);
+
   const loadTeamMembers = useCallback(async () => {
     setTeamLoading(true);
     try {
@@ -1262,6 +1418,13 @@ export default function App() {
       void loadTeamMembers();
     }
   }, [activeScreen, loadTeamMembers]);
+
+  const handleCashMovementRecorded = useCallback((movement: CashMovement) => {
+    setCashMovements((prev) => {
+      const filtered = prev.filter((item) => item.id !== movement.id);
+      return [movement, ...filtered].sort((a, b) => b.occurred_at.localeCompare(a.occurred_at));
+    });
+  }, []);
 
   const handleServiceFormClose = useCallback(() => {
     setServiceFormVisible(false);
@@ -1473,6 +1636,30 @@ export default function App() {
           ...prev,
           [updated.id]: (prev[updated.id] ?? 0) + quantity,
         }));
+        const saleAmount = Math.round((stockModalProduct.price_cents ?? 0) * quantity);
+        try {
+          const movement = await recordProductSaleRevenue({
+            productId: updated.id,
+            quantity,
+            amount_cents: saleAmount,
+            description: cashRegisterCopy.descriptions.product({
+              productName: updated.name,
+              quantity,
+            }),
+            metadata: {
+              product_id: updated.id,
+              quantity,
+              unit_price_cents: stockModalProduct.price_cents ?? 0,
+            },
+          });
+          handleCashMovementRecorded(movement);
+        } catch (error: any) {
+          console.error(error);
+          Alert.alert(
+            cashRegisterCopy.alerts.recordTitle,
+            cashRegisterCopy.alerts.productFailure,
+          );
+        }
       }
       handleCloseStockModal();
     } catch (e: any) {
@@ -1494,7 +1681,74 @@ export default function App() {
     stockModalMode,
     stockModalProduct,
     stockQuantityText,
+    cashRegisterCopy.alerts.productFailure,
+    cashRegisterCopy.alerts.recordTitle,
+    cashRegisterCopy.descriptions,
+    handleCashMovementRecorded,
   ]);
+
+  const handleConfirmService = useCallback(
+    async (booking: BookingWithCustomer) => {
+      if (confirmedBookingIds.has(booking.id)) {
+        Alert.alert(
+          bookingsCopy.results.confirmServiceErrorTitle,
+          bookingsCopy.results.confirmServiceAlready,
+        );
+        return;
+      }
+
+      const localized = localizedServiceMap.get(booking.service_id);
+      const baseService = serviceMap.get(booking.service_id);
+      const serviceName = localized?.name ?? baseService?.name ?? booking.service_id;
+      const barberName = BARBER_MAP[booking.barber]?.name ?? booking.barber;
+      const priceCents = Math.round(localized?.price_cents ?? baseService?.price_cents ?? 0);
+
+      setConfirmingServiceId(booking.id);
+      try {
+        const description = cashRegisterCopy.descriptions.service({
+          serviceName,
+          barberName,
+        });
+        const movement = await recordServiceRevenue({
+          bookingId: booking.id,
+          serviceId: booking.service_id,
+          barberId: booking.barber,
+          amount_cents: priceCents,
+          description,
+          metadata: {
+            booking_id: booking.id,
+            service_id: booking.service_id,
+            barber_id: booking.barber,
+            date: booking.date,
+            start: booking.start,
+            end: booking.end,
+            customer_id: booking.customer_id ?? null,
+          },
+        });
+        handleCashMovementRecorded(movement);
+        Alert.alert(
+          bookingsCopy.results.confirmServiceSuccessTitle,
+          bookingsCopy.results.confirmServiceSuccessMessage(formatPrice(priceCents)),
+        );
+      } catch (error: any) {
+        console.error(error);
+        Alert.alert(
+          bookingsCopy.results.confirmServiceErrorTitle,
+          error?.message ?? String(error),
+        );
+      } finally {
+        setConfirmingServiceId(null);
+      }
+    },
+    [
+      bookingsCopy.results,
+      cashRegisterCopy.descriptions,
+      confirmedBookingIds,
+      handleCashMovementRecorded,
+      localizedServiceMap,
+      serviceMap,
+    ],
+  );
 
   const selectedService = useMemo(
     () => services.find((s) => s.id === selectedServiceId) ?? null,
@@ -1980,6 +2234,35 @@ export default function App() {
     await loadAllBookings();
   }, [load, loadWeek, loadAllBookings]);
 
+  const confirmedBookingIds = useMemo(() => {
+    const ids = new Set<string>();
+    cashMovements.forEach((movement) => {
+      const bookingId = movement.type === "service" ? movement.metadata?.booking_id : null;
+      if (bookingId) {
+        ids.add(bookingId);
+      }
+    });
+    return ids;
+  }, [cashMovements]);
+
+  const cashSummary = useMemo(() => {
+    let serviceTotal = 0;
+    let productTotal = 0;
+    cashMovements.forEach((movement) => {
+      if (movement.type === "service") {
+        serviceTotal += movement.amount_cents;
+      } else if (movement.type === "product") {
+        productTotal += movement.amount_cents;
+      }
+    });
+    return {
+      services: serviceTotal,
+      products: productTotal,
+      total: serviceTotal + productTotal,
+      count: cashMovements.length,
+    };
+  }, [cashMovements]);
+
   const weekSummary = useMemo(() => {
     const barberCounts = new Map<string, number>();
     let totalMinutes = 0;
@@ -1990,7 +2273,7 @@ export default function App() {
       const service = serviceMap.get(booking.service_id);
       const duration = service?.estimated_minutes ?? Math.max(timeToMinutes(booking.end) - timeToMinutes(booking.start), 0);
       totalMinutes += duration;
-      if (service?.price_cents) {
+      if (service?.price_cents && confirmedBookingIds.has(booking.id)) {
         totalRevenue += service.price_cents;
       }
     });
@@ -2001,7 +2284,7 @@ export default function App() {
       totalRevenue,
       barberCounts,
     };
-  }, [serviceMap, weekBookings]);
+  }, [confirmedBookingIds, serviceMap, weekBookings]);
 
   const weekDayMap = useMemo(() => {
     const map = new Map<string, BookingWithCustomer[]>();
@@ -2184,6 +2467,7 @@ export default function App() {
         | "bookService"
         | "services"
         | "products"
+        | "cashRegister"
         | "assistant"
         | "imageAssistant"
         | "team"
@@ -2343,6 +2627,21 @@ export default function App() {
             />
             <Text style={[styles.sidebarItemText, activeScreen === "products" && styles.sidebarItemTextActive]}>
               {copy.navigation.products}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => handleNavigate("cashRegister")}
+            style={[styles.sidebarItem, activeScreen === "cashRegister" && styles.sidebarItemActive]}
+            accessibilityRole="button"
+            accessibilityLabel="View cash register"
+          >
+            <MaterialCommunityIcons
+              name="cash-register"
+              size={20}
+              color={activeScreen === "cashRegister" ? colors.accentFgOn : colors.subtext}
+            />
+            <Text style={[styles.sidebarItemText, activeScreen === "cashRegister" && styles.sidebarItemTextActive]}>
+              {copy.navigation.cashRegister}
             </Text>
           </Pressable>
           <Pressable
@@ -3085,6 +3384,8 @@ export default function App() {
                     });
                     const phoneDigits = booking._customer?.phone?.replace(/\D/g, "");
                     const hasPhone = Boolean(phoneDigits);
+                    const isConfirmed = confirmedBookingIds.has(booking.id);
+                    const confirmDisabled = confirmingServiceId === booking.id;
                     const openWhatsAppReminder = () => {
                       if (!phoneDigits) return;
                       const url = `https://wa.me/${phoneDigits}?text=${encodeURIComponent(reminderMessage)}`;
@@ -3160,6 +3461,47 @@ export default function App() {
                               {bookingsCopy.results.whatsappCta}
                             </Text>
                           </Pressable>
+                          {isConfirmed ? (
+                            <View
+                              style={[
+                                styles.confirmedTag,
+                                isUltraCompactLayout && styles.fullWidthButton,
+                              ]}
+                            >
+                              <MaterialCommunityIcons
+                                name="check-circle"
+                                size={16}
+                                color={colors.accent}
+                              />
+                              <Text style={styles.confirmedTagText}>
+                                {bookingsCopy.results.confirmedBadge}
+                              </Text>
+                            </View>
+                          ) : (
+                            <Pressable
+                              onPress={() => {
+                                void handleConfirmService(booking);
+                              }}
+                              disabled={confirmDisabled}
+                              style={[
+                                styles.smallBtn,
+                                styles.confirmBtn,
+                                isUltraCompactLayout && styles.fullWidthButton,
+                                confirmDisabled && styles.smallBtnDisabled,
+                              ]}
+                              accessibilityRole="button"
+                              accessibilityState={{ disabled: confirmDisabled }}
+                              accessibilityLabel={bookingsCopy.results.confirmServiceAccessibility(
+                                displayService?.name ?? booking.service_id,
+                                booking.start,
+                              )}
+                            >
+                              <MaterialCommunityIcons name="check" size={16} color={colors.accent} />
+                              <Text style={styles.confirmBtnText}>
+                                {bookingsCopy.results.confirmServiceCta}
+                              </Text>
+                            </Pressable>
+                          )}
                         </View>
                       </View>
                     );
@@ -3420,6 +3762,135 @@ export default function App() {
           </View>
         </Modal>
       </>
+    ) : activeScreen === "cashRegister" ? (
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}
+        refreshControl={<RefreshControl refreshing={cashLoading} onRefresh={loadCashMovements} />}
+      >
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 16 }]}>
+          <View style={[styles.listHeaderRow, isCompactLayout && styles.listHeaderRowCompact]}>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={[styles.title, { color: colors.text }]}>{cashRegisterCopy.title}</Text>
+              <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
+                {cashRegisterCopy.subtitle}
+              </Text>
+            </View>
+            <Pressable
+              onPress={loadCashMovements}
+              style={[styles.smallBtn, { borderColor: colors.border }, isCompactLayout && styles.fullWidthButton]}
+              accessibilityRole="button"
+              accessibilityLabel={cashRegisterCopy.refresh}
+            >
+              <Text style={{ color: colors.subtext, fontWeight: "800" }}>{cashRegisterCopy.refresh}</Text>
+            </Pressable>
+          </View>
+          <View style={styles.cashSummaryRows}>
+            <View style={styles.cashSummaryRow}>
+              <Text style={styles.cashSummaryLabel}>{cashRegisterCopy.balanceLabel}</Text>
+              <Text style={[styles.cashSummaryValue, { color: colors.text }]}>
+                {formatPrice(cashSummary.total)}
+              </Text>
+            </View>
+            <View style={styles.cashBreakdownRow}>
+              <View style={styles.cashBreakdownItem}>
+                <Text style={styles.cashSummaryLabel}>{cashRegisterCopy.servicesLabel}</Text>
+                <Text style={[styles.cashBreakdownValue, { color: colors.text }]}>
+                  {formatPrice(cashSummary.services)}
+                </Text>
+              </View>
+              <View style={styles.cashBreakdownItem}>
+                <Text style={styles.cashSummaryLabel}>{cashRegisterCopy.productsLabel}</Text>
+                <Text style={[styles.cashBreakdownValue, { color: colors.text }]}>
+                  {formatPrice(cashSummary.products)}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
+          <Text style={[styles.title, { color: colors.text }]}>{cashRegisterCopy.historyTitle}</Text>
+          {cashMovements.length === 0 ? (
+            <Text style={styles.empty}>{cashRegisterCopy.empty}</Text>
+          ) : (
+            cashMovements.map((movement) => {
+              const iconName = movement.type === "service" ? "content-cut" : "cart-outline";
+              const amountDisplay = formatPrice(movement.amount_cents);
+              const occurred = new Date(movement.occurred_at);
+              const hasValidDate = !Number.isNaN(occurred.getTime());
+              const fallbackDateLabel = hasValidDate
+                ? occurred.toLocaleDateString(locale, { month: "short", day: "numeric" })
+                : movement.occurred_at;
+              const timestampLabel = hasValidDate
+                ? occurred.toLocaleString(locale, { dateStyle: "short", timeStyle: "short" })
+                : movement.occurred_at;
+              let subtitle: string;
+              if (movement.type === "service") {
+                let bookingDateLabel: string | null = null;
+                if (movement.metadata?.date) {
+                  const bookingDate = new Date(`${movement.metadata.date}T00:00:00`);
+                  bookingDateLabel = !Number.isNaN(bookingDate.getTime())
+                    ? bookingDate.toLocaleDateString(locale, { month: "short", day: "numeric" })
+                    : movement.metadata.date;
+                }
+                subtitle = cashRegisterCopy.subtitles.service({
+                  dateLabel: bookingDateLabel ?? fallbackDateLabel,
+                  time: movement.metadata?.start ?? null,
+                });
+              } else {
+                const unitPrice =
+                  movement.metadata?.unit_price_cents != null
+                    ? formatPrice(movement.metadata.unit_price_cents)
+                    : null;
+                subtitle = cashRegisterCopy.subtitles.product({
+                  dateLabel: fallbackDateLabel,
+                  unitPrice,
+                });
+              }
+
+              return (
+                <View
+                  key={movement.id}
+                  style={[styles.cashMovementRow, { borderColor: colors.border, backgroundColor: colors.surface }]}
+                >
+                  <View
+                    style={[
+                      styles.cashMovementIcon,
+                      { backgroundColor: applyAlpha(colors.accent, 0.12) },
+                    ]}
+                  >
+                    <MaterialCommunityIcons name={iconName as any} size={18} color={colors.accent} />
+                  </View>
+                  <View style={styles.cashMovementBody}>
+                    <View style={styles.cashMovementHeader}>
+                      <Text style={[styles.cashMovementTitle, { color: colors.text }]}>
+                        {movement.description}
+                      </Text>
+                      <Text style={[styles.cashMovementAmount, { color: colors.accent }]}>
+                        {amountDisplay}
+                      </Text>
+                    </View>
+                    <View style={styles.cashMovementMeta}>
+                      <View style={[styles.cashMovementTag, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+                        <Text style={[styles.cashMovementTagText, { color: colors.subtext }]}>
+                          {cashRegisterCopy.entryTags[movement.type]}
+                        </Text>
+                      </View>
+                      <Text style={[styles.cashMovementSubtitle, { color: colors.subtext }]}>
+                        {subtitle || timestampLabel}
+                      </Text>
+                    </View>
+                    <Text style={[styles.cashMovementTimestamp, { color: colors.subtext }]}>
+                      {timestampLabel}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </View>
+      </ScrollView>
     ) : activeScreen === "services" ? (
       <ScrollView
         style={{ flex: 1 }}
@@ -4564,7 +5035,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   bookingListClock: { color: colors.subtext, fontWeight: "700", fontSize: 12 },
   bookingListTitle: { color: colors.text, fontWeight: "800", fontSize: 15 },
   bookingListMeta: { color: colors.subtext, fontWeight: "600", fontSize: 12, marginTop: 2 },
-  bookingListActions: { flexDirection: "row", alignItems: "center" },
+  bookingListActions: { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
   bookingListActionsCompact: { width: "100%" },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
 
@@ -4705,6 +5176,51 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.surface,
   },
   smallBtnDisabled: { opacity: 0.5 },
+  confirmBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderColor: colors.accent,
+    backgroundColor: applyAlpha(colors.accent, 0.12),
+  },
+  confirmBtnText: { color: colors.accent, fontWeight: "800" },
+  confirmedTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: applyAlpha(colors.accent, 0.4),
+    backgroundColor: applyAlpha(colors.accent, 0.12),
+  },
+  confirmedTagText: { color: colors.accent, fontWeight: "800", fontSize: 12 },
+  cashSummaryRows: { gap: 12 },
+  cashSummaryRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  cashSummaryLabel: { color: colors.subtext, fontSize: 11, fontWeight: "800", letterSpacing: 0.4, textTransform: "uppercase" },
+  cashSummaryValue: { fontSize: 24, fontWeight: "800" },
+  cashBreakdownRow: { flexDirection: "row", gap: 12, flexWrap: "wrap" },
+  cashBreakdownItem: { flex: 1, minWidth: 140, gap: 4 },
+  cashBreakdownValue: { fontSize: 16, fontWeight: "800" },
+  cashMovementRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 12,
+  },
+  cashMovementIcon: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  cashMovementBody: { flex: 1, gap: 6 },
+  cashMovementHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
+  cashMovementTitle: { fontWeight: "800", fontSize: 15 },
+  cashMovementAmount: { fontWeight: "800", fontSize: 16 },
+  cashMovementMeta: { flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" },
+  cashMovementTag: { borderWidth: 1, borderRadius: 999, paddingVertical: 4, paddingHorizontal: 10 },
+  cashMovementTagText: { fontSize: 11, fontWeight: "700" },
+  cashMovementSubtitle: { fontSize: 12, fontWeight: "600" },
+  cashMovementTimestamp: { fontSize: 11, fontWeight: "600" },
   stockModalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.55)",
