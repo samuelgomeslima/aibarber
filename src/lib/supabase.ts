@@ -1,11 +1,30 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+export type SupabaseClientConfig = {
+  url: string;
+  anonKey: string;
+};
 
-if (!url || !key) {
-  console.error('Supabase env missing',
-    { url: url, hasKey: !!key });
+export type SupabaseClientFactory = typeof createClient;
+
+export type SupabaseClientLike = Pick<SupabaseClient, "from">;
+
+export function createSupabaseClient(
+  config: SupabaseClientConfig,
+  clientFactory: SupabaseClientFactory = createClient,
+): SupabaseClient {
+  const { url, anonKey } = config;
+
+  if (!url || !anonKey) {
+    console.error("Supabase env missing", { url, hasKey: !!anonKey });
+  }
+
+  return clientFactory(url, anonKey);
 }
 
-export const supabase = createClient(url!, key!);
+const defaultConfig: SupabaseClientConfig = {
+  url: process.env.EXPO_PUBLIC_SUPABASE_URL ?? "",
+  anonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? "",
+};
+
+export const supabase = createSupabaseClient(defaultConfig);
