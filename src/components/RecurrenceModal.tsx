@@ -1,9 +1,9 @@
 // src/components/RecurrenceModal.tsx
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Modal, View, Text, Pressable, TextInput, StyleSheet } from "react-native";
 
 import { defaultComponentCopy } from "../locales/componentCopy";
-import type { RecurrenceModalCopy } from "../locales/types";
+import type { RecurrenceFrequency, RecurrenceModalCopy } from "../locales/types";
 import { modalColors, type ModalColors } from "../theme/colors";
 
 type Props = {
@@ -13,6 +13,7 @@ type Props = {
     startFrom: Date;   // Data fixa vinda do App (dia selecionado)
     time: string;      // "HH:MM" fixo vindo do App (slot selecionado)
     count: number;     // 1..10
+    frequency: RecurrenceFrequency;
   }) => void;
   fixedDate: Date;     // data selecionada na tela principal
   fixedTime: string;   // horário selecionado na tela principal (HH:MM)
@@ -36,6 +37,15 @@ export default function RecurrenceModal({
   copy = defaultComponentCopy.recurrenceModal,
 }: Props) {
   const [count, setCount] = useState("10"); // default continua 10
+  const [frequency, setFrequency] = useState<RecurrenceFrequency>(
+    copy.frequencyOptions[0]?.value ?? "weekly",
+  );
+
+  useEffect(() => {
+    if (!copy.frequencyOptions.some((option) => option.value === frequency)) {
+      setFrequency(copy.frequencyOptions[0]?.value ?? "weekly");
+    }
+  }, [copy.frequencyOptions, frequency]);
 
   const onCountChange = (v: string) => {
     const digits = v.replace(/\D/g, "").slice(0, 2); // até 2 dígitos
@@ -48,7 +58,7 @@ export default function RecurrenceModal({
 
   const submit = () => {
     const n = clamp(parseInt(count || "1", 10), 1, 10); // <-- máximo 10
-    onSubmit({ startFrom: fixedDate, time: fixedTime, count: n });
+    onSubmit({ startFrom: fixedDate, time: fixedTime, count: n, frequency });
     onClose();
   };
 
@@ -77,6 +87,35 @@ export default function RecurrenceModal({
           <View style={styles.infoRow}>
             <Text style={[styles.infoLabel, { color: colors.subtext }]}>{copy.labels.time}</Text>
             <Text style={[styles.infoValue, { color: colors.text }]}>{fixedTime}</Text>
+          </View>
+
+          {/* Frequency */}
+          <View style={{ marginTop: 8 }}>
+            <Text style={[styles.label, { color: colors.subtext }]}>{copy.labels.frequency}</Text>
+            <View style={styles.frequencyOptions}>
+              {copy.frequencyOptions.map((option) => {
+                const active = option.value === frequency;
+                return (
+                  <Pressable
+                    key={option.value}
+                    style={[
+                      styles.frequencyOption,
+                      {
+                        borderColor: active ? colors.accent : colors.border,
+                        backgroundColor: active ? colors.accent : colors.surface,
+                      },
+                    ]}
+                    onPress={() => setFrequency(option.value)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                  >
+                    <Text style={{ color: active ? "#071018" : colors.text, fontWeight: "700" }}>
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
 
           {/* Count */}
@@ -122,6 +161,20 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 0.5,
     fontSize: 16,
+  },
+
+  frequencyOptions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 8,
+  },
+  frequencyOption: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginRight: 8,
+    marginBottom: 8,
   },
 
   infoRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },

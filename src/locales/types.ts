@@ -175,6 +175,8 @@ export type UserFormCopy = {
   };
 };
 
+export type RecurrenceFrequency = "weekly" | "every-15-days" | "monthly";
+
 export type RecurrenceModalCopy = {
   title: string;
   labels: {
@@ -182,8 +184,10 @@ export type RecurrenceModalCopy = {
     barber: string;
     startDate: string;
     time: string;
+    frequency: string;
     count: string;
   };
+  frequencyOptions: ReadonlyArray<{ value: RecurrenceFrequency; label: string }>;
   placeholders: {
     count: string;
   };

@@ -237,8 +237,14 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
         barber: "Barber",
         startDate: "Start date",
         time: "Time",
+        frequency: "Frequency",
         count: "Count (1–10)",
       },
+      frequencyOptions: [
+        { value: "weekly", label: "Weekly" },
+        { value: "every-15-days", label: "Every 15 days" },
+        { value: "monthly", label: "Monthly" },
+      ],
       placeholders: {
         count: "10",
       },
@@ -484,8 +490,14 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
         barber: "Barbeiro",
         startDate: "Data inicial",
         time: "Horário",
+        frequency: "Frequência",
         count: "Quantidade (1–10)",
       },
+      frequencyOptions: [
+        { value: "weekly", label: "Semanal" },
+        { value: "every-15-days", label: "A cada 15 dias" },
+        { value: "monthly", label: "Mensal" },
+      ],
       placeholders: {
         count: "10",
       },
