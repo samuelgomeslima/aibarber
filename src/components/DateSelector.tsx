@@ -1,5 +1,5 @@
 // src/components/DateSelector.tsx
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import { View, Text, Pressable, ScrollView, StyleSheet, Modal, Platform } from "react-native";
 
 type Props = {
@@ -24,6 +24,8 @@ const humanDateKey = (dk: string, locale?: string) => {
   return d.toLocaleDateString(locale ?? undefined, { weekday: "short", month: "short", day: "numeric" });
 };
 const DAY_MS = 24 * 60 * 60 * 1000;
+const DAY_PILL_WIDTH = 72;
+const DAY_GAP = 10;
 
 const startOfWeek = (date: Date) => {
   const copy = new Date(date);
@@ -54,6 +56,8 @@ export default function DateSelector({
 }: Props) {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(value));
+  const [stripWidth, setStripWidth] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
 
   const dateKey = toDateKey(value);
 
@@ -71,6 +75,25 @@ export default function DateSelector({
       return { d, key: toDateKey(d) };
     });
   }, [weekStart]);
+
+  const dayCount = days.length;
+  const contentWidth = useMemo(() => {
+    if (!dayCount) return 0;
+    return dayCount * (DAY_PILL_WIDTH + DAY_GAP) - DAY_GAP;
+  }, [dayCount]);
+
+  useEffect(() => {
+    if (!scrollRef.current || !stripWidth) return;
+    const activeIndex = days.findIndex(({ key }) => key === dateKey);
+    if (activeIndex === -1) return;
+
+    const baseOffset = activeIndex * (DAY_PILL_WIDTH + DAY_GAP);
+    const centeredOffset = baseOffset - stripWidth / 2 + DAY_PILL_WIDTH / 2;
+    const maxOffset = Math.max(0, contentWidth - stripWidth);
+    const clampedOffset = Math.max(0, Math.min(maxOffset, centeredOffset));
+
+    scrollRef.current.scrollTo({ x: clampedOffset, animated: true });
+  }, [dateKey, days, stripWidth, contentWidth]);
 
   const shiftWeek = (direction: 1 | -1) => {
     setWeekStart((prev) => {
@@ -99,47 +122,57 @@ export default function DateSelector({
 
         {/* Tira horizontal de dias */}
         <ScrollView
+          ref={scrollRef}
           horizontal
           style={styles.dayStripScroll}
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={[
             styles.dayStrip,
-            { gap: 10, paddingVertical: 10, paddingRight: 0 },
+            {
+              gap: DAY_GAP,
+              paddingVertical: 10,
+              paddingRight: 0,
+              paddingHorizontal: Math.max(0, stripWidth / 2 - DAY_PILL_WIDTH / 2),
+            },
           ]}
+          onLayout={(event) => {
+            const nextWidth = event.nativeEvent.layout.width;
+            setStripWidth((prev) => (prev === nextWidth ? prev : nextWidth));
+          }}
         >
           {days.map(({ d, key }) => {
             const active = key === dateKey;
             return (
               <Pressable
                 key={key}
-              onPress={() => onChange(new Date(d))}
-              style={[
-                styles.dayPill,
-                { borderColor: colors.border, backgroundColor: colors.surface },
-                active && { backgroundColor: colors.accent, borderColor: colors.accent },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel={`Select ${d.toDateString()}`}
-            >
-              <Text
+                onPress={() => onChange(new Date(d))}
                 style={[
-                  styles.dayDow,
-                  { color: colors.subtext },
-                  active && { color: colors.accentFgOn ?? colors.text },
+                  styles.dayPill,
+                  { borderColor: colors.border, backgroundColor: colors.surface },
+                  active && { backgroundColor: colors.accent, borderColor: colors.accent },
                 ]}
+                accessibilityRole="button"
+                accessibilityLabel={`Select ${d.toDateString()}`}
               >
-                {humanDow(d, locale)}
-              </Text>
-              <Text
-                style={[
-                  styles.dayNum,
-                  { color: colors.text },
-                  active && { color: colors.accentFgOn ?? colors.text },
-                ]}
-              >
-                {d.getDate()}
-              </Text>
-            </Pressable>
+                <Text
+                  style={[
+                    styles.dayDow,
+                    { color: colors.subtext },
+                    active && { color: colors.accentFgOn ?? colors.text },
+                  ]}
+                >
+                  {humanDow(d, locale)}
+                </Text>
+                <Text
+                  style={[
+                    styles.dayNum,
+                    { color: colors.text },
+                    active && { color: colors.accentFgOn ?? colors.text },
+                  ]}
+                >
+                  {d.getDate()}
+                </Text>
+              </Pressable>
             );
           })}
         </ScrollView>
