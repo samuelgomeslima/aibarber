@@ -153,6 +153,7 @@ export type UserFormCopy = {
     lastName: { label: string; placeholder: string; required: string };
     phone: { label: string; placeholder: string; invalid: string };
     email: { label: string; placeholder: string; invalid: string };
+    role?: { label: string; placeholder?: string; required: string; invalid: string };
     dateOfBirth: {
       label: string;
       invalid: string;

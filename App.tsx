@@ -151,6 +151,7 @@ import {
 } from "./src/lib/bookings";
 import { deleteService, listServices } from "./src/lib/services";
 import { listProducts, deleteProduct, sellProduct, restockProduct } from "./src/lib/products";
+import { listStaffMembers, type StaffMember, type StaffRole } from "./src/lib/users";
 
 /* Components (mantidos) */
 import DateSelector from "./src/components/DateSelector";
@@ -283,6 +284,52 @@ const LANGUAGE_COPY = {
         system: "System",
         light: "Light",
         dark: "Dark",
+      },
+      team: {
+        title: "Team members",
+        subtitle: "Register administrators, managers, and professionals who can access the workspace.",
+        refresh: "Refresh list",
+        listTitle: "Current team",
+        empty: "No team members registered yet.",
+        alerts: {
+          loadTitle: "Team members",
+        },
+        roles: [
+          {
+            value: "administrator",
+            label: "Administrator",
+            description: "Full access to schedules, inventory, and settings.",
+          },
+          {
+            value: "manager",
+            label: "Manager",
+            description: "Manages appointments, services, and daily operations.",
+          },
+          {
+            value: "professional",
+            label: "Professional",
+            description: "Sees their agenda and updates booking status.",
+          },
+          {
+            value: "assistant",
+            label: "Assistant",
+            description: "Helps with bookings and customer records.",
+          },
+        ],
+        userForm: {
+          ...COMPONENT_COPY.en.userForm,
+          title: "Register team member",
+          buttons: {
+            ...COMPONENT_COPY.en.userForm.buttons,
+            submit: "Save team member",
+            submitAccessibility: "Save team member",
+          },
+          alerts: {
+            ...COMPONENT_COPY.en.userForm.alerts,
+            savedTitle: "Team member saved",
+            failedFallback: "Unable to save the team member.",
+          },
+        },
       },
     },
     servicesPage: {
@@ -597,6 +644,52 @@ const LANGUAGE_COPY = {
         system: "Sistema",
         light: "Claro",
         dark: "Escuro",
+      },
+      team: {
+        title: "Equipe",
+        subtitle: "Cadastre administradores, gerentes e profissionais com acesso ao sistema.",
+        refresh: "Atualizar lista",
+        listTitle: "Equipe atual",
+        empty: "Nenhum membro cadastrado ainda.",
+        alerts: {
+          loadTitle: "Equipe",
+        },
+        roles: [
+          {
+            value: "administrator",
+            label: "Administrador",
+            description: "Acesso total à agenda, estoque e configurações.",
+          },
+          {
+            value: "manager",
+            label: "Gerente",
+            description: "Gerencia agendamentos, serviços e operações diárias.",
+          },
+          {
+            value: "professional",
+            label: "Profissional",
+            description: "Visualiza sua agenda e atualiza o status dos atendimentos.",
+          },
+          {
+            value: "assistant",
+            label: "Assistente",
+            description: "Auxilia nos agendamentos e cadastros de clientes.",
+          },
+        ],
+        userForm: {
+          ...COMPONENT_COPY.pt.userForm,
+          title: "Cadastrar membro da equipe",
+          buttons: {
+            ...COMPONENT_COPY.pt.userForm.buttons,
+            submit: "Salvar membro",
+            submitAccessibility: "Salvar membro da equipe",
+          },
+          alerts: {
+            ...COMPONENT_COPY.pt.userForm.alerts,
+            savedTitle: "Membro salvo",
+            failedFallback: "Não foi possível salvar o membro da equipe.",
+          },
+        },
       },
     },
     servicesPage: {
@@ -981,6 +1074,8 @@ export default function App() {
   const [stockModalMode, setStockModalMode] = useState<"sell" | "restock">("sell");
   const [stockQuantityText, setStockQuantityText] = useState("1");
   const [stockSaving, setStockSaving] = useState(false);
+  const [teamMembers, setTeamMembers] = useState<StaffMember[]>([]);
+  const [teamLoading, setTeamLoading] = useState(false);
   const [activeScreen, setActiveScreen] = useState<
     | "home"
     | "bookings"
@@ -1001,6 +1096,11 @@ export default function App() {
   const imageAssistantCopy = copy.imageAssistant;
   const productsCopy = copy.productsPage;
   const productFormCopy = copy.productForm;
+  const teamCopy = copy.settingsPage.team;
+  const teamRoleLabelMap = useMemo(() => {
+    const entries = teamCopy.roles.map((role) => [role.value, role.label]);
+    return Object.fromEntries(entries) as Record<string, string>;
+  }, [teamCopy.roles]);
   const colorScheme = useColorScheme();
   const [themePreference, setThemePreference] = useState<ThemePreference>("system");
   const resolvedTheme = themePreference === "system" ? (colorScheme === "dark" ? "dark" : "light") : themePreference;
@@ -1065,6 +1165,19 @@ export default function App() {
     [locale],
   );
 
+  const sortTeamMembers = useCallback(
+    (list: StaffMember[]) =>
+      [...list].sort((a, b) => {
+        const nameA = `${a.first_name ?? ""} ${a.last_name ?? ""}`.trim();
+        const nameB = `${b.first_name ?? ""} ${b.last_name ?? ""}`.trim();
+        if (!nameA && !nameB) return 0;
+        if (!nameA) return 1;
+        if (!nameB) return -1;
+        return nameA.localeCompare(nameB, locale, { sensitivity: "base" });
+      }),
+    [locale],
+  );
+
   const loadServices = useCallback(async () => {
     setServicesLoading(true);
     try {
@@ -1107,6 +1220,26 @@ export default function App() {
   useEffect(() => {
     setProducts((prev) => sortProducts(prev));
   }, [sortProducts]);
+
+  useEffect(() => {
+    if (activeScreen === "settings") {
+      void loadTeamMembers();
+    }
+  }, [activeScreen, loadTeamMembers]);
+
+  const loadTeamMembers = useCallback(async () => {
+    setTeamLoading(true);
+    try {
+      const rows = await listStaffMembers();
+      setTeamMembers(sortTeamMembers(rows));
+    } catch (e: any) {
+      console.error(e);
+      Alert.alert(teamCopy.alerts.loadTitle, e?.message ?? String(e));
+      setTeamMembers([]);
+    } finally {
+      setTeamLoading(false);
+    }
+  }, [sortTeamMembers, teamCopy.alerts.loadTitle, listStaffMembers]);
 
   const handleServiceFormClose = useCallback(() => {
     setServiceFormVisible(false);
@@ -3424,6 +3557,101 @@ export default function App() {
             })}
           </View>
         </View>
+
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 16 }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <Ionicons name="people-outline" size={22} color={colors.accent} />
+            <Text style={[styles.title, { color: colors.text }]}>{teamCopy.title}</Text>
+          </View>
+          <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>{teamCopy.subtitle}</Text>
+          <Pressable
+            onPress={() => void loadTeamMembers()}
+            style={[styles.smallBtn, { alignSelf: "flex-start", borderColor: colors.border }]}
+            accessibilityRole="button"
+            accessibilityLabel={teamCopy.refresh}
+          >
+            <Text style={{ color: colors.subtext, fontWeight: "800" }}>{teamCopy.refresh}</Text>
+          </Pressable>
+
+          <View style={{ gap: 10 }}>
+            <Text style={[styles.languageLabel, { color: colors.subtext }]}>{teamCopy.listTitle}</Text>
+            <View style={[styles.teamList, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+              {teamLoading ? (
+                <ActivityIndicator color={colors.accent} />
+              ) : teamMembers.length === 0 ? (
+                <Text style={{ color: colors.subtext }}>{teamCopy.empty}</Text>
+              ) : (
+                teamMembers.map((member) => {
+                  const fullName = `${member.first_name ?? ""} ${member.last_name ?? ""}`.trim() ||
+                    member.email ||
+                    member.phone ||
+                    "—";
+                  const roleLabel = teamRoleLabelMap[member.role] ?? member.role;
+                  return (
+                    <View key={member.id} style={styles.teamListRow}>
+                      <MaterialCommunityIcons
+                        name="account-badge"
+                        size={20}
+                        color={colors.accent}
+                        style={styles.teamListIcon}
+                      />
+                      <View style={styles.teamListInfo}>
+                        <Text style={{ color: colors.text, fontWeight: "800" }}>{fullName}</Text>
+                        <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+                          <View
+                            style={[
+                              styles.teamRoleBadge,
+                              { borderColor: colors.border, backgroundColor: colors.surface },
+                            ]}
+                          >
+                            <Text style={{ color: colors.accent, fontWeight: "700", fontSize: 12 }}>
+                              {roleLabel}
+                            </Text>
+                          </View>
+                          {member.email ? (
+                            <Text style={{ color: colors.subtext, fontSize: 12 }}>{member.email}</Text>
+                          ) : null}
+                          {member.phone ? (
+                            <Text style={{ color: colors.subtext, fontSize: 12 }}>{member.phone}</Text>
+                          ) : null}
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })
+              )}
+            </View>
+          </View>
+
+          <UserForm
+            table="staff_members"
+            availableRoles={teamCopy.roles}
+            colors={{
+              text: colors.text,
+              subtext: colors.subtext,
+              border: colors.border,
+              surface: colors.surface,
+              accent: colors.accent,
+              accentFgOn: colors.accentFgOn,
+              danger: colors.danger,
+            }}
+            copy={teamCopy.userForm}
+            onSaved={(row) => {
+              const memberRole = (row.role ?? teamCopy.roles[0]?.value ?? "professional") as StaffRole;
+              const member: StaffMember = {
+                id: row.id,
+                first_name: row.first_name,
+                last_name: row.last_name,
+                email: row.email ?? null,
+                phone: row.phone ?? null,
+                date_of_birth: row.date_of_birth ?? null,
+                role: memberRole,
+              };
+              setTeamMembers((prev) => sortTeamMembers([...prev.filter((m) => m.id !== member.id), member]));
+              void loadTeamMembers();
+            }}
+          />
+        </View>
       </ScrollView>
     ) : (
       <ScrollView
@@ -4547,4 +4775,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   leaderboardInfo: { flexDirection: "row", alignItems: "center", gap: 8 },
   leaderboardBarTrack: { width: "100%", height: 6, borderRadius: 999, overflow: "hidden" },
   leaderboardBarFill: { height: "100%", borderRadius: 999 },
+  teamList: { borderWidth: 1, borderRadius: 12, padding: 12, gap: 12 },
+  teamListRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  teamListIcon: { marginTop: 2 },
+  teamListInfo: { flex: 1, gap: 6 },
+  teamRoleBadge: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
 });

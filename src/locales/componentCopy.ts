@@ -204,6 +204,12 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
           placeholder: "ana@email.com",
           invalid: "Enter a valid email",
         },
+        role: {
+          label: "Role",
+          placeholder: "Select a role",
+          required: "Select a role",
+          invalid: "Choose a valid role",
+        },
         dateOfBirth: {
           label: "Date of birth",
           invalid: "Select a valid date",
@@ -443,6 +449,12 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
           label: "E-mail",
           placeholder: "ana@email.com",
           invalid: "Informe um e-mail válido",
+        },
+        role: {
+          label: "Função",
+          placeholder: "Selecione uma função",
+          required: "Selecione uma função",
+          invalid: "Escolha uma função válida",
         },
         dateOfBirth: {
           label: "Data de nascimento",
