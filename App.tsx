@@ -37,6 +37,7 @@ import {
 } from "./src/lib/domain";
 import { polyglotServices } from "./src/lib/polyglot";
 import { COMPONENT_COPY } from "./src/locales/componentCopy";
+import type { RecurrenceFrequency } from "./src/locales/types";
 
 const getTodayDateKey = () => toDateKey(new Date());
 
@@ -1699,7 +1700,12 @@ export default function App() {
   };
 
   /** Recorrência: usa data/horário/serviço/barbeiro já selecionados e o mesmo cliente */
-  async function handleRecurrenceSubmit(opts: { time: string; count: number; startFrom: Date }) {
+  async function handleRecurrenceSubmit(opts: {
+    time: string;
+    count: number;
+    startFrom: Date;
+    frequency: RecurrenceFrequency;
+  }) {
     if (!selectedCustomer) {
       Alert.alert(bookServiceCopy.alerts.selectClient.title, bookServiceCopy.alerts.selectClient.message);
       return;
@@ -1715,10 +1721,15 @@ export default function App() {
     const first = new Date(opts.startFrom);
     first.setHours(hh, mm, 0, 0);
 
-    const raw = Array.from({ length: opts.count }, (_, i) => {
-      const d = new Date(first);
-      d.setDate(first.getDate() + i * 7); // semanal
-      const date = toDateKey(d);
+    const raw = Array.from({ length: opts.count }, (_, index) => {
+      const occurrenceDate = new Date(first);
+      if (opts.frequency === "monthly") {
+        occurrenceDate.setMonth(first.getMonth() + index);
+      } else {
+        const step = opts.frequency === "every-15-days" ? 15 : 7;
+        occurrenceDate.setDate(first.getDate() + index * step);
+      }
+      const date = toDateKey(occurrenceDate);
       const start = `${pad(hh)}:${pad(mm)}`;
       const end = addMinutes(start, minutes);
       return { date, start, end };
