@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "600",
     maxHeight: 100,
   },
