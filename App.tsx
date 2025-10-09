@@ -3021,8 +3021,20 @@ export default function App() {
               products.map((product) => {
                 const disableSell = product.stock_quantity <= 0;
                 return (
-                  <View key={product.id} style={styles.serviceRow}>
-                    <View style={{ flex: 1, gap: 4 }}>
+                  <View
+                    key={product.id}
+                    style={[
+                      styles.serviceRow,
+                      styles.productRow,
+                      isUltraCompactLayout && styles.productRowCompact,
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.productInfo,
+                        isUltraCompactLayout && styles.productInfoCompact,
+                      ]}
+                    >
                       <Text style={{ color: colors.text, fontWeight: "800" }}>{product.name}</Text>
                       <Text style={{ color: colors.subtext, fontSize: 12 }}>
                         {productsCopy.productMeta(formatPrice(product.price_cents), product.stock_quantity)}
@@ -3036,7 +3048,13 @@ export default function App() {
                         </Text>
                       ) : null}
                     </View>
-                    <View style={[styles.serviceActions, { justifyContent: "flex-end" }]}>
+                    <View
+                      style={[
+                        styles.serviceActions,
+                        styles.productActions,
+                        isUltraCompactLayout && styles.productActionsCompact,
+                      ]}
+                    >
                       <Pressable
                         onPress={() => handleOpenSellProduct(product)}
                         disabled={disableSell}
@@ -3047,6 +3065,7 @@ export default function App() {
                             backgroundColor: disableSell ? colors.surface : "rgba(37,99,235,0.12)",
                           },
                           disableSell && styles.smallBtnDisabled,
+                          isUltraCompactLayout && styles.productActionButtonCompact,
                         ]}
                         accessibilityRole="button"
                         accessibilityLabel={productsCopy.actions.sell.accessibility(product.name)}
@@ -3068,6 +3087,7 @@ export default function App() {
                             borderColor: colors.accent,
                             backgroundColor: "rgba(37,99,235,0.12)",
                           },
+                          isUltraCompactLayout && styles.productActionButtonCompact,
                         ]}
                         accessibilityRole="button"
                         accessibilityLabel={productsCopy.actions.restock.accessibility(product.name)}
@@ -3078,7 +3098,11 @@ export default function App() {
                       </Pressable>
                       <Pressable
                         onPress={() => handleOpenEditProduct(product)}
-                        style={[styles.smallBtn, { borderColor: colors.border }]}
+                        style={[
+                          styles.smallBtn,
+                          { borderColor: colors.border },
+                          isUltraCompactLayout && styles.productActionButtonCompact,
+                        ]}
                         accessibilityRole="button"
                         accessibilityLabel={productsCopy.actions.edit.accessibility(product.name)}
                       >
@@ -3094,6 +3118,7 @@ export default function App() {
                             borderColor: colors.danger,
                             backgroundColor: "rgba(239,68,68,0.1)",
                           },
+                          isUltraCompactLayout && styles.productActionButtonCompact,
                         ]}
                         accessibilityRole="button"
                         accessibilityLabel={productsCopy.actions.delete.accessibility(product.name)}
@@ -4350,11 +4375,39 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
+  productRow: {
+    alignItems: "flex-start",
+  },
+  productRowCompact: {
+    flexDirection: "column",
+    alignItems: "stretch",
+  },
   serviceActions: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     flexWrap: "wrap",
+  },
+  productActions: {
+    justifyContent: "flex-end",
+  },
+  productActionsCompact: {
+    width: "100%",
+    justifyContent: "flex-start",
+    alignItems: "stretch",
+    flexDirection: "column",
+  },
+  productInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  productInfoCompact: {
+    width: "100%",
+  },
+  productActionButtonCompact: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
   },
   statsGrid: {
     flexDirection: "row",
