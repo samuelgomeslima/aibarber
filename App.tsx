@@ -1721,13 +1721,20 @@ export default function App() {
     const first = new Date(opts.startFrom);
     first.setHours(hh, mm, 0, 0);
 
+    const baseDay = first.getDate();
+
     const raw = Array.from({ length: opts.count }, (_, index) => {
       const occurrenceDate = new Date(first);
       if (opts.frequency === "monthly") {
-        occurrenceDate.setMonth(first.getMonth() + index);
+        const targetMonthIndex = first.getMonth() + index;
+        const targetYear = first.getFullYear() + Math.floor(targetMonthIndex / 12);
+        const targetMonth = targetMonthIndex % 12;
+        const daysInTargetMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+        const clampedDay = Math.min(baseDay, daysInTargetMonth);
+        occurrenceDate.setFullYear(targetYear, targetMonth, clampedDay);
       } else {
         const step = opts.frequency === "every-15-days" ? 15 : 7;
-        occurrenceDate.setDate(first.getDate() + index * step);
+        occurrenceDate.setDate(baseDay + index * step);
       }
       const date = toDateKey(occurrenceDate);
       const start = `${pad(hh)}:${pad(mm)}`;
