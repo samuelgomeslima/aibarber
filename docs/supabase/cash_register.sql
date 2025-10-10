@@ -45,3 +45,16 @@ order by 1 desc, 2;
 
 comment on view public.cash_register_daily_totals is
   'Aggregated totals by day and entry type.';
+
+alter table public.cash_register_entries enable row level security;
+
+create policy if not exists "Authenticated users can read cash register entries" on public.cash_register_entries
+for select using (auth.role() = 'authenticated');
+
+create policy if not exists "Authenticated users can manage cash register entries" on public.cash_register_entries
+for all using (auth.role() = 'authenticated')
+  with check (auth.role() = 'authenticated');
+
+create policy if not exists "Service role can manage cash register entries" on public.cash_register_entries
+for all using (auth.role() = 'service_role')
+  with check (auth.role() = 'service_role');
