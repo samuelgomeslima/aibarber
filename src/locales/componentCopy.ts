@@ -5,6 +5,7 @@ import type {
   RecurrenceModalCopy,
   ServiceFormCopy,
   ProductFormCopy,
+  ServicePackageFormCopy,
   UserFormCopy,
 } from "./types";
 
@@ -15,6 +16,7 @@ type ComponentCopy = {
   imageAssistant: ImageAssistantCopy;
   serviceForm: ServiceFormCopy;
   productForm: ProductFormCopy;
+  servicePackageForm: ServicePackageFormCopy;
   userForm: UserFormCopy;
   recurrenceModal: RecurrenceModalCopy;
   occurrencePreview: OccurrencePreviewCopy;
@@ -179,6 +181,55 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
         updatedMessage: (name: string, stock: number) => `${name} (${stock} in stock)`,
         createErrorTitle: "Create product failed",
         updateErrorTitle: "Update product failed",
+      },
+    },
+    servicePackageForm: {
+      createTitle: "Register a service package",
+      editTitle: "Edit service package",
+      createSubtitle: "Bundle multiple services and offer a loyal-client discount.",
+      editSubtitle: "Update the included services or pricing for this package.",
+      fields: {
+        nameLabel: "Package name",
+        namePlaceholder: "10 haircuts + 10 shaves",
+        nameError: "Name is required",
+        descriptionLabel: "Description",
+        descriptionPlaceholder: "Details about when to recommend this bundle.",
+        regularPriceLabel: "Regular price",
+        regularPricePlaceholder: "1200.00",
+        regularPriceError: "Enter the total regular price",
+        priceLabel: "Package price",
+        pricePlaceholder: "990.00",
+        priceError: "Enter the discounted package price",
+        servicesLabel: "Included services",
+        servicesHelper: "Select services and set how many credits are included.",
+        servicesEmpty: "Add at least one service to the package.",
+        quantityLabel: "Quantity",
+        quantityPlaceholder: "1",
+        quantityError: "Enter a quantity greater than zero",
+      },
+      buttons: {
+        addService: "Add service",
+        removeService: "Remove",
+        create: "Save package",
+        edit: "Save changes",
+        saving: "Saving…",
+        cancel: "Cancel",
+      },
+      accessibility: {
+        submitCreate: "Save service package",
+        submitEdit: "Save service package changes",
+        cancel: "Cancel service package form",
+        addService: "Add service to package",
+        removeService: (name: string) => `Remove ${name} from package`,
+        selectService: "Select service",
+      },
+      alerts: {
+        createdTitle: "Package saved",
+        createdMessage: (name: string) => `${name}`,
+        updatedTitle: "Package updated",
+        updatedMessage: (name: string) => `${name}`,
+        createErrorTitle: "Create package failed",
+        updateErrorTitle: "Update package failed",
       },
     },
     userForm: {
@@ -425,6 +476,55 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
         updatedMessage: (name: string, stock: number) => `${name} (${stock} em estoque)`,
         createErrorTitle: "Falha ao criar produto",
         updateErrorTitle: "Falha ao atualizar produto",
+      },
+    },
+    servicePackageForm: {
+      createTitle: "Cadastrar pacote de serviços",
+      editTitle: "Editar pacote de serviços",
+      createSubtitle: "Combine atendimentos e ofereça descontos para clientes fiéis.",
+      editSubtitle: "Atualize os serviços incluídos ou o valor promocional do pacote.",
+      fields: {
+        nameLabel: "Nome do pacote",
+        namePlaceholder: "10 cortes + 10 barbas",
+        nameError: "Informe um nome",
+        descriptionLabel: "Descrição",
+        descriptionPlaceholder: "Quando indicar este pacote para o cliente.",
+        regularPriceLabel: "Preço sem desconto",
+        regularPricePlaceholder: "1200,00",
+        regularPriceError: "Informe o preço de tabela",
+        priceLabel: "Preço do pacote",
+        pricePlaceholder: "990,00",
+        priceError: "Informe o valor com desconto",
+        servicesLabel: "Serviços inclusos",
+        servicesHelper: "Selecione os serviços e quantos créditos cada um possui.",
+        servicesEmpty: "Adicione pelo menos um serviço ao pacote.",
+        quantityLabel: "Quantidade",
+        quantityPlaceholder: "1",
+        quantityError: "Informe uma quantidade maior que zero",
+      },
+      buttons: {
+        addService: "Adicionar serviço",
+        removeService: "Remover",
+        create: "Salvar pacote",
+        edit: "Salvar alterações",
+        saving: "Salvando…",
+        cancel: "Cancelar",
+      },
+      accessibility: {
+        submitCreate: "Salvar pacote de serviços",
+        submitEdit: "Salvar alterações do pacote",
+        cancel: "Cancelar formulário de pacote",
+        addService: "Adicionar serviço ao pacote",
+        removeService: (name: string) => `Remover ${name} do pacote`,
+        selectService: "Selecionar serviço",
+      },
+      alerts: {
+        createdTitle: "Pacote salvo",
+        createdMessage: (name: string) => `${name}`,
+        updatedTitle: "Pacote atualizado",
+        updatedMessage: (name: string) => `${name}`,
+        createErrorTitle: "Falha ao criar pacote",
+        updateErrorTitle: "Falha ao atualizar pacote",
       },
     },
     userForm: {

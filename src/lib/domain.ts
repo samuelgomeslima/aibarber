@@ -23,6 +23,22 @@ export type Product = {
   updated_at?: string | null;
 };
 
+export type ServicePackageId = string;
+export type ServicePackageItem = {
+  service_id: ServiceId;
+  quantity: number;
+};
+export type ServicePackage = {
+  id: ServicePackageId;
+  name: string;
+  description?: string | null;
+  regular_price_cents: number;
+  price_cents: number;
+  items: ServicePackageItem[];
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
 export type BarberId = "joao" | "maria" | "carlos";
 export type Barber = {
   id: BarberId;
