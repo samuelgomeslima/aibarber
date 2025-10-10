@@ -242,7 +242,7 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
       },
       frequencyOptions: [
         { value: "weekly", label: "Weekly" },
-        { value: "every-15-days", label: "Every 15 days" },
+        { value: "every-15-days", label: "Every two weeks" },
         { value: "monthly", label: "Monthly" },
       ],
       placeholders: {
@@ -495,7 +495,7 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
       },
       frequencyOptions: [
         { value: "weekly", label: "Semanal" },
-        { value: "every-15-days", label: "A cada 15 dias" },
+        { value: "every-15-days", label: "A cada duas semanas" },
         { value: "monthly", label: "Mensal" },
       ],
       placeholders: {

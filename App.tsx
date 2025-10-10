@@ -2132,7 +2132,7 @@ export default function App() {
         if (opts.frequency === "monthly") {
           occurrenceDate = nextMonthlyOccurrence(occurrenceDate);
         } else {
-          const step = opts.frequency === "every-15-days" ? 15 : 7;
+          const step = opts.frequency === "every-15-days" ? 14 : 7;
           occurrenceDate = addDays(occurrenceDate, step);
         }
       }
