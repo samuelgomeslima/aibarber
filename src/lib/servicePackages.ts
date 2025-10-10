@@ -19,6 +19,7 @@ type ServicePackageRow = {
   description: string | null;
   created_at: string | null;
   updated_at: string | null;
+  created_by: string | null;
 };
 
 type ServicePackageItemRow = {
@@ -27,6 +28,7 @@ type ServicePackageItemRow = {
   service_id: string;
   quantity: number;
   position: number | null;
+  created_by: string | null;
 };
 
 type ServicePackageJoinRow = ServicePackageRow & {
@@ -39,6 +41,18 @@ const ITEMS_TABLE = "service_package_items";
 const useMemoryStore = !hasSupabaseCredentials;
 
 type MemoryPackage = ServicePackage;
+
+async function requireAuthUserId(): Promise<string> {
+  const { data, error } = await supabase.auth.getUser();
+  if (error) {
+    throw error;
+  }
+  const userId = data.user?.id;
+  if (!userId) {
+    throw new Error("User is not authenticated");
+  }
+  return userId;
+}
 
 type NormalizedInput = {
   name: string;
@@ -248,6 +262,8 @@ export async function createServicePackage(payload: ServicePackageInput): Promis
     return createPackageInMemory(input);
   }
 
+  const userId = await requireAuthUserId();
+
   const { data, error } = await supabase
     .from<ServicePackageRow>(TABLE_NAME)
     .insert({
@@ -255,6 +271,7 @@ export async function createServicePackage(payload: ServicePackageInput): Promis
       price_cents: input.price_cents,
       regular_price_cents: input.regular_price_cents,
       description: input.description,
+      created_by: userId,
     })
     .select("id")
     .single();
@@ -269,6 +286,7 @@ export async function createServicePackage(payload: ServicePackageInput): Promis
     service_id: item.service_id,
     quantity: item.quantity,
     position: index,
+    created_by: userId,
   }));
 
   const itemsResult: PostgrestSingleResponse<ServicePackageItemRow[]> = await supabase
@@ -295,6 +313,8 @@ export async function updateServicePackage(
     return updatePackageInMemory(id, input);
   }
 
+  const userId = await requireAuthUserId();
+
   const { error: updateError } = await supabase
     .from<ServicePackageRow>(TABLE_NAME)
     .update({
@@ -320,6 +340,7 @@ export async function updateServicePackage(
       service_id: item.service_id,
       quantity: item.quantity,
       position: index,
+      created_by: userId,
     }));
     const insertResult: PostgrestSingleResponse<ServicePackageItemRow[]> = await supabase
       .from<ServicePackageItemRow>(ITEMS_TABLE)
