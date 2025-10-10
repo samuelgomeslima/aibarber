@@ -119,44 +119,80 @@ alter table public.bookings enable row level security;
 alter table public.staff_usage enable row level security;
 
 create policy if not exists "Authenticated users can read customers" on public.customers
-for select using (auth.role() = 'authenticated');
+for select using (
+  auth.role() = 'authenticated'
+  and created_by = auth.uid()
+);
 
 create policy if not exists "Authenticated users can manage customers" on public.customers
-for all using (auth.role() = 'authenticated')
-  with check (auth.role() = 'authenticated');
+for all using (
+  auth.role() = 'authenticated'
+  and created_by = auth.uid()
+)
+  with check (
+    auth.role() = 'authenticated'
+    and created_by = auth.uid()
+  );
 
 create policy if not exists "Service role can manage customers" on public.customers
 for all using (auth.role() = 'service_role')
   with check (auth.role() = 'service_role');
 
 create policy if not exists "Authenticated users can read services" on public.services
-for select using (auth.role() = 'authenticated');
+for select using (
+  auth.role() = 'authenticated'
+  and created_by = auth.uid()
+);
 
 create policy if not exists "Authenticated users can manage services" on public.services
-for all using (auth.role() = 'authenticated')
-  with check (auth.role() = 'authenticated');
+for all using (
+  auth.role() = 'authenticated'
+  and created_by = auth.uid()
+)
+  with check (
+    auth.role() = 'authenticated'
+    and created_by = auth.uid()
+  );
 
 create policy if not exists "Service role can manage services" on public.services
 for all using (auth.role() = 'service_role')
   with check (auth.role() = 'service_role');
 
 create policy if not exists "Authenticated users can read bookings" on public.bookings
-for select using (auth.role() = 'authenticated');
+for select using (
+  auth.role() = 'authenticated'
+  and created_by = auth.uid()
+);
 
 create policy if not exists "Authenticated users can modify bookings" on public.bookings
-for all using (auth.role() = 'authenticated')
-  with check (auth.role() = 'authenticated');
+for all using (
+  auth.role() = 'authenticated'
+  and created_by = auth.uid()
+)
+  with check (
+    auth.role() = 'authenticated'
+    and created_by = auth.uid()
+  );
 
 create policy if not exists "Service role can manage bookings" on public.bookings
 for all using (auth.role() = 'service_role')
   with check (auth.role() = 'service_role');
 
 create policy if not exists "Authenticated users can read staff usage" on public.staff_usage
-for select using (auth.role() = 'authenticated');
+for select using (
+  auth.role() = 'authenticated'
+  and created_by = auth.uid()
+);
 
 create policy if not exists "Authenticated users can manage staff usage" on public.staff_usage
-for all using (auth.role() = 'authenticated')
-  with check (auth.role() = 'authenticated');
+for all using (
+  auth.role() = 'authenticated'
+  and created_by = auth.uid()
+)
+  with check (
+    auth.role() = 'authenticated'
+    and created_by = auth.uid()
+  );
 
 create policy if not exists "Service role can manage staff usage" on public.staff_usage
 for all using (auth.role() = 'service_role')
