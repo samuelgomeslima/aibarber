@@ -2393,6 +2393,7 @@ export default function App() {
         | "bookService"
         | "services"
         | "products"
+        | "cashRegister"
         | "assistant"
         | "imageAssistant"
         | "team"
