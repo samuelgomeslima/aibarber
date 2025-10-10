@@ -145,6 +145,7 @@ import {
   createBooking,
   createBookingsBulk,
   cancelBooking,
+  confirmBookingPerformed,
   listCustomers,
   listRecentBookings,
   type BookingWithCustomer,
@@ -158,6 +159,13 @@ import {
   restockProduct,
   listProductSalesTotals,
 } from "./src/lib/products";
+import {
+  listCashEntries,
+  recordProductSale,
+  recordServiceSale,
+  summarizeCashEntries,
+  type CashEntry,
+} from "./src/lib/cashRegister";
 import { listStaffMembers, type StaffMember, type StaffRole } from "./src/lib/users";
 
 /* Components (mantidos) */
@@ -278,6 +286,7 @@ const LANGUAGE_COPY = {
       bookings: "Bookings",
       services: "Services",
       products: "Products",
+      cashRegister: "Cash register",
       assistant: "Assistant",
       imageAssistant: "Image lab",
       team: "Team members",
@@ -399,6 +408,38 @@ const LANGUAGE_COPY = {
         sellSuccessMessage: (name: string, quantity: number) => `Sold ${quantity} unit(s) of ${name}.`,
         restockSuccessTitle: "Stock updated",
         restockSuccessMessage: (name: string, quantity: number) => `Added ${quantity} unit(s) to ${name}.`,
+      },
+    },
+    cashRegisterPage: {
+      title: "Cash register",
+      subtitle: "Track revenue from services and retail in one ledger.",
+      refresh: "Refresh",
+      refreshAccessibility: "Refresh cash register",
+      summaryTitle: "Summary",
+      summary: {
+        total: "Total balance",
+        services: "Services",
+        products: "Products",
+        adjustments: "Adjustments",
+      },
+      ledgerTitle: "Ledger entries",
+      empty: "No transactions recorded yet.",
+      entryLabels: {
+        service: "Service sale",
+        product: "Product sale",
+        adjustment: "Adjustment",
+      },
+      entryMeta: {
+        quantity: (quantity: number) => `${quantity} unit${quantity === 1 ? "" : "s"}`,
+        unitPrice: (price: string) => `Unit: ${price}`,
+        reference: (reference: string) => `Reference: ${reference}`,
+        note: (note: string) => `Note: ${note}`,
+      },
+      alerts: {
+        loadTitle: "Cash register",
+        recordSaleFailedTitle: "Cash register",
+        recordSaleFailedMessage: (name: string) =>
+          `The sale for "${name}" was created but could not be stored in the cash register. Please add it manually.`,
       },
     },
     serviceForm: COMPONENT_COPY.en.serviceForm,
@@ -557,6 +598,53 @@ const LANGUAGE_COPY = {
           time: string;
         }) =>
           `Hi ${clientName}, this is a reminder of your appointment for ${serviceName} on ${date} at ${time}.`,
+        confirmCta: "Confirm service",
+        confirmAccessibility: ({
+          serviceName,
+          time,
+        }: {
+          serviceName: string;
+          time: string;
+        }) => `Confirm ${serviceName} at ${time}`,
+        confirmPromptTitle: "Service performed?",
+        confirmPromptMessage: ({
+          serviceName,
+          date,
+          time,
+        }: {
+          serviceName: string;
+          date: string;
+          time: string;
+        }) =>
+          `Confirm that ${serviceName} on ${date} at ${time} was completed. The sale will be recorded in the cash register.`,
+        confirmPromptConfirm: "Confirm",
+        confirmPromptCancel: "Not yet",
+        confirming: "Confirming...",
+        confirmSuccessTitle: "Service confirmed",
+        confirmSuccessMessage: ({
+          serviceName,
+          date,
+          time,
+        }: {
+          serviceName: string;
+          date: string;
+          time: string;
+        }) => `Marked ${serviceName} on ${date} at ${time} as completed.`,
+        confirmSuccessButCashFailed: ({
+          serviceName,
+          date,
+          time,
+        }: {
+          serviceName: string;
+          date: string;
+          time: string;
+        }) =>
+          `Marked ${serviceName} on ${date} at ${time} as completed, but the sale could not be stored automatically.`,
+        confirmFailedTitle: "Confirmation failed",
+        confirmFailedMessage: "We couldn't mark this booking as completed. Please try again.",
+        confirmMissingService: "The service linked to this booking is no longer available.",
+        confirmedBadge: "Completed",
+        confirmedAt: (label: string) => `Completed ${label}`,
       },
       alerts: {
         loadTitle: "Bookings list",
@@ -644,6 +732,7 @@ const LANGUAGE_COPY = {
       bookings: "Agendamentos",
       services: "Serviços",
       products: "Produtos",
+      cashRegister: "Caixa",
       assistant: "Assistente",
       imageAssistant: "Laboratório de imagens",
       team: "Equipe",
@@ -767,6 +856,38 @@ const LANGUAGE_COPY = {
         restockSuccessTitle: "Estoque atualizado",
         restockSuccessMessage: (name: string, quantity: number) =>
           `Adicionadas ${quantity} unidade(s) em ${name}.`,
+      },
+    },
+    cashRegisterPage: {
+      title: "Caixa",
+      subtitle: "Controle a receita de serviços e produtos em um único livro-caixa.",
+      refresh: "Atualizar",
+      refreshAccessibility: "Atualizar caixa",
+      summaryTitle: "Resumo",
+      summary: {
+        total: "Saldo total",
+        services: "Serviços",
+        products: "Produtos",
+        adjustments: "Ajustes",
+      },
+      ledgerTitle: "Lançamentos",
+      empty: "Nenhum lançamento registrado.",
+      entryLabels: {
+        service: "Venda de serviço",
+        product: "Venda de produto",
+        adjustment: "Ajuste",
+      },
+      entryMeta: {
+        quantity: (quantity: number) => `${quantity} unidade${quantity === 1 ? "" : "s"}`,
+        unitPrice: (price: string) => `Unitário: ${price}`,
+        reference: (reference: string) => `Referência: ${reference}`,
+        note: (note: string) => `Observação: ${note}`,
+      },
+      alerts: {
+        loadTitle: "Caixa",
+        recordSaleFailedTitle: "Caixa",
+        recordSaleFailedMessage: (name: string) =>
+          `A venda de "${name}" foi criada, mas não pôde ser registrada no caixa. Faça o lançamento manualmente.`,
       },
     },
     serviceForm: COMPONENT_COPY.pt.serviceForm,
@@ -926,6 +1047,53 @@ const LANGUAGE_COPY = {
           time: string;
         }) =>
           `Olá ${clientName}, lembrando do seu horário para ${serviceName} em ${date} às ${time}.`,
+        confirmCta: "Confirmar atendimento",
+        confirmAccessibility: ({
+          serviceName,
+          time,
+        }: {
+          serviceName: string;
+          time: string;
+        }) => `Confirmar ${serviceName} às ${time}`,
+        confirmPromptTitle: "Atendimento realizado?",
+        confirmPromptMessage: ({
+          serviceName,
+          date,
+          time,
+        }: {
+          serviceName: string;
+          date: string;
+          time: string;
+        }) =>
+          `Confirme que ${serviceName} em ${date} às ${time} foi concluído. A venda será registrada no caixa.`,
+        confirmPromptConfirm: "Confirmar",
+        confirmPromptCancel: "Ainda não",
+        confirming: "Confirmando...",
+        confirmSuccessTitle: "Atendimento confirmado",
+        confirmSuccessMessage: ({
+          serviceName,
+          date,
+          time,
+        }: {
+          serviceName: string;
+          date: string;
+          time: string;
+        }) => `Marcamos ${serviceName} em ${date} às ${time} como concluído.`,
+        confirmSuccessButCashFailed: ({
+          serviceName,
+          date,
+          time,
+        }: {
+          serviceName: string;
+          date: string;
+          time: string;
+        }) =>
+          `Marcamos ${serviceName} em ${date} às ${time} como concluído, mas não foi possível lançar a venda automaticamente.`,
+        confirmFailedTitle: "Falha ao confirmar",
+        confirmFailedMessage: "Não foi possível marcar este agendamento como concluído. Tente novamente.",
+        confirmMissingService: "O serviço vinculado a este agendamento não está mais disponível.",
+        confirmedBadge: "Concluído",
+        confirmedAt: (label: string) => `Concluído ${label}`,
       },
       alerts: {
         loadTitle: "Lista de agendamentos",
@@ -1077,6 +1245,18 @@ function getInitialLanguage(): SupportedLanguage {
 }
 
 /** ========== App ========== */
+type ScreenName =
+  | "home"
+  | "bookings"
+  | "bookService"
+  | "services"
+  | "products"
+  | "cashRegister"
+  | "assistant"
+  | "imageAssistant"
+  | "team"
+  | "settings";
+
 export default function App() {
   const [services, setServices] = useState<Service[]>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
@@ -1094,19 +1274,11 @@ export default function App() {
   const [stockModalMode, setStockModalMode] = useState<"sell" | "restock">("sell");
   const [stockQuantityText, setStockQuantityText] = useState("1");
   const [stockSaving, setStockSaving] = useState(false);
+  const [cashEntries, setCashEntries] = useState<CashEntry[]>([]);
+  const [cashLoading, setCashLoading] = useState(false);
   const [teamMembers, setTeamMembers] = useState<StaffMember[]>([]);
   const [teamLoading, setTeamLoading] = useState(false);
-  const [activeScreen, setActiveScreen] = useState<
-    | "home"
-    | "bookings"
-    | "bookService"
-    | "services"
-    | "products"
-    | "assistant"
-    | "imageAssistant"
-    | "team"
-    | "settings"
-  >("home");
+  const [activeScreen, setActiveScreen] = useState<ScreenName>("home");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [language, setLanguage] = useState<SupportedLanguage>(() => getInitialLanguage());
   const copy = useMemo(() => LANGUAGE_COPY[language], [language]);
@@ -1116,6 +1288,7 @@ export default function App() {
   const assistantCopy = copy.assistant;
   const imageAssistantCopy = copy.imageAssistant;
   const productsCopy = copy.productsPage;
+  const cashRegisterCopy = copy.cashRegisterPage;
   const productFormCopy = copy.productForm;
   const teamCopy = copy.teamPage;
   const teamRoleLabelMap = useMemo(() => {
@@ -1143,6 +1316,7 @@ export default function App() {
 
   const [bookings, setBookings] = useState<BookingWithCustomer[]>([]);
   const [loading, setLoading] = useState(false);
+  const [confirmingBookingId, setConfirmingBookingId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const [allBookings, setAllBookings] = useState<BookingWithCustomer[]>([]);
@@ -1186,6 +1360,12 @@ export default function App() {
     [locale],
   );
 
+  const sortCashEntries = useCallback(
+    (list: CashEntry[]) =>
+      [...list].sort((a, b) => b.created_at.localeCompare(a.created_at)),
+    [],
+  );
+
   const sortTeamMembers = useCallback(
     (list: StaffMember[]) =>
       [...list].sort((a, b) => {
@@ -1198,6 +1378,16 @@ export default function App() {
       }),
     [locale],
   );
+
+  const updateBookingPerformed = useCallback((id: string, performedAt: string) => {
+    setBookings((prev) => prev.map((booking) => (booking.id === id ? { ...booking, performed_at: performedAt } : booking)));
+    setAllBookings((prev) =>
+      prev.map((booking) => (booking.id === id ? { ...booking, performed_at: performedAt } : booking)),
+    );
+    setWeekBookings((prev) =>
+      prev.map((booking) => (booking.id === id ? { ...booking, performed_at: performedAt } : booking)),
+    );
+  }, []);
 
   const loadServices = useCallback(async () => {
     setServicesLoading(true);
@@ -1249,6 +1439,45 @@ export default function App() {
   useEffect(() => {
     setProducts((prev) => sortProducts(prev));
   }, [sortProducts]);
+
+  const loadCashRegister = useCallback(async () => {
+    setCashLoading(true);
+    try {
+      const rows = await listCashEntries();
+      setCashEntries(sortCashEntries(rows));
+    } catch (e: any) {
+      console.error(e);
+      Alert.alert(cashRegisterCopy.alerts.loadTitle, e?.message ?? String(e));
+      setCashEntries([]);
+    } finally {
+      setCashLoading(false);
+    }
+  }, [cashRegisterCopy.alerts.loadTitle, sortCashEntries]);
+
+  useEffect(() => {
+    loadCashRegister();
+  }, [loadCashRegister]);
+
+  useEffect(() => {
+    setCashEntries((prev) => sortCashEntries(prev));
+  }, [sortCashEntries]);
+
+  const appendCashEntry = useCallback(
+    (entry: CashEntry) => {
+      setCashEntries((prev) => sortCashEntries([entry, ...prev]));
+    },
+    [sortCashEntries],
+  );
+
+  const cashSummary = useMemo(() => summarizeCashEntries(cashEntries), [cashEntries]);
+  const cashEntryTypeLabels = useMemo(
+    () => ({
+      service_sale: cashRegisterCopy.entryLabels.service,
+      product_sale: cashRegisterCopy.entryLabels.product,
+      adjustment: cashRegisterCopy.entryLabels.adjustment,
+    }),
+    [cashRegisterCopy.entryLabels],
+  );
 
   const loadTeamMembers = useCallback(async () => {
     setTeamLoading(true);
@@ -1460,6 +1689,21 @@ export default function App() {
       let updated: Product;
       if (stockModalMode === "sell") {
         updated = await sellProduct(stockModalProduct.id, quantity);
+        try {
+          const entry = await recordProductSale({
+            productId: updated.id,
+            productName: updated.name,
+            unitPriceCents: updated.price_cents,
+            quantity,
+          });
+          appendCashEntry(entry);
+        } catch (registerError: any) {
+          console.error(registerError);
+          Alert.alert(
+            cashRegisterCopy.alerts.recordSaleFailedTitle,
+            cashRegisterCopy.alerts.recordSaleFailedMessage(updated.name),
+          );
+        }
         Alert.alert(
           productsCopy.stockModal.sellSuccessTitle,
           productsCopy.stockModal.sellSuccessMessage(updated.name, quantity),
@@ -1494,6 +1738,9 @@ export default function App() {
     }
   }, [
     handleCloseStockModal,
+    appendCashEntry,
+    cashRegisterCopy.alerts.recordSaleFailedMessage,
+    cashRegisterCopy.alerts.recordSaleFailedTitle,
     productsCopy.alerts.restockErrorTitle,
     productsCopy.alerts.sellErrorTitle,
     productsCopy.stockModal,
@@ -1665,7 +1912,7 @@ export default function App() {
     const end = addMinutes(start, selectedService.estimated_minutes);
     try {
       setLoading(true);
-      await createBooking({
+      const bookingId = await createBooking({
         date: dateKey,
         start,
         end,
@@ -1704,6 +1951,116 @@ export default function App() {
       setLoading(false);
     }
   };
+
+  const confirmBooking = useCallback(
+    async (booking: BookingWithCustomer) => {
+      if (!booking || booking.performed_at) return;
+      const service = serviceMap.get(booking.service_id);
+      const localized = localizedServiceMap.get(booking.service_id) ?? service;
+      const serviceName = localized?.name ?? booking.service_id;
+      if (!service) {
+        Alert.alert(bookingsCopy.results.confirmFailedTitle, bookingsCopy.results.confirmMissingService);
+        return;
+      }
+
+      setConfirmingBookingId(booking.id);
+      try {
+        const performedAt = await confirmBookingPerformed(booking.id);
+        updateBookingPerformed(booking.id, performedAt);
+
+        let saleError: unknown = null;
+        try {
+          const entry = await recordServiceSale({
+            serviceId: service.id,
+            serviceName,
+            unitPriceCents: service.price_cents,
+            quantity: 1,
+            referenceId: booking.id,
+          });
+          appendCashEntry(entry);
+        } catch (error) {
+          saleError = error;
+          console.error(error);
+        }
+
+        const dateLabel = humanDate(booking.date, locale);
+        const timeLabel = booking.start;
+
+        if (saleError) {
+          Alert.alert(
+            bookingsCopy.results.confirmSuccessTitle,
+            bookingsCopy.results.confirmSuccessButCashFailed({ serviceName, date: dateLabel, time: timeLabel }),
+          );
+          Alert.alert(
+            cashRegisterCopy.alerts.recordSaleFailedTitle,
+            cashRegisterCopy.alerts.recordSaleFailedMessage(serviceName),
+          );
+        } else {
+          Alert.alert(
+            bookingsCopy.results.confirmSuccessTitle,
+            bookingsCopy.results.confirmSuccessMessage({ serviceName, date: dateLabel, time: timeLabel }),
+          );
+        }
+      } catch (error) {
+        console.error(error);
+        Alert.alert(bookingsCopy.results.confirmFailedTitle, bookingsCopy.results.confirmFailedMessage);
+      } finally {
+        setConfirmingBookingId(null);
+      }
+    },
+    [
+      appendCashEntry,
+      bookingsCopy.results,
+      cashRegisterCopy.alerts,
+      confirmBookingPerformed,
+      locale,
+      localizedServiceMap,
+      recordServiceSale,
+      serviceMap,
+      updateBookingPerformed,
+    ],
+  );
+
+  const requestBookingConfirmation = useCallback(
+    (booking: BookingWithCustomer) => {
+      if (!booking || booking.performed_at) return;
+      const service = localizedServiceMap.get(booking.service_id) ?? serviceMap.get(booking.service_id);
+      const serviceName = service?.name ?? booking.service_id;
+      const dateLabel = humanDate(booking.date, locale);
+      const timeLabel = booking.start;
+
+      if (Platform.OS === "web") {
+        const promptMessage = bookingsCopy.results.confirmPromptMessage({
+          serviceName,
+          date: dateLabel,
+          time: timeLabel,
+        });
+        const confirmed = typeof window !== "undefined" && window.confirm
+          ? window.confirm(`${bookingsCopy.results.confirmPromptTitle}\n\n${promptMessage}`)
+          : true;
+        if (confirmed) {
+          void confirmBooking(booking);
+        }
+        return;
+      }
+
+      Alert.alert(
+        bookingsCopy.results.confirmPromptTitle,
+        bookingsCopy.results.confirmPromptMessage({ serviceName, date: dateLabel, time: timeLabel }),
+        [
+          { text: bookingsCopy.results.confirmPromptCancel, style: "cancel" },
+          { text: bookingsCopy.results.confirmPromptConfirm, onPress: () => void confirmBooking(booking) },
+        ],
+      );
+    },
+    [
+      bookingsCopy.results,
+      confirmBooking,
+      locale,
+      localizedServiceMap,
+      serviceMap,
+    ],
+  );
 
   /** Recorrência: usa data/horário/serviço/barbeiro já selecionados e o mesmo cliente */
   async function handleRecurrenceSubmit(opts: {
@@ -1832,6 +2189,23 @@ export default function App() {
     try {
       setLoading(true);
       await createBookingsBulk(toInsert);
+      const displayServiceName = selectedLocalizedService?.name ?? selectedService.name;
+      try {
+        const entry = await recordServiceSale({
+          serviceId: selectedService.id,
+          serviceName: displayServiceName,
+          unitPriceCents: selectedService.price_cents,
+          quantity: toInsert.length,
+          referenceId: null,
+        });
+        appendCashEntry(entry);
+      } catch (registerError: any) {
+        console.error(registerError);
+        Alert.alert(
+          cashRegisterCopy.alerts.recordSaleFailedTitle,
+          cashRegisterCopy.alerts.recordSaleFailedMessage(displayServiceName),
+        );
+      }
       setPreviewOpen(false);
       await load();
       await loadWeek();
@@ -2212,19 +2586,7 @@ export default function App() {
 
   const bookingsNavActive = activeScreen === "bookings" || activeScreen === "bookService";
 
-  const handleNavigate = useCallback(
-    (
-      screen:
-        | "home"
-        | "bookings"
-        | "bookService"
-        | "services"
-        | "products"
-        | "assistant"
-        | "imageAssistant"
-        | "team"
-        | "settings",
-    ) => {
+  const handleNavigate = useCallback((screen: ScreenName) => {
       setActiveScreen(screen);
       setSidebarOpen(false);
     },
@@ -2379,6 +2741,21 @@ export default function App() {
             />
             <Text style={[styles.sidebarItemText, activeScreen === "products" && styles.sidebarItemTextActive]}>
               {copy.navigation.products}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => handleNavigate("cashRegister")}
+            style={[styles.sidebarItem, activeScreen === "cashRegister" && styles.sidebarItemActive]}
+            accessibilityRole="button"
+            accessibilityLabel="Open cash register"
+          >
+            <MaterialCommunityIcons
+              name="cash-register"
+              size={20}
+              color={activeScreen === "cashRegister" ? colors.accentFgOn : colors.subtext}
+            />
+            <Text style={[styles.sidebarItemText, activeScreen === "cashRegister" && styles.sidebarItemTextActive]}>
+              {copy.navigation.cashRegister}
             </Text>
           </Pressable>
           <Pressable
@@ -3121,6 +3498,16 @@ export default function App() {
                     });
                     const phoneDigits = booking._customer?.phone?.replace(/\D/g, "");
                     const hasPhone = Boolean(phoneDigits);
+                    const performedDate = booking.performed_at ? new Date(booking.performed_at) : null;
+                    const performedLabel = performedDate && !Number.isNaN(performedDate.getTime())
+                      ? bookingsCopy.results.confirmedAt(
+                          performedDate.toLocaleString(locale, {
+                            dateStyle: "short",
+                            timeStyle: "short",
+                          }),
+                        )
+                      : bookingsCopy.results.confirmedBadge;
+                    const isConfirming = confirmingBookingId === booking.id;
                     const openWhatsAppReminder = () => {
                       if (!phoneDigits) return;
                       const url = `https://wa.me/${phoneDigits}?text=${encodeURIComponent(reminderMessage)}`;
@@ -3156,6 +3543,12 @@ export default function App() {
                           <Text style={styles.bookingListMeta}>
                             {(barber?.name ?? booking.barber) + (customerName ? ` • ${customerName}` : "")}
                           </Text>
+                          {booking.performed_at ? (
+                            <View style={styles.bookingStatusRow}>
+                              <MaterialCommunityIcons name="check-circle" size={14} color={colors.accent} />
+                              <Text style={[styles.bookingStatusText, { color: colors.accent }]}>{performedLabel}</Text>
+                            </View>
+                          ) : null}
                         </View>
                         <View
                           style={[
@@ -3163,6 +3556,44 @@ export default function App() {
                             isUltraCompactLayout && styles.bookingListActionsCompact,
                           ]}
                         >
+                          {!booking.performed_at ? (
+                            <Pressable
+                              onPress={() => requestBookingConfirmation(booking)}
+                              disabled={isConfirming}
+                              style={[
+                                styles.smallBtn,
+                                styles.confirmBtn,
+                                {
+                                  borderColor: colors.accent,
+                                  backgroundColor: applyAlpha(colors.accent, 0.12),
+                                },
+                                isUltraCompactLayout && styles.fullWidthButton,
+                                isConfirming && styles.smallBtnDisabled,
+                              ]}
+                              accessibilityRole="button"
+                              accessibilityState={{ disabled: isConfirming }}
+                              accessibilityLabel={bookingsCopy.results.confirmAccessibility({
+                                serviceName: displayService?.name ?? booking.service_id,
+                                time: booking.start,
+                              })}
+                            >
+                              {isConfirming ? (
+                                <>
+                                  <ActivityIndicator size="small" color={colors.accent} />
+                                  <Text style={{ color: colors.accent, fontWeight: "800" }}>
+                                    {bookingsCopy.results.confirming}
+                                  </Text>
+                                </>
+                              ) : (
+                                <>
+                                  <MaterialCommunityIcons name="check" size={16} color={colors.accent} />
+                                  <Text style={{ color: colors.accent, fontWeight: "800" }}>
+                                    {bookingsCopy.results.confirmCta}
+                                  </Text>
+                                </>
+                              )}
+                            </Pressable>
+                          ) : null}
                           <Pressable
                             onPress={openWhatsAppReminder}
                             disabled={!hasPhone}
@@ -3456,6 +3887,117 @@ export default function App() {
           </View>
         </Modal>
       </>
+    ) : activeScreen === "cashRegister" ? (
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}
+        refreshControl={<RefreshControl refreshing={cashLoading} onRefresh={loadCashRegister} />}
+      >
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
+          <View style={[styles.listHeaderRow, isCompactLayout && styles.listHeaderRowCompact]}>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={[styles.title, { color: colors.text }]}>{cashRegisterCopy.title}</Text>
+              <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
+                {cashRegisterCopy.subtitle}
+              </Text>
+            </View>
+            <Pressable
+              onPress={loadCashRegister}
+              style={[styles.defaultCta, { marginTop: 0 }, isCompactLayout && styles.fullWidthButton]}
+              accessibilityRole="button"
+              accessibilityLabel={cashRegisterCopy.refreshAccessibility}
+            >
+              <Text style={styles.defaultCtaText}>{cashRegisterCopy.refresh}</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 16 }]}>
+          <Text style={[styles.title, { color: colors.text, fontSize: 18 }]}>
+            {cashRegisterCopy.summaryTitle}
+          </Text>
+          <View style={styles.cashSummaryGrid}>
+            {[
+              { key: "total", label: cashRegisterCopy.summary.total, amount: cashSummary.total_cents },
+              {
+                key: "services",
+                label: cashRegisterCopy.summary.services,
+                amount: cashSummary.service_sales_cents,
+              },
+              {
+                key: "products",
+                label: cashRegisterCopy.summary.products,
+                amount: cashSummary.product_sales_cents,
+              },
+              {
+                key: "adjustments",
+                label: cashRegisterCopy.summary.adjustments,
+                amount: cashSummary.adjustments_cents,
+              },
+            ].map((item) => (
+              <View key={item.key} style={[styles.cashSummaryItem, { borderColor: colors.border }]}>
+                <Text style={styles.cashSummaryLabel}>{item.label}</Text>
+                <Text
+                  style={[
+                    styles.cashSummaryValue,
+                    item.amount < 0 ? styles.cashAmountNegative : styles.cashAmountPositive,
+                  ]}
+                >
+                  {formatPrice(item.amount)}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
+          <Text style={[styles.title, { color: colors.text }]}>{cashRegisterCopy.ledgerTitle}</Text>
+          {cashEntries.length === 0 ? (
+            <Text style={[styles.empty, { marginVertical: 8 }]}>{cashRegisterCopy.empty}</Text>
+          ) : (
+            cashEntries.map((entry) => {
+              const amountStyle = entry.amount_cents < 0 ? styles.cashAmountNegative : styles.cashAmountPositive;
+              const sourceName = entry.source_name?.trim()
+                ? entry.source_name
+                : cashEntryTypeLabels[entry.type];
+              const created = entry.created_at ? new Date(entry.created_at) : null;
+              const dateLabel =
+                created && !Number.isNaN(created.getTime())
+                  ? created.toLocaleString(locale, { dateStyle: "short", timeStyle: "short" })
+                  : entry.created_at;
+              const quantityLabel =
+                entry.quantity > 1 ? cashRegisterCopy.entryMeta.quantity(entry.quantity) : null;
+              const unitLabel =
+                entry.unit_amount_cents !== null
+                  ? cashRegisterCopy.entryMeta.unitPrice(formatPrice(entry.unit_amount_cents))
+                  : null;
+              const referenceLabel = entry.reference_id
+                ? cashRegisterCopy.entryMeta.reference(entry.reference_id)
+                : null;
+              return (
+                <View key={entry.id} style={[styles.cashEntryRow, { borderColor: colors.border }]}>
+                  <View style={styles.cashEntryHeader}>
+                    <View style={styles.cashEntryInfo}>
+                      <Text style={styles.cashEntryType}>{cashEntryTypeLabels[entry.type]}</Text>
+                      <Text style={styles.cashEntrySource}>{sourceName}</Text>
+                    </View>
+                    <Text style={[styles.cashAmount, amountStyle]}>{formatPrice(entry.amount_cents)}</Text>
+                  </View>
+                  <View style={styles.cashEntryMetaRow}>
+                    <Text style={styles.cashEntryMeta}>{dateLabel}</Text>
+                    {quantityLabel ? <Text style={styles.cashEntryMeta}>{quantityLabel}</Text> : null}
+                    {unitLabel ? <Text style={styles.cashEntryMeta}>{unitLabel}</Text> : null}
+                    {referenceLabel ? <Text style={styles.cashEntryMeta}>{referenceLabel}</Text> : null}
+                  </View>
+                  {entry.note ? (
+                    <Text style={styles.cashEntryNote}>{cashRegisterCopy.entryMeta.note(entry.note)}</Text>
+                  ) : null}
+                </View>
+              );
+            })
+          )}
+        </View>
+      </ScrollView>
     ) : activeScreen === "services" ? (
       <ScrollView
         style={{ flex: 1 }}
@@ -4600,7 +5142,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   bookingListClock: { color: colors.subtext, fontWeight: "700", fontSize: 12 },
   bookingListTitle: { color: colors.text, fontWeight: "800", fontSize: 15 },
   bookingListMeta: { color: colors.subtext, fontWeight: "600", fontSize: 12, marginTop: 2 },
-  bookingListActions: { flexDirection: "row", alignItems: "center" },
+  bookingStatusRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6 },
+  bookingStatusText: { fontSize: 12, fontWeight: "700" },
+  bookingListActions: { flexDirection: "row", alignItems: "center", gap: 8 },
   bookingListActionsCompact: { width: "100%" },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
 
@@ -4768,6 +5312,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   stockModalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10 },
   fullWidthButton: { alignSelf: "stretch", justifyContent: "center", alignItems: "center" },
   whatsappBtn: { flexDirection: "row", alignItems: "center", gap: 6 },
+  confirmBtn: { flexDirection: "row", alignItems: "center", gap: 6 },
   serviceRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -4815,6 +5360,54 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  cashSummaryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  cashSummaryItem: {
+    flex: 1,
+    minWidth: 160,
+    padding: 14,
+    borderWidth: 1,
+    borderRadius: 14,
+    borderColor: colors.border,
+    backgroundColor: mixHexColor(colors.surface, colors.accent, 0.04),
+    gap: 6,
+  },
+  cashSummaryLabel: {
+    color: colors.subtext,
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  cashSummaryValue: { fontSize: 20, fontWeight: "800", color: colors.text },
+  cashAmount: { fontSize: 16, fontWeight: "800" },
+  cashAmountPositive: { color: colors.accent },
+  cashAmountNegative: { color: colors.danger },
+  cashEntryRow: {
+    gap: 10,
+    padding: 14,
+    borderWidth: 1,
+    borderRadius: 16,
+    borderColor: colors.border,
+    backgroundColor: mixHexColor(colors.surface, colors.accent, 0.03),
+  },
+  cashEntryHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  cashEntryInfo: { flex: 1, gap: 4 },
+  cashEntryType: {
+    color: colors.subtext,
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  cashEntrySource: { color: colors.text, fontSize: 15, fontWeight: "800" },
+  cashEntryMetaRow: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  cashEntryMeta: { color: colors.subtext, fontSize: 12, fontWeight: "600" },
+  cashEntryNote: { color: colors.subtext, fontSize: 12, fontStyle: "italic" },
   statsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",

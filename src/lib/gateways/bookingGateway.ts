@@ -47,6 +47,10 @@ export interface BookingGateway {
     barber: string;
     customer_id?: string | null;
   }[]): Promise<GatewayResult<null>>;
+  markBookingPerformed(
+    id: string,
+    performedAt: string,
+  ): Promise<GatewayResult<{ id: string; performed_at: string | null }>>;
 }
 
 class SupabaseBookingGateway implements BookingGateway {
@@ -60,7 +64,7 @@ class SupabaseBookingGateway implements BookingGateway {
   async fetchBookingsByDate(date: string): Promise<GatewayResult<DbBooking[]>> {
     const { data, error, status } = await this.client
       .from("bookings")
-      .select('id,date,start,"end",service_id,barber,customer_id')
+      .select('id,date,start,"end",service_id,barber,customer_id,performed_at')
       .eq("date", date)
       .order("start");
     if (error) this.wrapError(error, "Failed to fetch bookings by date", status);
@@ -70,7 +74,7 @@ class SupabaseBookingGateway implements BookingGateway {
   async fetchBookingsForRange(startDate: string, endDate: string): Promise<GatewayResult<DbBooking[]>> {
     const { data, error, status } = await this.client
       .from("bookings")
-      .select('id,date,start,"end",service_id,barber,customer_id')
+      .select('id,date,start,"end",service_id,barber,customer_id,performed_at')
       .gte("date", startDate)
       .lte("date", endDate)
       .order("date")
@@ -82,7 +86,7 @@ class SupabaseBookingGateway implements BookingGateway {
   async fetchRecentBookings(limit: number): Promise<GatewayResult<DbBooking[]>> {
     const { data, error, status } = await this.client
       .from("bookings")
-      .select('id,date,start,"end",service_id,barber,customer_id')
+      .select('id,date,start,"end",service_id,barber,customer_id,performed_at')
       .order("date", { ascending: false })
       .order("start", { ascending: false })
       .limit(limit);
@@ -177,7 +181,7 @@ class SupabaseBookingGateway implements BookingGateway {
   async fetchBookingsForDates(dates: readonly string[]): Promise<GatewayResult<DbBooking[]>> {
     const { data, error, status } = await this.client
       .from("bookings")
-      .select('id,date,start,"end",service_id,barber,customer_id')
+      .select('id,date,start,"end",service_id,barber,customer_id,performed_at')
       .in("date", dates as string[]);
     if (error) this.wrapError(error, "Failed to fetch bookings for dates", status);
     return { data: (data ?? []) as DbBooking[], status: status ?? 200 };
@@ -196,6 +200,20 @@ class SupabaseBookingGateway implements BookingGateway {
     const { error, status } = await this.client.from("bookings").insert(payload);
     if (error) this.wrapError(error, "Failed to create bookings", status);
     return { data: null, status: status ?? 201 };
+  }
+
+  async markBookingPerformed(
+    id: string,
+    performedAt: string,
+  ): Promise<GatewayResult<{ id: string; performed_at: string | null }>> {
+    const { data, error, status } = await this.client
+      .from("bookings")
+      .update({ performed_at: performedAt })
+      .eq("id", id)
+      .select("id,performed_at")
+      .single();
+    if (error) this.wrapError(error, "Failed to confirm booking", status);
+    return { data: { id: data?.id ?? id, performed_at: data?.performed_at ?? performedAt }, status: status ?? 200 };
   }
 }
 
