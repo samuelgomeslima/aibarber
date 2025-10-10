@@ -141,6 +141,19 @@ export async function cancelBooking(id: string) {
   }
 }
 
+export async function confirmBookingPerformed(id: string, performedAt = new Date().toISOString()) {
+  const gateway = getBookingGateway();
+  try {
+    const { data, status } = await gateway.markBookingPerformed(id, performedAt);
+    logger.info("bookings.confirmBookingPerformed succeeded", { id, status });
+    return data.performed_at ?? performedAt;
+  } catch (error) {
+    const status = error instanceof PersistenceError ? error.status : undefined;
+    logger.error("bookings.confirmBookingPerformed failed", { id, status, error });
+    throw error;
+  }
+}
+
 export async function listCustomers(query: string) {
   const gateway = getBookingGateway();
   const q = (query || "").trim();
