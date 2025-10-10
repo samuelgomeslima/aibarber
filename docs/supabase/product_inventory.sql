@@ -113,3 +113,28 @@ $$;
 
 comment on function public.record_product_movement is
   'Updates product stock and stores the movement (sell/restock) in a single transaction.';
+
+alter table public.products enable row level security;
+alter table public.product_stock_movements enable row level security;
+
+create policy if not exists "Authenticated users can read products" on public.products
+for select using (auth.role() = 'authenticated');
+
+create policy if not exists "Authenticated users can manage products" on public.products
+for all using (auth.role() = 'authenticated')
+  with check (auth.role() = 'authenticated');
+
+create policy if not exists "Service role can manage products" on public.products
+for all using (auth.role() = 'service_role')
+  with check (auth.role() = 'service_role');
+
+create policy if not exists "Authenticated users can read stock movements" on public.product_stock_movements
+for select using (auth.role() = 'authenticated');
+
+create policy if not exists "Authenticated users can manage stock movements" on public.product_stock_movements
+for all using (auth.role() = 'authenticated')
+  with check (auth.role() = 'authenticated');
+
+create policy if not exists "Service role can manage stock movements" on public.product_stock_movements
+for all using (auth.role() = 'service_role')
+  with check (auth.role() = 'service_role');

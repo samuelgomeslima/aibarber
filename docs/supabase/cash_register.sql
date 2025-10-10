@@ -1,6 +1,8 @@
 -- Cash register ledger schema for Supabase
 -- Run these statements inside the `public` schema of your project.
 
+create extension if not exists "pgcrypto";
+
 create table if not exists public.cash_register_entries (
   id uuid primary key default gen_random_uuid(),
   entry_type text not null check (entry_type in ('service_sale', 'product_sale', 'adjustment')),
@@ -45,3 +47,25 @@ order by 1 desc, 2;
 
 comment on view public.cash_register_daily_totals is
   'Aggregated totals by day and entry type.';
+
+alter table public.cash_register_entries enable row level security;
+
+create policy if not exists "Authenticated users can read cash register entries" on public.cash_register_entries
+for select using (
+  auth.role() = 'authenticated'
+  and created_by = auth.uid()
+);
+
+create policy if not exists "Authenticated users can manage cash register entries" on public.cash_register_entries
+for all using (
+  auth.role() = 'authenticated'
+  and created_by = auth.uid()
+)
+  with check (
+    auth.role() = 'authenticated'
+    and created_by = auth.uid()
+  );
+
+create policy if not exists "Service role can manage cash register entries" on public.cash_register_entries
+for all using (auth.role() = 'service_role')
+  with check (auth.role() = 'service_role');
