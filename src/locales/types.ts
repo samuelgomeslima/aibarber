@@ -119,6 +119,56 @@ export type ProductFormCopy = {
   };
 };
 
+export type ServicePackageFormCopy = {
+  createTitle: string;
+  editTitle: string;
+  createSubtitle: string;
+  editSubtitle: string;
+  fields: {
+    nameLabel: string;
+    namePlaceholder: string;
+    nameError: string;
+    descriptionLabel: string;
+    descriptionPlaceholder: string;
+    priceLabel: string;
+    pricePlaceholder: string;
+    priceError: string;
+    discountError: string;
+    servicesLabel: string;
+    servicesHelper: string;
+    servicesError: string;
+    serviceMeta: (unitPrice: string, quantity: number, totalPrice: string) => string;
+  };
+  summary: {
+    sessionsLabel: (count: number) => string;
+    regularPriceLabel: (price: string) => string;
+    packagePriceLabel: (price: string) => string;
+    discountLabel: (percent: string) => string;
+  };
+  buttons: {
+    create: string;
+    edit: string;
+    saving: string;
+    cancel: string;
+  };
+  accessibility: {
+    submitCreate: string;
+    submitEdit: string;
+    cancel: string;
+    increase: (serviceName: string) => string;
+    decrease: (serviceName: string) => string;
+    quantityInput: (serviceName: string) => string;
+  };
+  alerts: {
+    createdTitle: string;
+    createdMessage: (name: string) => string;
+    updatedTitle: string;
+    updatedMessage: (name: string) => string;
+    createErrorTitle: string;
+    updateErrorTitle: string;
+  };
+};
+
 export type ImageAssistantCopy = {
   title: string;
   subtitle: { before: string; highlight: string; after: string };

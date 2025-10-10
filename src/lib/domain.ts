@@ -10,6 +10,24 @@ export type Service = {
   created_at?: string | null;
 };
 
+export type ServicePackageId = string;
+
+export type ServicePackageItem = {
+  service_id: ServiceId;
+  quantity: number;
+  service?: Service | null;
+};
+
+export type ServicePackage = {
+  id: ServicePackageId;
+  name: string;
+  description?: string | null;
+  price_cents: number;
+  regular_price_cents: number;
+  created_at?: string | null;
+  items: ReadonlyArray<ServicePackageItem>;
+};
+
 export type ProductId = string;
 export type Product = {
   id: ProductId;

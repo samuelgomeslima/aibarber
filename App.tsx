@@ -24,6 +24,7 @@ import {
   BARBER_MAP,
   type Service,
   type Product,
+  type ServicePackage,
   openingHour,
   closingHour,
   pad,
@@ -152,6 +153,7 @@ import {
   type Customer,
 } from "./src/lib/bookings";
 import { deleteService, listServices } from "./src/lib/services";
+import { deleteServicePackage, listServicePackages } from "./src/lib/servicePackages";
 import {
   listProducts,
   deleteProduct,
@@ -176,6 +178,7 @@ import BarberSelector, { Barber } from "./src/components/BarberSelector";
 import AssistantChat from "./src/components/AssistantChat";
 import ImageAssistant from "./src/components/ImageAssistant";
 import ServiceForm from "./src/components/ServiceForm";
+import ServicePackageForm from "./src/components/ServicePackageForm";
 import ProductForm from "./src/components/ProductForm";
 import FilterToggle from "./src/components/FilterToggle";
 import DateTimeInput from "./src/components/DateTimeInput";
@@ -285,6 +288,7 @@ const LANGUAGE_COPY = {
       overview: "Overview",
       bookings: "Bookings",
       services: "Services",
+      servicePackages: "Service packages",
       products: "Products",
       cashRegister: "Cash register",
       assistant: "Assistant",
@@ -369,6 +373,30 @@ const LANGUAGE_COPY = {
         deleteErrorTitle: "Delete service",
       },
     },
+    servicePackagesPage: {
+      title: "Service packages",
+      subtitle: "Group multiple services together and offer loyal clients a discount.",
+      createCta: { label: "Create package", accessibility: "Open create service package form" },
+      listTitle: "Packages",
+      empty: "— no packages registered yet —",
+      packageMeta: (sessions: number, price: string) => `${sessions} services • ${price}`,
+      priceSummary: (discounted: string, regular: string) => `Discounted: ${discounted} • Regular: ${regular}`,
+      discountLabel: (percent: string) => `${percent} off`,
+      descriptionLabel: "Description",
+      actions: {
+        edit: { label: "Edit", accessibility: (name: string) => `Edit ${name}` },
+        delete: { label: "Delete", accessibility: (name: string) => `Delete ${name}` },
+      },
+      alerts: {
+        loadTitle: "Service packages",
+        deleteTitle: "Delete package",
+        deleteMessage: (name: string) => `Remove "${name}" from packages?`,
+        cancel: "Cancel",
+        confirm: "Delete",
+        deleteErrorTitle: "Delete package",
+      },
+      itemLabel: (quantity: number, name: string, total: string) => `${quantity} × ${name} • ${total}`,
+    },
     productsPage: {
       title: "Products",
       subtitle: "Register the items you sell and keep inventory in sync with sales.",
@@ -443,6 +471,7 @@ const LANGUAGE_COPY = {
       },
     },
     serviceForm: COMPONENT_COPY.en.serviceForm,
+    servicePackageForm: COMPONENT_COPY.en.servicePackageForm,
     productForm: COMPONENT_COPY.en.productForm,
     assistant: {
       chat: COMPONENT_COPY.en.assistantChat,
@@ -731,6 +760,7 @@ const LANGUAGE_COPY = {
       overview: "Visão geral",
       bookings: "Agendamentos",
       services: "Serviços",
+      servicePackages: "Pacotes",
       products: "Produtos",
       cashRegister: "Caixa",
       assistant: "Assistente",
@@ -815,6 +845,30 @@ const LANGUAGE_COPY = {
         deleteErrorTitle: "Excluir serviço",
       },
     },
+    servicePackagesPage: {
+      title: "Pacotes de serviços",
+      subtitle: "Agrupe vários atendimentos em um combo com preço especial.",
+      createCta: { label: "Criar pacote", accessibility: "Abrir formulário de pacote" },
+      listTitle: "Pacotes cadastrados",
+      empty: "— nenhum pacote cadastrado —",
+      packageMeta: (sessions: number, price: string) => `${sessions} atendimentos • ${price}`,
+      priceSummary: (discounted: string, regular: string) => `Promocional: ${discounted} • Cheio: ${regular}`,
+      discountLabel: (percent: string) => `${percent} de desconto`,
+      descriptionLabel: "Descrição",
+      actions: {
+        edit: { label: "Editar", accessibility: (name: string) => `Editar ${name}` },
+        delete: { label: "Excluir", accessibility: (name: string) => `Excluir ${name}` },
+      },
+      alerts: {
+        loadTitle: "Pacotes",
+        deleteTitle: "Excluir pacote",
+        deleteMessage: (name: string) => `Deseja remover "${name}" dos pacotes?`,
+        cancel: "Cancelar",
+        confirm: "Excluir",
+        deleteErrorTitle: "Excluir pacote",
+      },
+      itemLabel: (quantity: number, name: string, total: string) => `${quantity} × ${name} • ${total}`,
+    },
     productsPage: {
       title: "Produtos",
       subtitle: "Cadastre os itens de venda e mantenha o estoque atualizado.",
@@ -891,6 +945,7 @@ const LANGUAGE_COPY = {
       },
     },
     serviceForm: COMPONENT_COPY.pt.serviceForm,
+    servicePackageForm: COMPONENT_COPY.pt.servicePackageForm,
     productForm: COMPONENT_COPY.pt.productForm,
     assistant: {
       chat: COMPONENT_COPY.pt.assistantChat,
@@ -1250,6 +1305,7 @@ type ScreenName =
   | "bookings"
   | "bookService"
   | "services"
+  | "servicePackages"
   | "products"
   | "cashRegister"
   | "assistant"
@@ -1264,6 +1320,11 @@ export default function App() {
   const [serviceFormVisible, setServiceFormVisible] = useState(false);
   const [serviceFormMode, setServiceFormMode] = useState<"create" | "edit">("create");
   const [serviceBeingEdited, setServiceBeingEdited] = useState<Service | null>(null);
+  const [servicePackages, setServicePackages] = useState<ServicePackage[]>([]);
+  const [servicePackagesLoading, setServicePackagesLoading] = useState(false);
+  const [servicePackageFormVisible, setServicePackageFormVisible] = useState(false);
+  const [servicePackageFormMode, setServicePackageFormMode] = useState<"create" | "edit">("create");
+  const [servicePackageBeingEdited, setServicePackageBeingEdited] = useState<ServicePackage | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [productSalesTotals, setProductSalesTotals] = useState<Record<string, number>>({});
   const [productsLoading, setProductsLoading] = useState(false);
@@ -1288,6 +1349,8 @@ export default function App() {
   const assistantCopy = copy.assistant;
   const imageAssistantCopy = copy.imageAssistant;
   const productsCopy = copy.productsPage;
+  const servicePackagesCopy = copy.servicePackagesPage;
+  const servicePackageFormCopy = copy.servicePackageForm;
   const cashRegisterCopy = copy.cashRegisterPage;
   const productFormCopy = copy.productForm;
   const teamCopy = copy.teamPage;
@@ -1420,6 +1483,24 @@ export default function App() {
 
   useEffect(() => { loadServices(); }, [loadServices]);
 
+  const loadServicePackages = useCallback(async () => {
+    setServicePackagesLoading(true);
+    try {
+      const rows = await listServicePackages();
+      setServicePackages(rows);
+    } catch (e: any) {
+      console.error(e);
+      Alert.alert(servicePackagesCopy.alerts.loadTitle, e?.message ?? String(e));
+      setServicePackages([]);
+    } finally {
+      setServicePackagesLoading(false);
+    }
+  }, [servicePackagesCopy.alerts.loadTitle]);
+
+  useEffect(() => {
+    loadServicePackages();
+  }, [loadServicePackages]);
+
   const loadProducts = useCallback(async () => {
     setProductsLoading(true);
     try {
@@ -1543,6 +1624,60 @@ export default function App() {
       void loadServices();
     },
     [handleServiceFormClose, loadServices],
+  );
+
+  const handleServicePackageFormClose = useCallback(() => {
+    setServicePackageFormVisible(false);
+    setServicePackageBeingEdited(null);
+    setServicePackageFormMode("create");
+  }, []);
+
+  const handleOpenCreateServicePackage = useCallback(() => {
+    setServicePackageFormMode("create");
+    setServicePackageBeingEdited(null);
+    setServicePackageFormVisible(true);
+  }, []);
+
+  const handleOpenEditServicePackage = useCallback((pkg: ServicePackage) => {
+    setServicePackageFormMode("edit");
+    setServicePackageBeingEdited(pkg);
+    setServicePackageFormVisible(true);
+  }, []);
+
+  const handleServicePackageCreated = useCallback(
+    (_pkg: ServicePackage) => {
+      handleServicePackageFormClose();
+      void loadServicePackages();
+    },
+    [handleServicePackageFormClose, loadServicePackages],
+  );
+
+  const handleServicePackageUpdated = useCallback(
+    (_pkg: ServicePackage) => {
+      handleServicePackageFormClose();
+      void loadServicePackages();
+    },
+    [handleServicePackageFormClose, loadServicePackages],
+  );
+
+  const handleDeleteServicePackage = useCallback(
+    (pkg: ServicePackage) => {
+      const executeDelete = async () => {
+        try {
+          await deleteServicePackage(pkg.id);
+          void loadServicePackages();
+        } catch (e: any) {
+          console.error(e);
+          Alert.alert(servicePackagesCopy.alerts.deleteErrorTitle, e?.message ?? String(e));
+        }
+      };
+
+      Alert.alert(servicePackagesCopy.alerts.deleteTitle, servicePackagesCopy.alerts.deleteMessage(pkg.name), [
+        { text: servicePackagesCopy.alerts.cancel, style: "cancel" },
+        { text: servicePackagesCopy.alerts.confirm, style: "destructive", onPress: () => void executeDelete() },
+      ]);
+    },
+    [loadServicePackages, servicePackagesCopy.alerts],
   );
 
   const handleDeleteService = useCallback(
@@ -2753,6 +2888,23 @@ export default function App() {
             </Text>
           </Pressable>
           <Pressable
+            onPress={() => handleNavigate("servicePackages")}
+            style={[styles.sidebarItem, activeScreen === "servicePackages" && styles.sidebarItemActive]}
+            accessibilityRole="button"
+            accessibilityLabel="Manage service packages"
+          >
+            <MaterialCommunityIcons
+              name="package-variant-closed"
+              size={20}
+              color={activeScreen === "servicePackages" ? colors.accentFgOn : colors.subtext}
+            />
+            <Text
+              style={[styles.sidebarItemText, activeScreen === "servicePackages" && styles.sidebarItemTextActive]}
+            >
+              {copy.navigation.servicePackages}
+            </Text>
+          </Pressable>
+          <Pressable
             onPress={() => handleNavigate("products")}
             style={[styles.sidebarItem, activeScreen === "products" && styles.sidebarItemActive]}
             accessibilityRole="button"
@@ -3661,6 +3813,145 @@ export default function App() {
           )}
         </View>
       </ScrollView>
+    ) : activeScreen === "servicePackages" ? (
+      <>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}
+          refreshControl={<RefreshControl refreshing={servicePackagesLoading} onRefresh={loadServicePackages} />}
+        >
+          <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
+            <View style={[styles.listHeaderRow, isCompactLayout && styles.listHeaderRowCompact]}>
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text style={[styles.title, { color: colors.text }]}>{servicePackagesCopy.title}</Text>
+                <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
+                  {servicePackagesCopy.subtitle}
+                </Text>
+              </View>
+              <Pressable
+                onPress={handleOpenCreateServicePackage}
+                style={[styles.defaultCta, { marginTop: 0 }, isCompactLayout && styles.fullWidthButton]}
+                accessibilityRole="button"
+                accessibilityLabel={servicePackagesCopy.createCta.accessibility}
+              >
+                <Text style={styles.defaultCtaText}>{servicePackagesCopy.createCta.label}</Text>
+              </Pressable>
+            </View>
+          </View>
+
+          {servicePackageFormVisible ? (
+            <ServicePackageForm
+              mode={servicePackageFormMode}
+              servicePackage={servicePackageFormMode === "edit" ? servicePackageBeingEdited : null}
+              services={localizedServices}
+              onCreated={handleServicePackageCreated}
+              onUpdated={handleServicePackageUpdated}
+              onCancel={handleServicePackageFormClose}
+              colors={{
+                text: colors.text,
+                subtext: colors.subtext,
+                border: colors.border,
+                surface: colors.surface,
+                accent: colors.accent,
+                accentFgOn: colors.accentFgOn,
+                danger: colors.danger,
+              }}
+              copy={servicePackageFormCopy}
+            />
+          ) : null}
+
+          <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
+            <Text style={[styles.title, { color: colors.text }]}>{servicePackagesCopy.listTitle}</Text>
+            {servicePackages.length === 0 ? (
+              <Text style={[styles.empty, { marginVertical: 8 }]}>{servicePackagesCopy.empty}</Text>
+            ) : (
+              servicePackages.map((pkg) => {
+                const sessions = pkg.items.reduce((sum, item) => sum + item.quantity, 0);
+                const discounted = formatPrice(pkg.price_cents);
+                const regular = formatPrice(pkg.regular_price_cents);
+                const discountPercentValue =
+                  pkg.regular_price_cents > 0 && pkg.price_cents < pkg.regular_price_cents
+                    ? ((pkg.regular_price_cents - pkg.price_cents) / pkg.regular_price_cents) * 100
+                    : 0;
+                const discountLabel =
+                  discountPercentValue > 0
+                    ? servicePackagesCopy.discountLabel(`${discountPercentValue.toFixed(1)}%`)
+                    : null;
+                const description = pkg.description?.trim();
+                return (
+                  <View key={pkg.id} style={styles.serviceRow}>
+                    <View style={styles.packageInfo}>
+                      <Text style={{ color: colors.text, fontWeight: "800" }}>{pkg.name}</Text>
+                      <Text style={{ color: colors.subtext, fontSize: 12 }}>
+                        {servicePackagesCopy.packageMeta(sessions, discounted)}
+                      </Text>
+                      <Text style={{ color: colors.subtext, fontSize: 12 }}>
+                        {servicePackagesCopy.priceSummary(discounted, regular)}
+                      </Text>
+                      {discountLabel ? (
+                        <Text style={[styles.packageDiscount, { color: colors.accent }]}>{discountLabel}</Text>
+                      ) : null}
+                      {description ? (
+                        <Text style={{ color: colors.subtext, fontSize: 12 }}>
+                          {`${servicePackagesCopy.descriptionLabel}: ${description}`}
+                        </Text>
+                      ) : null}
+                      <View style={styles.packageItemsList}>
+                        {pkg.items.map((item) => {
+                          const localizedService =
+                            localizedServiceMap.get(item.service_id) ??
+                            item.service ??
+                            serviceMap.get(item.service_id);
+                          const itemName = localizedService?.name ?? item.service_id;
+                          const unitPrice = localizedService?.price_cents ?? item.service?.price_cents ?? 0;
+                          const totalCents = Number.isFinite(unitPrice) ? unitPrice * item.quantity : 0;
+                          const totalLabel = formatPrice(totalCents);
+                          return (
+                            <Text
+                              key={`${pkg.id}-${item.service_id}`}
+                              style={[styles.packageItemText, { color: colors.subtext }]}
+                            >
+                              {servicePackagesCopy.itemLabel(item.quantity, itemName, totalLabel)}
+                            </Text>
+                          );
+                        })}
+                      </View>
+                    </View>
+                    <View style={styles.serviceActions}>
+                      <Pressable
+                        onPress={() => handleOpenEditServicePackage(pkg)}
+                        style={[styles.smallBtn, { borderColor: colors.border }]}
+                        accessibilityRole="button"
+                        accessibilityLabel={servicePackagesCopy.actions.edit.accessibility(pkg.name)}
+                      >
+                        <Text style={{ color: colors.subtext, fontWeight: "800" }}>
+                          {servicePackagesCopy.actions.edit.label}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => handleDeleteServicePackage(pkg)}
+                        style={[
+                          styles.smallBtn,
+                          {
+                            borderColor: colors.danger,
+                            backgroundColor: "rgba(239,68,68,0.1)",
+                          },
+                        ]}
+                        accessibilityRole="button"
+                        accessibilityLabel={servicePackagesCopy.actions.delete.accessibility(pkg.name)}
+                      >
+                        <Text style={{ color: colors.danger, fontWeight: "800" }}>
+                          {servicePackagesCopy.actions.delete.label}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </View>
+        </ScrollView>
+      </>
     ) : activeScreen === "products" ? (
       <>
         <ScrollView
@@ -5386,6 +5677,22 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   productInfoCompact: {
     width: "100%",
+  },
+  packageInfo: {
+    flex: 1,
+    gap: 6,
+  },
+  packageItemsList: {
+    gap: 4,
+    marginTop: 4,
+  },
+  packageItemText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  packageDiscount: {
+    fontSize: 12,
+    fontWeight: "800",
   },
   productActionButtonCompact: {
     width: "100%",

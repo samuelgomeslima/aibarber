@@ -5,6 +5,7 @@ import type {
   RecurrenceModalCopy,
   ServiceFormCopy,
   ProductFormCopy,
+  ServicePackageFormCopy,
   UserFormCopy,
 } from "./types";
 
@@ -15,6 +16,7 @@ type ComponentCopy = {
   imageAssistant: ImageAssistantCopy;
   serviceForm: ServiceFormCopy;
   productForm: ProductFormCopy;
+  servicePackageForm: ServicePackageFormCopy;
   userForm: UserFormCopy;
   recurrenceModal: RecurrenceModalCopy;
   occurrencePreview: OccurrencePreviewCopy;
@@ -180,6 +182,56 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
         updatedMessage: (name: string, stock: number) => `${name} (${stock} in stock)`,
         createErrorTitle: "Create product failed",
         updateErrorTitle: "Update product failed",
+      },
+    },
+    servicePackageForm: {
+      createTitle: "Create service package",
+      editTitle: "Edit service package",
+      createSubtitle: "Bundle services together and reward clients with a discounted price.",
+      editSubtitle: "Update the included services, price, or description for this package.",
+      fields: {
+        nameLabel: "Name",
+        namePlaceholder: "VIP grooming bundle",
+        nameError: "Name is required",
+        descriptionLabel: "Description",
+        descriptionPlaceholder: "10 haircuts + 5 shaves",
+        priceLabel: "Package price",
+        pricePlaceholder: "250.00",
+        priceError: "Enter a discounted package price",
+        discountError: "Package price must be lower than the regular price",
+        servicesLabel: "Included services",
+        servicesHelper: "Set how many times each service is included in the package.",
+        servicesError: "Select at least one service for the package",
+        serviceMeta: (unitPrice: string, quantity: number, totalPrice: string) =>
+          `${quantity} × ${unitPrice} • ${totalPrice}`,
+      },
+      summary: {
+        sessionsLabel: (count: number) => `${count} total session${count === 1 ? "" : "s"}`,
+        regularPriceLabel: (price: string) => `Regular total: ${price}`,
+        packagePriceLabel: (price: string) => `Package price: ${price}`,
+        discountLabel: (percent: string) => `Discount: ${percent} off`,
+      },
+      buttons: {
+        create: "Save package",
+        edit: "Save changes",
+        saving: "Saving…",
+        cancel: "Cancel",
+      },
+      accessibility: {
+        submitCreate: "Save service package",
+        submitEdit: "Save service package changes",
+        cancel: "Cancel service package form",
+        increase: (serviceName: string) => `Increase quantity of ${serviceName}`,
+        decrease: (serviceName: string) => `Decrease quantity of ${serviceName}`,
+        quantityInput: (serviceName: string) => `Quantity for ${serviceName}`,
+      },
+      alerts: {
+        createdTitle: "Package created",
+        createdMessage: (name: string) => `${name} is ready to sell.`,
+        updatedTitle: "Package updated",
+        updatedMessage: (name: string) => `${name} was updated.`,
+        createErrorTitle: "Create package",
+        updateErrorTitle: "Update package",
       },
     },
     userForm: {
@@ -433,6 +485,56 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
         updatedMessage: (name: string, stock: number) => `${name} (${stock} em estoque)`,
         createErrorTitle: "Falha ao criar produto",
         updateErrorTitle: "Falha ao atualizar produto",
+      },
+    },
+    servicePackageForm: {
+      createTitle: "Cadastrar pacote",
+      editTitle: "Editar pacote",
+      createSubtitle: "Monte combos de serviços com um preço promocional.",
+      editSubtitle: "Atualize serviços, preços ou descrição deste pacote.",
+      fields: {
+        nameLabel: "Nome",
+        namePlaceholder: "Pacote VIP",
+        nameError: "Nome é obrigatório",
+        descriptionLabel: "Descrição",
+        descriptionPlaceholder: "10 cortes + 5 barbas",
+        priceLabel: "Preço do pacote",
+        pricePlaceholder: "250,00",
+        priceError: "Informe um preço promocional válido",
+        discountError: "O preço do pacote deve ser menor que o preço cheio",
+        servicesLabel: "Serviços incluídos",
+        servicesHelper: "Defina quantas vezes cada serviço aparece no pacote.",
+        servicesError: "Selecione ao menos um serviço",
+        serviceMeta: (unitPrice: string, quantity: number, totalPrice: string) =>
+          `${quantity} × ${unitPrice} • ${totalPrice}`,
+      },
+      summary: {
+        sessionsLabel: (count: number) => `${count} atendimento${count === 1 ? "" : "s"} no total`,
+        regularPriceLabel: (price: string) => `Total cheio: ${price}`,
+        packagePriceLabel: (price: string) => `Preço do pacote: ${price}`,
+        discountLabel: (percent: string) => `Desconto: ${percent}`,
+      },
+      buttons: {
+        create: "Salvar pacote",
+        edit: "Salvar alterações",
+        saving: "Salvando…",
+        cancel: "Cancelar",
+      },
+      accessibility: {
+        submitCreate: "Salvar pacote de serviços",
+        submitEdit: "Salvar alterações do pacote de serviços",
+        cancel: "Cancelar formulário de pacote",
+        increase: (serviceName: string) => `Aumentar quantidade de ${serviceName}`,
+        decrease: (serviceName: string) => `Reduzir quantidade de ${serviceName}`,
+        quantityInput: (serviceName: string) => `Quantidade para ${serviceName}`,
+      },
+      alerts: {
+        createdTitle: "Pacote criado",
+        createdMessage: (name: string) => `${name} pronto para venda.`,
+        updatedTitle: "Pacote atualizado",
+        updatedMessage: (name: string) => `${name} foi atualizado.`,
+        createErrorTitle: "Criar pacote",
+        updateErrorTitle: "Atualizar pacote",
       },
     },
     userForm: {
