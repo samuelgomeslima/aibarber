@@ -2029,6 +2029,21 @@ export default function App() {
       const dateLabel = humanDate(booking.date, locale);
       const timeLabel = booking.start;
 
+      if (Platform.OS === "web") {
+        const promptMessage = bookingsCopy.results.confirmPromptMessage({
+          serviceName,
+          date: dateLabel,
+          time: timeLabel,
+        });
+        const confirmed = typeof window !== "undefined" && window.confirm
+          ? window.confirm(`${bookingsCopy.results.confirmPromptTitle}\n\n${promptMessage}`)
+          : true;
+        if (confirmed) {
+          void confirmBooking(booking);
+        }
+        return;
+      }
+
       Alert.alert(
         bookingsCopy.results.confirmPromptTitle,
         bookingsCopy.results.confirmPromptMessage({ serviceName, date: dateLabel, time: timeLabel }),
