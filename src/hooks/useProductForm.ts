@@ -56,7 +56,7 @@ export function useProductForm({
   const [priceText, setPriceText] = useState(() =>
     isEditMode && product
       ? centsToInput(product.price_cents)
-      : copy.fields.pricePlaceholder.replace(/[^0-9.,]/g, ""),
+      : "",
   );
   const [costText, setCostText] = useState(() =>
     isEditMode && product && Number.isFinite(product.cost_cents)
@@ -66,7 +66,7 @@ export function useProductForm({
   const [stockText, setStockText] = useState(() =>
     isEditMode && product
       ? String(product.stock_quantity)
-      : copy.fields.stockPlaceholder.replace(/[^0-9]/g, ""),
+      : "",
   );
   const [description, setDescription] = useState(() =>
     isEditMode && product && product.description ? product.description : "",
@@ -85,13 +85,13 @@ export function useProductForm({
       } else {
         setName("");
         setSku("");
-        setPriceText(copy.fields.pricePlaceholder.replace(/[^0-9.,]/g, ""));
+        setPriceText("");
         setCostText("");
-        setStockText(copy.fields.stockPlaceholder.replace(/[^0-9]/g, ""));
+        setStockText("");
         setDescription("");
       }
     },
-    [copy.fields.pricePlaceholder, copy.fields.stockPlaceholder],
+    [],
   );
 
   useEffect(() => {
