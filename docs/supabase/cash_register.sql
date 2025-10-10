@@ -9,6 +9,7 @@ create table if not exists public.cash_movements (
   amount_cents integer not null check (amount_cents >= 0),
   occurred_at timestamptz not null default timezone('utc', now()),
   description text not null,
+  booking_id text,
   metadata jsonb,
   created_at timestamptz not null default timezone('utc', now()),
   created_by uuid references auth.users(id)
@@ -19,6 +20,10 @@ create index if not exists cash_movements_occurred_created_idx
 
 create index if not exists cash_movements_type_idx
   on public.cash_movements (movement_type);
+
+create unique index if not exists cash_movements_service_booking_uniq
+  on public.cash_movements (booking_id)
+  where booking_id is not null and movement_type = 'service';
 
 alter table public.cash_movements enable row level security;
 

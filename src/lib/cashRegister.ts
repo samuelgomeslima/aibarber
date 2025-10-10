@@ -70,12 +70,13 @@ type SupabaseCashMovementRow = {
   amount_cents: number;
   occurred_at: string | null;
   description: string;
+  booking_id: string | null;
   metadata: Record<string, unknown> | null;
   created_at: string | null;
 };
 
 const SUPABASE_COLUMNS =
-  "id,movement_type,amount_cents,occurred_at,description,metadata,created_at";
+  "id,movement_type,amount_cents,occurred_at,description,booking_id,metadata,created_at";
 
 function cloneMetadata(metadata?: CashMovementMetadata): CashMovementMetadata | undefined {
   if (!metadata) return undefined;
@@ -127,7 +128,33 @@ function sortMovements(movements: CashMovement[]): CashMovement[] {
   });
 }
 
+function ensureBookingUniqueness(
+  existingMovements: CashMovement[],
+  input: Omit<CashMovement, "id">,
+): void {
+  if (input.type !== "service") {
+    return;
+  }
+
+  const bookingId = input.metadata?.booking_id ?? null;
+  if (!bookingId) {
+    return;
+  }
+
+  const duplicate = existingMovements.some(
+    (movement) =>
+      movement.type === "service" &&
+      (movement.metadata?.booking_id ?? null) === bookingId,
+  );
+
+  if (duplicate) {
+    throw new Error("Service revenue has already been recorded for this booking.");
+  }
+}
+
 function addMovementToMemory(input: Omit<CashMovement, "id">): CashMovement {
+  ensureBookingUniqueness(memoryMovements, input);
+
   const movement: CashMovement = {
     ...input,
     id: generateId(),
@@ -139,8 +166,15 @@ function addMovementToMemory(input: Omit<CashMovement, "id">): CashMovement {
 }
 
 function mapSupabaseMovement(row: SupabaseCashMovementRow): CashMovement {
-  const metadata = normalizeMetadata(row.metadata ?? undefined);
+  let metadata = normalizeMetadata(row.metadata ?? undefined);
   const occurredAt = row.occurred_at ?? row.created_at ?? new Date().toISOString();
+  if (row.booking_id) {
+    if (!metadata) {
+      metadata = { booking_id: row.booking_id };
+    } else if (metadata.booking_id === undefined) {
+      metadata.booking_id = row.booking_id;
+    }
+  }
   return {
     id: row.id,
     type: row.movement_type,
@@ -167,13 +201,14 @@ async function listCashMovementsFromSupabase(): Promise<CashMovement[]> {
 }
 
 async function addMovementToSupabase(
-  input: Omit<CashMovement, "id">,
+  input: Omit<CashMovement, "id"> & { booking_id?: string | null },
 ): Promise<CashMovement> {
   const payload = {
     movement_type: input.type,
     amount_cents: normalizeAmount(input.amount_cents),
     occurred_at: input.occurred_at,
     description: input.description,
+    booking_id: input.booking_id ?? null,
     metadata: serializeMetadata(input.metadata),
   };
 
@@ -184,6 +219,11 @@ async function addMovementToSupabase(
     .single()) as PostgrestSingleResponse<SupabaseCashMovementRow>;
 
   if (error) {
+    if ((error as { code?: string }).code === "23505") {
+      throw new Error(
+        "Service revenue has already been recorded for this booking.",
+      );
+    }
     throw new Error(error.message ?? "Failed to record cash movement");
   }
   if (!data) {
@@ -226,6 +266,7 @@ export async function recordServiceRevenue(input: ServiceRevenueInput): Promise<
     amount_cents,
     occurred_at,
     description: input.description,
+    booking_id: input.bookingId,
     metadata,
   });
 }
