@@ -31,8 +31,12 @@ create table if not exists public.customers (
   )
 );
 
-create unique index if not exists customers_phone_key on public.customers (phone) where phone is not null;
-create unique index if not exists customers_email_key on public.customers (lower(email)) where email is not null;
+drop index if exists public.customers_phone_key;
+drop index if exists public.customers_email_key;
+create unique index if not exists customers_phone_key on public.customers (created_by, phone)
+  where phone is not null;
+create unique index if not exists customers_email_key on public.customers (created_by, lower(email))
+  where email is not null;
 create index if not exists customers_name_idx on public.customers (last_name, first_name);
 
 create trigger on_customers_updated
@@ -54,7 +58,8 @@ create table if not exists public.services (
   created_by uuid references auth.users(id)
 );
 
-create unique index if not exists services_name_key on public.services (lower(name));
+drop index if exists public.services_name_key;
+create unique index if not exists services_name_key on public.services (created_by, lower(name));
 create index if not exists services_price_idx on public.services (price_cents);
 
 create trigger on_services_updated
