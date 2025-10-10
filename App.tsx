@@ -24,6 +24,7 @@ import {
   BARBER_MAP,
   type Service,
   type Product,
+  type ServicePackage,
   openingHour,
   closingHour,
   pad,
@@ -152,6 +153,7 @@ import {
   type Customer,
 } from "./src/lib/bookings";
 import { deleteService, listServices } from "./src/lib/services";
+import { deleteServicePackage, listServicePackages } from "./src/lib/servicePackages";
 import {
   listProducts,
   deleteProduct,
@@ -176,6 +178,7 @@ import BarberSelector, { Barber } from "./src/components/BarberSelector";
 import AssistantChat from "./src/components/AssistantChat";
 import ImageAssistant from "./src/components/ImageAssistant";
 import ServiceForm from "./src/components/ServiceForm";
+import ServicePackageForm from "./src/components/ServicePackageForm";
 import ProductForm from "./src/components/ProductForm";
 import FilterToggle from "./src/components/FilterToggle";
 import DateTimeInput from "./src/components/DateTimeInput";
@@ -285,6 +288,7 @@ const LANGUAGE_COPY = {
       overview: "Overview",
       bookings: "Bookings",
       services: "Services",
+      packages: "Packages",
       products: "Products",
       cashRegister: "Cash register",
       assistant: "Assistant",
@@ -369,6 +373,30 @@ const LANGUAGE_COPY = {
         deleteErrorTitle: "Delete service",
       },
     },
+    packagesPage: {
+      title: "Packages",
+      subtitle: "Bundle popular services and offer clients a discount.",
+      createCta: { label: "Create package", accessibility: "Open create package form" },
+      listTitle: "Available packages",
+      empty: "— no packages registered yet —",
+      packageMeta: (units: number, price: string, discount: string) =>
+        `${units} service${units === 1 ? "" : "s"} • ${price} • Save ${discount}`,
+      discountChip: (percent: string) => `${percent} off`,
+      originalLabel: (price: string) => `Original: ${price}`,
+      itemLabel: (quantity: number, serviceName: string) => `${quantity}× ${serviceName}`,
+      actions: {
+        edit: { label: "Edit", accessibility: (name: string) => `Edit ${name}` },
+        delete: { label: "Delete", accessibility: (name: string) => `Delete ${name}` },
+      },
+      alerts: {
+        loadTitle: "Packages",
+        deleteTitle: "Delete package",
+        deleteMessage: (name: string) => `Remove "${name}" from packages?`,
+        cancel: "Cancel",
+        confirm: "Delete",
+        deleteErrorTitle: "Delete package",
+      },
+    },
     productsPage: {
       title: "Products",
       subtitle: "Register the items you sell and keep inventory in sync with sales.",
@@ -443,6 +471,7 @@ const LANGUAGE_COPY = {
       },
     },
     serviceForm: COMPONENT_COPY.en.serviceForm,
+    servicePackageForm: COMPONENT_COPY.en.servicePackageForm,
     productForm: COMPONENT_COPY.en.productForm,
     assistant: {
       chat: COMPONENT_COPY.en.assistantChat,
@@ -731,6 +760,7 @@ const LANGUAGE_COPY = {
       overview: "Visão geral",
       bookings: "Agendamentos",
       services: "Serviços",
+      packages: "Pacotes",
       products: "Produtos",
       cashRegister: "Caixa",
       assistant: "Assistente",
@@ -815,6 +845,30 @@ const LANGUAGE_COPY = {
         deleteErrorTitle: "Excluir serviço",
       },
     },
+    packagesPage: {
+      title: "Pacotes",
+      subtitle: "Agrupe serviços populares e ofereça um desconto aos clientes.",
+      createCta: { label: "Criar pacote", accessibility: "Abrir formulário de pacote" },
+      listTitle: "Pacotes disponíveis",
+      empty: "— nenhum pacote cadastrado —",
+      packageMeta: (units: number, price: string, discount: string) =>
+        `${units} serviço${units === 1 ? "" : "s"} • ${price} • Economia de ${discount}`,
+      discountChip: (percent: string) => `Desconto de ${percent}`,
+      originalLabel: (price: string) => `Valor original: ${price}`,
+      itemLabel: (quantity: number, serviceName: string) => `${quantity}× ${serviceName}`,
+      actions: {
+        edit: { label: "Editar", accessibility: (name: string) => `Editar ${name}` },
+        delete: { label: "Excluir", accessibility: (name: string) => `Excluir ${name}` },
+      },
+      alerts: {
+        loadTitle: "Pacotes",
+        deleteTitle: "Excluir pacote",
+        deleteMessage: (name: string) => `Remover "${name}" dos pacotes?`,
+        cancel: "Cancelar",
+        confirm: "Excluir",
+        deleteErrorTitle: "Excluir pacote",
+      },
+    },
     productsPage: {
       title: "Produtos",
       subtitle: "Cadastre os itens de venda e mantenha o estoque atualizado.",
@@ -891,6 +945,7 @@ const LANGUAGE_COPY = {
       },
     },
     serviceForm: COMPONENT_COPY.pt.serviceForm,
+    servicePackageForm: COMPONENT_COPY.pt.servicePackageForm,
     productForm: COMPONENT_COPY.pt.productForm,
     assistant: {
       chat: COMPONENT_COPY.pt.assistantChat,
@@ -1250,6 +1305,7 @@ type ScreenName =
   | "bookings"
   | "bookService"
   | "services"
+  | "packages"
   | "products"
   | "cashRegister"
   | "assistant"
@@ -1274,6 +1330,11 @@ export default function App() {
   const [stockModalMode, setStockModalMode] = useState<"sell" | "restock">("sell");
   const [stockQuantityText, setStockQuantityText] = useState("1");
   const [stockSaving, setStockSaving] = useState(false);
+  const [servicePackages, setServicePackages] = useState<ServicePackage[]>([]);
+  const [packagesLoading, setPackagesLoading] = useState(false);
+  const [packageFormVisible, setPackageFormVisible] = useState(false);
+  const [packageFormMode, setPackageFormMode] = useState<"create" | "edit">("create");
+  const [packageBeingEdited, setPackageBeingEdited] = useState<ServicePackage | null>(null);
   const [cashEntries, setCashEntries] = useState<CashEntry[]>([]);
   const [cashLoading, setCashLoading] = useState(false);
   const [teamMembers, setTeamMembers] = useState<StaffMember[]>([]);
@@ -1288,6 +1349,8 @@ export default function App() {
   const assistantCopy = copy.assistant;
   const imageAssistantCopy = copy.imageAssistant;
   const productsCopy = copy.productsPage;
+  const packagesCopy = copy.packagesPage;
+  const packageFormCopy = copy.servicePackageForm;
   const cashRegisterCopy = copy.cashRegisterPage;
   const productFormCopy = copy.productForm;
   const teamCopy = copy.teamPage;
@@ -1369,6 +1432,11 @@ export default function App() {
       ),
     [language, locale],
   );
+  const sortPackages = useCallback(
+    (list: ServicePackage[]) =>
+      [...list].sort((a, b) => a.name.localeCompare(b.name, locale, { sensitivity: "base" })),
+    [locale],
+  );
 
   const sortCashEntries = useCallback(
     (list: CashEntry[]) =>
@@ -1449,6 +1517,28 @@ export default function App() {
   useEffect(() => {
     setProducts((prev) => sortProducts(prev));
   }, [sortProducts]);
+
+  const loadPackages = useCallback(async () => {
+    setPackagesLoading(true);
+    try {
+      const rows = await listServicePackages();
+      setServicePackages(sortPackages(rows));
+    } catch (e: any) {
+      console.error(e);
+      Alert.alert(packagesCopy.alerts.loadTitle, e?.message ?? String(e));
+      setServicePackages([]);
+    } finally {
+      setPackagesLoading(false);
+    }
+  }, [packagesCopy.alerts.loadTitle, sortPackages]);
+
+  useEffect(() => {
+    loadPackages();
+  }, [loadPackages]);
+
+  useEffect(() => {
+    setServicePackages((prev) => sortPackages(prev));
+  }, [sortPackages]);
 
   const loadCashRegister = useCallback(async () => {
     setCashLoading(true);
@@ -1662,6 +1752,75 @@ export default function App() {
       );
     },
     [localizedProductMap, productsCopy],
+  );
+
+  const handlePackageFormClose = useCallback(() => {
+    setPackageFormVisible(false);
+    setPackageBeingEdited(null);
+    setPackageFormMode("create");
+  }, []);
+
+  const handleOpenCreatePackage = useCallback(() => {
+    setPackageFormMode("create");
+    setPackageBeingEdited(null);
+    setPackageFormVisible(true);
+  }, []);
+
+  const handleOpenEditPackage = useCallback((pkg: ServicePackage) => {
+    setPackageFormMode("edit");
+    setPackageBeingEdited(pkg);
+    setPackageFormVisible(true);
+  }, []);
+
+  const handlePackageCreated = useCallback(
+    (pkg: ServicePackage) => {
+      setServicePackages((prev) => sortPackages([pkg, ...prev]));
+      handlePackageFormClose();
+    },
+    [handlePackageFormClose, sortPackages],
+  );
+
+  const handlePackageUpdated = useCallback(
+    (pkg: ServicePackage) => {
+      setServicePackages((prev) => sortPackages(prev.map((item) => (item.id === pkg.id ? pkg : item))));
+      handlePackageFormClose();
+    },
+    [handlePackageFormClose, sortPackages],
+  );
+
+  const handleDeletePackage = useCallback(
+    (pkg: ServicePackage) => {
+      if (!pkg?.id) return;
+
+      const confirmPrompt = `${packagesCopy.alerts.deleteTitle}\n\n${packagesCopy.alerts.deleteMessage(pkg.name)}`;
+      const executeDelete = async () => {
+        try {
+          await deleteServicePackage(pkg.id);
+          setServicePackages((prev) => prev.filter((item) => item.id !== pkg.id));
+        } catch (e: any) {
+          console.error(e);
+          Alert.alert(packagesCopy.alerts.deleteErrorTitle, e?.message ?? String(e));
+        }
+      };
+
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        const confirmed = window.confirm(confirmPrompt);
+        if (confirmed) {
+          void executeDelete();
+        }
+        return;
+      }
+
+      Alert.alert(
+        packagesCopy.alerts.deleteTitle,
+        packagesCopy.alerts.deleteMessage(pkg.name),
+        [
+          { text: packagesCopy.alerts.cancel, style: "cancel" },
+          { text: packagesCopy.alerts.confirm, style: "destructive", onPress: () => void executeDelete() },
+        ],
+      );
+    },
+    [packagesCopy],
   );
 
   const handleOpenSellProduct = useCallback((product: Product) => {
@@ -2753,6 +2912,21 @@ export default function App() {
             </Text>
           </Pressable>
           <Pressable
+            onPress={() => handleNavigate("packages")}
+            style={[styles.sidebarItem, activeScreen === "packages" && styles.sidebarItemActive]}
+            accessibilityRole="button"
+            accessibilityLabel="Manage packages"
+          >
+            <MaterialCommunityIcons
+              name="package-variant"
+              size={20}
+              color={activeScreen === "packages" ? colors.accentFgOn : colors.subtext}
+            />
+            <Text style={[styles.sidebarItemText, activeScreen === "packages" && styles.sidebarItemTextActive]}>
+              {copy.navigation.packages}
+            </Text>
+          </Pressable>
+          <Pressable
             onPress={() => handleNavigate("products")}
             style={[styles.sidebarItem, activeScreen === "products" && styles.sidebarItemActive]}
             accessibilityRole="button"
@@ -3655,6 +3829,133 @@ export default function App() {
                       </View>
                     );
                   })}
+                </View>
+              );
+            })
+          )}
+        </View>
+      </ScrollView>
+    ) : activeScreen === "packages" ? (
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}
+        refreshControl={<RefreshControl refreshing={packagesLoading} onRefresh={loadPackages} />}
+      >
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}> 
+          <View style={[styles.listHeaderRow, isCompactLayout && styles.listHeaderRowCompact]}>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={[styles.title, { color: colors.text }]}>{packagesCopy.title}</Text>
+              <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
+                {packagesCopy.subtitle}
+              </Text>
+            </View>
+            <Pressable
+              onPress={handleOpenCreatePackage}
+              style={[styles.defaultCta, { marginTop: 0 }, isCompactLayout && styles.fullWidthButton]}
+              accessibilityRole="button"
+              accessibilityLabel={packagesCopy.createCta.accessibility}
+            >
+              <Text style={styles.defaultCtaText}>{packagesCopy.createCta.label}</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {packageFormVisible ? (
+          <ServicePackageForm
+            mode={packageFormMode}
+            services={services}
+            localizedServices={localizedServices}
+            servicePackage={packageFormMode === "edit" ? packageBeingEdited : null}
+            onCreated={handlePackageCreated}
+            onUpdated={handlePackageUpdated}
+            onCancel={handlePackageFormClose}
+            colors={{
+              text: colors.text,
+              subtext: colors.subtext,
+              border: colors.border,
+              surface: colors.surface,
+              accent: colors.accent,
+              accentFgOn: colors.accentFgOn,
+              danger: colors.danger,
+            }}
+            copy={packageFormCopy}
+          />
+        ) : null}
+
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}> 
+          <Text style={[styles.title, { color: colors.text }]}>{packagesCopy.listTitle}</Text>
+          {servicePackages.length === 0 ? (
+            <Text style={[styles.empty, { marginVertical: 8 }]}>{packagesCopy.empty}</Text>
+          ) : (
+            servicePackages.map((pkg) => {
+              const units = pkg.items.reduce((total, item) => total + item.quantity, 0);
+              const discountValue = Math.max(pkg.original_price_cents - pkg.price_cents, 0);
+              const discountPercent = pkg.original_price_cents
+                ? Math.round((discountValue / pkg.original_price_cents) * 100)
+                : 0;
+              const packagePrice = formatPrice(pkg.price_cents);
+              const discountValueDisplay = formatPrice(discountValue);
+              const originalPrice = formatPrice(pkg.original_price_cents);
+              const items = pkg.items;
+
+              return (
+                <View key={pkg.id} style={[styles.packageRow, { borderColor: colors.border }]}> 
+                  <View style={styles.packageInfo}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                      <MaterialCommunityIcons name="package-variant-closed" size={22} color={colors.accent} />
+                      <View style={{ flex: 1, gap: 4 }}>
+                        <Text style={{ color: colors.text, fontWeight: "800" }}>{pkg.name}</Text>
+                        <Text style={{ color: colors.subtext, fontSize: 12 }}>
+                          {packagesCopy.packageMeta(units, packagePrice, discountValueDisplay)}
+                        </Text>
+                        <View style={styles.packageMetaRow}>
+                          <Text style={[styles.packageMetaLabel, { color: colors.subtext }]}>
+                            {packagesCopy.originalLabel(originalPrice)}
+                          </Text>
+                          <View style={[styles.packageBadge, { borderColor: colors.accent }]}> 
+                            <Text style={[styles.packageBadgeText, { color: colors.accent }]}>
+                              {packagesCopy.discountChip(`${Math.max(discountPercent, 0)}%`)}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                    <View style={styles.packageItems}>
+                      {items.map((item) => {
+                        const service = localizedServiceMap.get(item.service_id) ?? serviceMap.get(item.service_id);
+                        const iconName = (service?.icon ?? "content-cut") as keyof typeof MaterialCommunityIcons.glyphMap;
+                        const label = packagesCopy.itemLabel(item.quantity, service?.name ?? item.service_id);
+                        return (
+                          <View key={item.id ?? `${pkg.id}-${item.service_id}`} style={styles.packageChip}> 
+                            <MaterialCommunityIcons name={iconName} size={16} color={colors.accent} />
+                            <Text style={[styles.packageChipText, { color: colors.text }]}>{label}</Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </View>
+                  <View style={styles.packageActions}>
+                    <Pressable
+                      onPress={() => handleOpenEditPackage(pkg)}
+                      style={[styles.smallBtn, { borderColor: colors.border }]}
+                      accessibilityRole="button"
+                      accessibilityLabel={packagesCopy.actions.edit.accessibility(pkg.name)}
+                    >
+                      <Text style={{ color: colors.subtext, fontWeight: "800" }}>
+                        {packagesCopy.actions.edit.label}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => handleDeletePackage(pkg)}
+                      style={[styles.smallBtn, { borderColor: colors.danger, backgroundColor: "rgba(239,68,68,0.1)" }]}
+                      accessibilityRole="button"
+                      accessibilityLabel={packagesCopy.actions.delete.accessibility(pkg.name)}
+                    >
+                      <Text style={{ color: colors.danger, fontWeight: "800" }}>
+                        {packagesCopy.actions.delete.label}
+                      </Text>
+                    </Pressable>
+                  </View>
                 </View>
               );
             })
@@ -5392,6 +5693,48 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  packageRow: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    gap: 12,
+    backgroundColor: colors.surface,
+  },
+  packageInfo: {
+    gap: 10,
+  },
+  packageItems: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  packageChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: "rgba(15,23,42,0.35)",
+  },
+  packageChipText: { fontSize: 12, fontWeight: "700" },
+  packageActions: {
+    flexDirection: "row",
+    gap: 8,
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
+  },
+  packageMetaRow: { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
+  packageMetaLabel: { fontSize: 12, fontWeight: "600" },
+  packageBadge: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+  },
+  packageBadgeText: { fontSize: 12, fontWeight: "800" },
   cashSummaryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   cashSummaryItem: {
     flex: 1,

@@ -75,6 +75,58 @@ export type ServiceFormCopy = {
   };
 };
 
+export type ServicePackageFormCopy = {
+  createTitle: string;
+  editTitle: string;
+  createSubtitle: string;
+  editSubtitle: string;
+  fields: {
+    nameLabel: string;
+    namePlaceholder: string;
+    nameError: string;
+    priceLabel: string;
+    pricePlaceholder: string;
+    priceHelper: string;
+    priceError: string;
+    priceDiscountError: string;
+    servicesLabel: string;
+    servicesHelper: string;
+    quantityLabel: string;
+    quantityPlaceholder: string;
+    itemsError: string;
+    missingServicePrice: string;
+    serviceMeta: (minutes: number, price: string) => string;
+  };
+  summary: {
+    title: string;
+    empty: string;
+    totalUnits: (units: number) => string;
+    packagePrice: (price: string) => string;
+    originalPrice: (price: string) => string;
+    discountValue: (price: string) => string;
+    discountPercent: (percent: string) => string;
+  };
+  buttons: {
+    create: string;
+    edit: string;
+    saving: string;
+    cancel: string;
+  };
+  accessibility: {
+    submitCreate: string;
+    submitEdit: string;
+    cancel: string;
+  };
+  alerts: {
+    createdTitle: string;
+    createdMessage: (name: string, units: number) => string;
+    updatedTitle: string;
+    updatedMessage: (name: string, units: number) => string;
+    createErrorTitle: string;
+    updateErrorTitle: string;
+  };
+};
+
 export type ProductFormCopy = {
   createTitle: string;
   editTitle: string;

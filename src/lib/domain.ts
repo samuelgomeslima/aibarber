@@ -10,6 +10,25 @@ export type Service = {
   created_at?: string | null;
 };
 
+export type ServicePackageItem = {
+  id?: string;
+  service_id: ServiceId;
+  quantity: number;
+  service?: Service | null;
+};
+
+export type ServicePackageId = string;
+
+export type ServicePackage = {
+  id: ServicePackageId;
+  name: string;
+  price_cents: number;
+  original_price_cents: number;
+  items: ServicePackageItem[];
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
 export type ProductId = string;
 export type Product = {
   id: ProductId;
