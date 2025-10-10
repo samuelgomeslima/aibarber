@@ -1,4 +1,4 @@
-import type { Service } from "./domain";
+import type { Product, Service } from "./domain";
 
 export type LanguageCode = "en" | "pt";
 
@@ -45,6 +45,43 @@ const SERVICE_TRANSLATIONS = new Map(
   Object.entries(RAW_SERVICE_TRANSLATIONS).map(([key, value]) => [normalizeKey(key), value]),
 );
 
+const RAW_PRODUCT_TRANSLATIONS: Record<string, Partial<Record<LanguageCode, string>>> = {
+  shampoo: { pt: "Shampoo" },
+  "hydrating shampoo": { pt: "Shampoo hidratante" },
+  "moisturizing shampoo": { pt: "Shampoo hidratante" },
+  conditioner: { pt: "Condicionador" },
+  "leave in": { pt: "Leave-in" },
+  "leave-in": { pt: "Leave-in" },
+  "beard oil": { pt: "Óleo para barba" },
+  "hair oil": { pt: "Óleo capilar" },
+  "hair tonic": { pt: "Tônico capilar" },
+  "scalp tonic": { pt: "Tônico para couro cabeludo" },
+  "beard shampoo": { pt: "Shampoo para barba" },
+  "beard wash": { pt: "Shampoo para barba" },
+  "beard balm": { pt: "Balm para barba" },
+  "after shave": { pt: "Loção pós-barba" },
+  aftershave: { pt: "Loção pós-barba" },
+  "shaving cream": { pt: "Creme de barbear" },
+  "shaving foam": { pt: "Espuma de barbear" },
+  "hair pomade": { pt: "Pomada capilar" },
+  pomade: { pt: "Pomada" },
+  "hair wax": { pt: "Cera modeladora" },
+  "styling wax": { pt: "Cera modeladora" },
+  "hair gel": { pt: "Gel para cabelo" },
+  gel: { pt: "Gel" },
+  "styling powder": { pt: "Pó modelador" },
+  "sea salt spray": { pt: "Spray de sal marinho" },
+  "texture spray": { pt: "Spray texturizador" },
+  "grooming kit": { pt: "Kit de cuidados" },
+  "beard kit": { pt: "Kit para barba" },
+  "pre shave": { pt: "Pré-barba" },
+  "pre-shave": { pt: "Pré-barba" },
+};
+
+const PRODUCT_TRANSLATIONS = new Map(
+  Object.entries(RAW_PRODUCT_TRANSLATIONS).map(([key, value]) => [normalizeKey(key), value]),
+);
+
 function normalizeKey(value?: string | null): string {
   if (!value) return "";
   return value
@@ -84,5 +121,37 @@ export function polyglotServices(services: Service[], language: LanguageCode): S
     const localized = lookupServiceTranslation(svc, language);
     if (!localized || localized === svc.name) return svc;
     return { ...svc, name: localized };
+  });
+}
+
+function lookupProductTranslation(
+  product: Pick<Product, "id" | "name">,
+  language: LanguageCode,
+): string | null {
+  if (language === "en") return product.name;
+
+  const idTranslation = PRODUCT_TRANSLATIONS.get(normalizeKey(product.id))?.[language];
+  if (idTranslation) return idTranslation;
+
+  const nameTranslation = PRODUCT_TRANSLATIONS.get(normalizeKey(product.name))?.[language];
+  if (nameTranslation) return nameTranslation;
+
+  return null;
+}
+
+export function polyglotProductName(
+  product: Pick<Product, "id" | "name">,
+  language: LanguageCode,
+): string {
+  return lookupProductTranslation(product, language) ?? product.name;
+}
+
+export function polyglotProducts(products: Product[], language: LanguageCode): Product[] {
+  if (language === "en") return products;
+
+  return products.map((product) => {
+    const localized = lookupProductTranslation(product, language);
+    if (!localized || localized === product.name) return product;
+    return { ...product, name: localized };
   });
 }

@@ -35,7 +35,7 @@ import {
   humanDate,
   formatPrice,
 } from "./src/lib/domain";
-import { polyglotServices } from "./src/lib/polyglot";
+import { polyglotProductName, polyglotProducts, polyglotServices } from "./src/lib/polyglot";
 import { COMPONENT_COPY } from "./src/locales/componentCopy";
 import type { RecurrenceFrequency } from "./src/locales/types";
 
@@ -1354,10 +1354,20 @@ export default function App() {
     () => new Map(localizedServices.map((s) => [s.id, s])),
     [localizedServices],
   );
+  const localizedProducts = useMemo(() => polyglotProducts(products, language), [products, language]);
+  const productMap = useMemo(() => new Map(products.map((product) => [product.id, product])), [products]);
+  const localizedProductMap = useMemo(
+    () => new Map(localizedProducts.map((product) => [product.id, product])),
+    [localizedProducts],
+  );
   const sortProducts = useCallback(
     (list: Product[]) =>
-      [...list].sort((a, b) => a.name.localeCompare(b.name, locale, { sensitivity: "base" })),
-    [locale],
+      [...list].sort((a, b) =>
+        polyglotProductName(a, language).localeCompare(polyglotProductName(b, language), locale, {
+          sensitivity: "base",
+        }),
+      ),
+    [language, locale],
   );
 
   const sortCashEntries = useCallback(
@@ -1618,7 +1628,8 @@ export default function App() {
     (product: Product) => {
       if (!product?.id) return;
 
-      const confirmPrompt = `${productsCopy.alerts.deleteTitle}\n\n${productsCopy.alerts.deleteMessage(product.name)}`;
+      const displayProduct = localizedProductMap.get(product.id) ?? product;
+      const confirmPrompt = `${productsCopy.alerts.deleteTitle}\n\n${productsCopy.alerts.deleteMessage(displayProduct.name)}`;
       const executeDelete = async () => {
         try {
           await deleteProduct(product.id);
@@ -1643,14 +1654,14 @@ export default function App() {
 
       Alert.alert(
         productsCopy.alerts.deleteTitle,
-        productsCopy.alerts.deleteMessage(product.name),
+        productsCopy.alerts.deleteMessage(displayProduct.name),
         [
           { text: productsCopy.alerts.cancel, style: "cancel" },
           { text: productsCopy.alerts.confirm, style: "destructive", onPress: () => void executeDelete() },
         ],
       );
     },
-    [productsCopy],
+    [localizedProductMap, productsCopy],
   );
 
   const handleOpenSellProduct = useCallback((product: Product) => {
@@ -1701,18 +1712,26 @@ export default function App() {
           console.error(registerError);
           Alert.alert(
             cashRegisterCopy.alerts.recordSaleFailedTitle,
-            cashRegisterCopy.alerts.recordSaleFailedMessage(updated.name),
+            cashRegisterCopy.alerts.recordSaleFailedMessage(
+              polyglotProductName(updated, language),
+            ),
           );
         }
         Alert.alert(
           productsCopy.stockModal.sellSuccessTitle,
-          productsCopy.stockModal.sellSuccessMessage(updated.name, quantity),
+          productsCopy.stockModal.sellSuccessMessage(
+            polyglotProductName(updated, language),
+            quantity,
+          ),
         );
       } else {
         updated = await restockProduct(stockModalProduct.id, quantity);
         Alert.alert(
           productsCopy.stockModal.restockSuccessTitle,
-          productsCopy.stockModal.restockSuccessMessage(updated.name, quantity),
+          productsCopy.stockModal.restockSuccessMessage(
+            polyglotProductName(updated, language),
+            quantity,
+          ),
         );
       }
 
@@ -1748,7 +1767,12 @@ export default function App() {
     stockModalMode,
     stockModalProduct,
     stockQuantityText,
+    language,
   ]);
+
+  const stockModalDisplayProduct = stockModalProduct
+    ? localizedProductMap.get(stockModalProduct.id) ?? stockModalProduct
+    : null;
 
   const selectedService = useMemo(
     () => services.find((s) => s.id === selectedServiceId) ?? null,
@@ -3685,11 +3709,12 @@ export default function App() {
 
           <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
             <Text style={[styles.title, { color: colors.text }]}>{productsCopy.listTitle}</Text>
-            {products.length === 0 ? (
+            {localizedProducts.length === 0 ? (
               <Text style={[styles.empty, { marginVertical: 8 }]}>{productsCopy.empty}</Text>
             ) : (
-              products.map((product) => {
-                const disableSell = product.stock_quantity <= 0;
+              localizedProducts.map((product) => {
+                const original = productMap.get(product.id) ?? product;
+                const disableSell = original.stock_quantity <= 0;
                 return (
                   <View
                     key={product.id}
@@ -3707,14 +3732,17 @@ export default function App() {
                     >
                       <Text style={{ color: colors.text, fontWeight: "800" }}>{product.name}</Text>
                       <Text style={{ color: colors.subtext, fontSize: 12 }}>
-                        {productsCopy.productMeta(formatPrice(product.price_cents), product.stock_quantity)}
+                        {productsCopy.productMeta(
+                          formatPrice(original.price_cents),
+                          original.stock_quantity,
+                        )}
                       </Text>
-                      {product.sku ? (
-                        <Text style={{ color: colors.subtext, fontSize: 12 }}>{`SKU: ${product.sku}`}</Text>
+                      {original.sku ? (
+                        <Text style={{ color: colors.subtext, fontSize: 12 }}>{`SKU: ${original.sku}`}</Text>
                       ) : null}
-                      {product.description ? (
+                      {original.description ? (
                         <Text style={{ color: colors.subtext, fontSize: 12 }}>
-                          {`${productsCopy.descriptionLabel}: ${product.description}`}
+                          {`${productsCopy.descriptionLabel}: ${original.description}`}
                         </Text>
                       ) : null}
                     </View>
@@ -3726,7 +3754,7 @@ export default function App() {
                       ]}
                     >
                       <Pressable
-                        onPress={() => handleOpenSellProduct(product)}
+                        onPress={() => handleOpenSellProduct(original)}
                         disabled={disableSell}
                         style={[
                           styles.smallBtn,
@@ -3750,7 +3778,7 @@ export default function App() {
                         </Text>
                       </Pressable>
                       <Pressable
-                        onPress={() => handleOpenRestockProduct(product)}
+                        onPress={() => handleOpenRestockProduct(original)}
                         style={[
                           styles.smallBtn,
                           {
@@ -3767,7 +3795,7 @@ export default function App() {
                         </Text>
                       </Pressable>
                       <Pressable
-                        onPress={() => handleOpenEditProduct(product)}
+                        onPress={() => handleOpenEditProduct(original)}
                         style={[
                           styles.smallBtn,
                           { borderColor: colors.border },
@@ -3781,7 +3809,7 @@ export default function App() {
                         </Text>
                       </Pressable>
                       <Pressable
-                        onPress={() => handleDeleteProduct(product)}
+                        onPress={() => handleDeleteProduct(original)}
                         style={[
                           styles.smallBtn,
                           {
@@ -3821,8 +3849,12 @@ export default function App() {
               <Text style={[styles.stockModalTitle, { color: colors.text }]}>
                 {stockModalProduct
                   ? stockModalMode === "sell"
-                    ? productsCopy.stockModal.sellTitle(stockModalProduct.name)
-                    : productsCopy.stockModal.restockTitle(stockModalProduct.name)
+                    ? productsCopy.stockModal.sellTitle(
+                        stockModalDisplayProduct?.name ?? stockModalProduct.name,
+                      )
+                    : productsCopy.stockModal.restockTitle(
+                        stockModalDisplayProduct?.name ?? stockModalProduct.name,
+                      )
                   : ""}
               </Text>
               <Text style={[styles.stockModalSubtitle, { color: colors.subtext }]}>
