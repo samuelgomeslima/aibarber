@@ -329,6 +329,18 @@ export async function updateServicePackage(
     throw updateError;
   }
 
+  const {
+    data: existingItems,
+    error: existingItemsError,
+  } = await supabase
+    .from<ServicePackageItemRow>(ITEMS_TABLE)
+    .select("service_id,quantity,position,created_by")
+    .eq("package_id", id);
+
+  if (existingItemsError) {
+    throw existingItemsError;
+  }
+
   const { error: deleteError } = await supabase.from<ServicePackageItemRow>(ITEMS_TABLE).delete().eq("package_id", id);
   if (deleteError) {
     throw deleteError;
@@ -347,6 +359,22 @@ export async function updateServicePackage(
       .insert(itemsPayload)
       .select("id");
     if (insertResult.error) {
+      if (existingItems && existingItems.length > 0) {
+        const rollbackPayload = existingItems.map((item, index) => ({
+          package_id: id,
+          service_id: item.service_id,
+          quantity: item.quantity,
+          position: item.position ?? index,
+          created_by: item.created_by ?? userId,
+        }));
+        const rollbackResult = await supabase.from<ServicePackageItemRow>(ITEMS_TABLE).insert(rollbackPayload);
+        if (rollbackResult.error) {
+          throw new Error(
+            `${insertResult.error.message}. Additionally failed to restore existing items: ${rollbackResult.error.message}`,
+          );
+        }
+      }
+
       throw insertResult.error;
     }
   }
