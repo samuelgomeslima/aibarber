@@ -119,6 +119,69 @@ export type ProductFormCopy = {
   };
 };
 
+export type ServicePackageFormCopy = {
+  createTitle: string;
+  editTitle: string;
+  createSubtitle: string;
+  editSubtitle: string;
+  fields: {
+    nameLabel: string;
+    namePlaceholder: string;
+    nameError: string;
+    priceLabel: string;
+    pricePlaceholder: string;
+    priceError: string;
+  };
+  items: {
+    label: string;
+    helper: string;
+    addLabel: string;
+    empty: string;
+    removeAccessibility: (serviceName: string) => string;
+  };
+  lineItem: {
+    serviceLabel: string;
+    servicePlaceholder: string;
+    quantityLabel: string;
+    quantityPlaceholder: string;
+    quantityError: string;
+  };
+  summary: {
+    basePrice: (price: string) => string;
+    discount: (percent: string) => string;
+  };
+  buttons: {
+    create: string;
+    edit: string;
+    saving: string;
+    cancel: string;
+  };
+  alerts: {
+    createdTitle: string;
+    createdMessage: (name: string) => string;
+    updatedTitle: string;
+    updatedMessage: (name: string) => string;
+    createErrorTitle: string;
+    updateErrorTitle: string;
+  };
+  errors: {
+    noItems: string;
+    invalidItems: string;
+    duplicateServices: string;
+  };
+  accessibility: {
+    openServicePicker: string;
+    addItem: string;
+    submitCreate: string;
+    submitEdit: string;
+    cancel: string;
+  };
+  servicePicker: {
+    title: string;
+    searchPlaceholder: string;
+  };
+};
+
 export type ImageAssistantCopy = {
   title: string;
   subtitle: { before: string; highlight: string; after: string };
@@ -213,5 +276,31 @@ export type OccurrencePreviewCopy = {
   actions: {
     back: string;
     confirm: (count: number) => string;
+  };
+};
+
+export type ServicePackagesPageCopy = {
+  title: string;
+  subtitle: string;
+  createCta: { label: string; accessibility: string };
+  refresh: string;
+  refreshAccessibility: string;
+  listTitle: string;
+  empty: string;
+  priceWithBase: (price: string, base: string) => string;
+  discountBadge: (percent: string) => string;
+  itemsLabel: string;
+  itemLine: (quantity: number, serviceName: string) => string;
+  actions: {
+    edit: { label: string; accessibility: (name: string) => string };
+    delete: { label: string; accessibility: (name: string) => string };
+  };
+  alerts: {
+    loadTitle: string;
+    deleteTitle: string;
+    deleteMessage: (name: string) => string;
+    deleteErrorTitle: string;
+    cancel: string;
+    confirm: string;
   };
 };
