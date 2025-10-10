@@ -24,6 +24,7 @@ import {
   BARBER_MAP,
   type Service,
   type Product,
+  type ServicePackage,
   openingHour,
   closingHour,
   pad,
@@ -152,6 +153,7 @@ import {
   type Customer,
 } from "./src/lib/bookings";
 import { deleteService, listServices } from "./src/lib/services";
+import { listServicePackages, deleteServicePackage } from "./src/lib/servicePackages";
 import {
   listProducts,
   deleteProduct,
@@ -177,6 +179,7 @@ import AssistantChat from "./src/components/AssistantChat";
 import ImageAssistant from "./src/components/ImageAssistant";
 import ServiceForm from "./src/components/ServiceForm";
 import ProductForm from "./src/components/ProductForm";
+import ServicePackageForm from "./src/components/ServicePackageForm";
 import FilterToggle from "./src/components/FilterToggle";
 import DateTimeInput from "./src/components/DateTimeInput";
 
@@ -281,12 +284,13 @@ const LANGUAGE_COPY = {
   en: {
     languageLabel: "Language",
     switchLanguage: "Switch language to",
-    navigation: {
-      overview: "Overview",
-      bookings: "Bookings",
-      services: "Services",
-      products: "Products",
-      cashRegister: "Cash register",
+      navigation: {
+        overview: "Overview",
+        bookings: "Bookings",
+        services: "Services",
+        servicePackages: "Packages",
+        products: "Products",
+        cashRegister: "Cash register",
       assistant: "Assistant",
       imageAssistant: "Image lab",
       team: "Team members",
@@ -367,6 +371,27 @@ const LANGUAGE_COPY = {
         cancel: "Cancel",
         confirm: "Delete",
         deleteErrorTitle: "Delete service",
+      },
+    },
+    servicePackagesPage: {
+      title: "Service packages",
+      subtitle: "Bundle recurring services and sell them at a discounted price.",
+      createCta: { label: "Register package", accessibility: "Open create package form" },
+      listTitle: "Registered packages",
+      empty: "— no packages registered yet —",
+      packageMeta: (count: number, standard: string, discount: string) =>
+        `${count} service${count === 1 ? "" : "s"} • ${standard} → ${discount}`,
+      savingsLabel: (value: string) => `You save ${value}`,
+      actions: {
+        delete: { label: "Delete", accessibility: (name: string) => `Delete ${name}` },
+      },
+      alerts: {
+        loadTitle: "Service packages",
+        deleteTitle: "Delete package",
+        deleteMessage: (name: string) => `Remove "${name}" from packages?`,
+        cancel: "Cancel",
+        confirm: "Delete",
+        deleteErrorTitle: "Delete package",
       },
     },
     productsPage: {
@@ -727,12 +752,13 @@ const LANGUAGE_COPY = {
   pt: {
     languageLabel: "Idioma",
     switchLanguage: "Alterar idioma para",
-    navigation: {
-      overview: "Visão geral",
-      bookings: "Agendamentos",
-      services: "Serviços",
-      products: "Produtos",
-      cashRegister: "Caixa",
+      navigation: {
+        overview: "Visão geral",
+        bookings: "Agendamentos",
+        services: "Serviços",
+        servicePackages: "Pacotes",
+        products: "Produtos",
+        cashRegister: "Caixa",
       assistant: "Assistente",
       imageAssistant: "Laboratório de imagens",
       team: "Equipe",
@@ -813,6 +839,27 @@ const LANGUAGE_COPY = {
         cancel: "Cancelar",
         confirm: "Excluir",
         deleteErrorTitle: "Excluir serviço",
+      },
+    },
+    servicePackagesPage: {
+      title: "Pacotes de serviços",
+      subtitle: "Agrupe serviços recorrentes e ofereça preços promocionais.",
+      createCta: { label: "Cadastrar pacote", accessibility: "Abrir formulário de pacote" },
+      listTitle: "Pacotes cadastrados",
+      empty: "— nenhum pacote cadastrado ainda —",
+      packageMeta: (count: number, standard: string, discount: string) =>
+        `${count} serviço${count === 1 ? "" : "s"} • ${standard} → ${discount}`,
+      savingsLabel: (value: string) => `Economia de ${value}`,
+      actions: {
+        delete: { label: "Excluir", accessibility: (name: string) => `Excluir ${name}` },
+      },
+      alerts: {
+        loadTitle: "Pacotes de serviços",
+        deleteTitle: "Excluir pacote",
+        deleteMessage: (name: string) => `Remover "${name}" dos pacotes?`,
+        cancel: "Cancelar",
+        confirm: "Excluir",
+        deleteErrorTitle: "Excluir pacote",
       },
     },
     productsPage: {
@@ -1249,6 +1296,7 @@ type ScreenName =
   | "home"
   | "bookings"
   | "bookService"
+  | "servicePackages"
   | "services"
   | "products"
   | "cashRegister"
@@ -1264,6 +1312,9 @@ export default function App() {
   const [serviceFormVisible, setServiceFormVisible] = useState(false);
   const [serviceFormMode, setServiceFormMode] = useState<"create" | "edit">("create");
   const [serviceBeingEdited, setServiceBeingEdited] = useState<Service | null>(null);
+  const [servicePackages, setServicePackages] = useState<ServicePackage[]>([]);
+  const [servicePackagesLoading, setServicePackagesLoading] = useState(false);
+  const [servicePackageFormVisible, setServicePackageFormVisible] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [productSalesTotals, setProductSalesTotals] = useState<Record<string, number>>({});
   const [productsLoading, setProductsLoading] = useState(false);
@@ -1288,8 +1339,10 @@ export default function App() {
   const assistantCopy = copy.assistant;
   const imageAssistantCopy = copy.imageAssistant;
   const productsCopy = copy.productsPage;
+  const servicePackagesCopy = copy.servicePackagesPage;
   const cashRegisterCopy = copy.cashRegisterPage;
   const productFormCopy = copy.productForm;
+  const servicePackageFormCopy = copy.servicePackageForm;
   const teamCopy = copy.teamPage;
   const teamRoleLabelMap = useMemo(() => {
     const entries = teamCopy.roles.map((role) => [role.value, role.label]);
@@ -1419,6 +1472,24 @@ export default function App() {
   }, [copy]);
 
   useEffect(() => { loadServices(); }, [loadServices]);
+
+  const loadServicePackages = useCallback(async () => {
+    setServicePackagesLoading(true);
+    try {
+      const rows = await listServicePackages();
+      setServicePackages(rows);
+    } catch (e: any) {
+      console.error(e);
+      Alert.alert(servicePackagesCopy.alerts.loadTitle, e?.message ?? String(e));
+      setServicePackages([]);
+    } finally {
+      setServicePackagesLoading(false);
+    }
+  }, [servicePackagesCopy.alerts.loadTitle]);
+
+  useEffect(() => {
+    void loadServicePackages();
+  }, [loadServicePackages]);
 
   const loadProducts = useCallback(async () => {
     setProductsLoading(true);
@@ -1580,6 +1651,62 @@ export default function App() {
       );
     },
     [copy, loadServices, localizedServiceMap],
+  );
+
+  const handleOpenCreateServicePackage = useCallback(() => {
+    setServicePackageFormVisible(true);
+  }, []);
+
+  const handleServicePackageFormClose = useCallback(() => {
+    setServicePackageFormVisible(false);
+  }, []);
+
+  const handleServicePackageCreated = useCallback(
+    (pkg: ServicePackage) => {
+      setServicePackageFormVisible(false);
+      setServicePackages((prev) => {
+        const filtered = prev.filter((item) => item.id !== pkg.id);
+        return [pkg, ...filtered];
+      });
+      void loadServicePackages();
+    },
+    [loadServicePackages],
+  );
+
+  const handleDeleteServicePackage = useCallback(
+    (pkg: ServicePackage) => {
+      if (!pkg?.id) return;
+
+      const confirmPrompt = `${servicePackagesCopy.alerts.deleteTitle}\n\n${servicePackagesCopy.alerts.deleteMessage(pkg.name)}`;
+
+      const executeDelete = async () => {
+        try {
+          await deleteServicePackage(pkg.id);
+          setServicePackages((prev) => prev.filter((item) => item.id !== pkg.id));
+        } catch (e: any) {
+          console.error(e);
+          Alert.alert(servicePackagesCopy.alerts.deleteErrorTitle, e?.message ?? String(e));
+        }
+      };
+
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        const confirmed = window.confirm(confirmPrompt);
+        if (confirmed) {
+          void executeDelete();
+        }
+        return;
+      }
+
+      Alert.alert(
+        servicePackagesCopy.alerts.deleteTitle,
+        servicePackagesCopy.alerts.deleteMessage(pkg.name),
+        [
+          { text: servicePackagesCopy.alerts.cancel, style: "cancel" },
+          { text: servicePackagesCopy.alerts.confirm, style: "destructive", onPress: () => void executeDelete() },
+        ],
+      );
+    },
+    [servicePackagesCopy],
   );
 
   const handleProductFormClose = useCallback(() => {
@@ -1850,6 +1977,12 @@ export default function App() {
       loadAllBookings();
     }
   }, [activeScreen, loadAllBookings]);
+
+  useEffect(() => {
+    if (activeScreen === "servicePackages") {
+      void loadServicePackages();
+    }
+  }, [activeScreen, loadServicePackages]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -2750,6 +2883,21 @@ export default function App() {
             />
             <Text style={[styles.sidebarItemText, activeScreen === "services" && styles.sidebarItemTextActive]}>
               {copy.navigation.services}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => handleNavigate("servicePackages")}
+            style={[styles.sidebarItem, activeScreen === "servicePackages" && styles.sidebarItemActive]}
+            accessibilityRole="button"
+            accessibilityLabel={copy.navigation.servicePackages}
+          >
+            <MaterialCommunityIcons
+              name="ticket-percent-outline"
+              size={20}
+              color={activeScreen === "servicePackages" ? colors.accentFgOn : colors.subtext}
+            />
+            <Text style={[styles.sidebarItemText, activeScreen === "servicePackages" && styles.sidebarItemTextActive]}>
+              {copy.navigation.servicePackages}
             </Text>
           </Pressable>
           <Pressable
@@ -3655,6 +3803,112 @@ export default function App() {
                       </View>
                     );
                   })}
+                </View>
+              );
+            })
+          )}
+        </View>
+      </ScrollView>
+    ) : activeScreen === "servicePackages" ? (
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}
+        refreshControl={<RefreshControl refreshing={servicePackagesLoading} onRefresh={loadServicePackages} />}
+      >
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
+          <View style={[styles.listHeaderRow, isCompactLayout && styles.listHeaderRowCompact]}>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={[styles.title, { color: colors.text }]}>{servicePackagesCopy.title}</Text>
+              <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
+                {servicePackagesCopy.subtitle}
+              </Text>
+            </View>
+            <Pressable
+              onPress={handleOpenCreateServicePackage}
+              style={[styles.defaultCta, { marginTop: 0 }, isCompactLayout && styles.fullWidthButton]}
+              accessibilityRole="button"
+              accessibilityLabel={servicePackagesCopy.createCta.accessibility}
+            >
+              <Text style={styles.defaultCtaText}>{servicePackagesCopy.createCta.label}</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {servicePackageFormVisible ? (
+          <ServicePackageForm
+            services={localizedServices}
+            onCreated={handleServicePackageCreated}
+            onCancel={handleServicePackageFormClose}
+            colors={{
+              text: colors.text,
+              subtext: colors.subtext,
+              border: colors.border,
+              surface: colors.surface,
+              accent: colors.accent,
+              accentFgOn: colors.accentFgOn,
+              danger: colors.danger,
+            }}
+            copy={servicePackageFormCopy}
+          />
+        ) : null}
+
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
+          <Text style={[styles.title, { color: colors.text }]}>{servicePackagesCopy.listTitle}</Text>
+          {servicePackages.length === 0 ? (
+            <Text style={[styles.empty, { marginVertical: 8 }]}>{servicePackagesCopy.empty}</Text>
+          ) : (
+            servicePackages.map((pkg) => {
+              const totalQuantity = pkg.items.reduce((total, item) => total + Math.max(item.quantity, 0), 0);
+              const savingsCents = Math.max(pkg.standard_price_cents - pkg.discount_price_cents, 0);
+              const packageItems = pkg.items.map((item) => {
+                const localized =
+                  localizedServiceMap.get(item.service_id) ?? item.service ?? serviceMap.get(item.service_id);
+                return {
+                  key: item.id || `${pkg.id}-${item.service_id}`,
+                  name: localized?.name ?? item.service_id,
+                  quantity: item.quantity,
+                };
+              });
+
+              return (
+                <View key={pkg.id} style={[styles.packageRow, { borderColor: colors.border }]}> 
+                  <View style={{ flex: 1, gap: 6 }}>
+                    <Text style={{ color: colors.text, fontWeight: "800", fontSize: 16 }}>{pkg.name}</Text>
+                    <Text style={{ color: colors.subtext, fontSize: 12 }}>
+                      {servicePackagesCopy.packageMeta(
+                        totalQuantity,
+                        formatPrice(pkg.standard_price_cents),
+                        formatPrice(pkg.discount_price_cents),
+                      )}
+                    </Text>
+                    <Text style={{ color: colors.subtext, fontSize: 12 }}>
+                      {servicePackagesCopy.savingsLabel(formatPrice(savingsCents))}
+                    </Text>
+                    <View style={styles.packageServices}>
+                      {packageItems.map((item) => (
+                        <Text key={item.key} style={[styles.packageServiceText, { color: colors.subtext }]}>
+                          • {item.name} × {item.quantity}
+                        </Text>
+                      ))}
+                    </View>
+                  </View>
+                  <Pressable
+                    onPress={() => handleDeleteServicePackage(pkg)}
+                    style={[
+                      styles.smallBtn,
+                      {
+                        borderColor: colors.danger,
+                        backgroundColor: "rgba(239,68,68,0.1)",
+                        alignSelf: "flex-start",
+                      },
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={servicePackagesCopy.actions.delete.accessibility(pkg.name)}
+                  >
+                    <Text style={{ color: colors.danger, fontWeight: "800" }}>
+                      {servicePackagesCopy.actions.delete.label}
+                    </Text>
+                  </Pressable>
                 </View>
               );
             })
@@ -5357,6 +5611,23 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
+  },
+  packageRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  packageServices: {
+    gap: 4,
+  },
+  packageServiceText: {
+    fontSize: 12,
+    fontWeight: "600",
   },
   productRow: {
     alignItems: "flex-start",

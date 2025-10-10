@@ -5,6 +5,7 @@ import type {
   RecurrenceModalCopy,
   ServiceFormCopy,
   ProductFormCopy,
+  ServicePackageFormCopy,
   UserFormCopy,
 } from "./types";
 
@@ -15,6 +16,7 @@ type ComponentCopy = {
   imageAssistant: ImageAssistantCopy;
   serviceForm: ServiceFormCopy;
   productForm: ProductFormCopy;
+  servicePackageForm: ServicePackageFormCopy;
   userForm: UserFormCopy;
   recurrenceModal: RecurrenceModalCopy;
   occurrencePreview: OccurrencePreviewCopy;
@@ -180,6 +182,61 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
         updatedMessage: (name: string, stock: number) => `${name} (${stock} in stock)`,
         createErrorTitle: "Create product failed",
         updateErrorTitle: "Update product failed",
+      },
+    },
+    servicePackageForm: {
+      title: "Create package",
+      subtitle: "Bundle services together and offer a discounted price.",
+      fields: {
+        nameLabel: "Name",
+        namePlaceholder: "10 Haircuts",
+        descriptionLabel: "Description",
+        descriptionPlaceholder: "Optional details about what is included.",
+        discountPriceLabel: "Package price",
+        discountPricePlaceholder: "450.00",
+      },
+      items: {
+        title: "Included services",
+        empty: "No services added yet.",
+        addService: "Add service",
+        addServiceAccessibility: "Add service to package",
+        selectedLabel: (name: string) => `Included: ${name}`,
+        quantityLabel: "Quantity",
+        quantityPlaceholder: "1",
+        quantityAccessibility: (name: string) => `Quantity for ${name}`,
+        removeLabel: "Remove",
+        removeAccessibility: (name: string) => `Remove ${name} from package",
+        pickerTitle: "Select a service",
+        servicesUnavailable: "Register services before creating packages.",
+      },
+      summary: {
+        header: "Pricing summary",
+        standardLabel: "Full price",
+        discountLabel: "Package price",
+        totalServicesLabel: (count: number) =>
+          `${count} service${count === 1 ? "" : "s"} included`,
+        discountDifference: (value: string) => `You save ${value}`,
+      },
+      buttons: {
+        submit: "Save package",
+        saving: "Saving…",
+        cancel: "Cancel",
+      },
+      accessibility: {
+        submit: "Save service package",
+        cancel: "Cancel package form",
+        openServicePicker: "Choose a service to add",
+      },
+      alerts: {
+        createdTitle: "Package saved",
+        createdMessage: (name: string, price: string) => `${name} • ${price}`,
+        createErrorTitle: "Save package failed",
+      },
+      validation: {
+        nameRequired: "Name is required",
+        atLeastOneService: "Add at least one service",
+        discountRequired: "Enter a valid package price",
+        discountLessThanStandard: "Package price must be lower than the full price",
       },
     },
     userForm: {
@@ -390,6 +447,61 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
         updatedMessage: (name: string, minutes: number) => `${name} (${minutes} min)`,
         createErrorTitle: "Falha ao criar serviço",
         updateErrorTitle: "Falha ao atualizar serviço",
+      },
+    },
+    servicePackageForm: {
+      title: "Criar pacote",
+      subtitle: "Agrupe serviços e ofereça um preço promocional.",
+      fields: {
+        nameLabel: "Nome",
+        namePlaceholder: "10 cortes",
+        descriptionLabel: "Descrição",
+        descriptionPlaceholder: "Detalhes opcionais sobre o pacote.",
+        discountPriceLabel: "Preço do pacote",
+        discountPricePlaceholder: "450,00",
+      },
+      items: {
+        title: "Serviços incluídos",
+        empty: "Nenhum serviço adicionado ainda.",
+        addService: "Adicionar serviço",
+        addServiceAccessibility: "Adicionar serviço ao pacote",
+        selectedLabel: (name: string) => `Serviço: ${name}`,
+        quantityLabel: "Quantidade",
+        quantityPlaceholder: "1",
+        quantityAccessibility: (name: string) => `Quantidade para ${name}`,
+        removeLabel: "Remover",
+        removeAccessibility: (name: string) => `Remover ${name} do pacote",
+        pickerTitle: "Selecione um serviço",
+        servicesUnavailable: "Cadastre serviços antes de criar pacotes.",
+      },
+      summary: {
+        header: "Resumo de preços",
+        standardLabel: "Preço cheio",
+        discountLabel: "Preço do pacote",
+        totalServicesLabel: (count: number) =>
+          `${count} serviço${count === 1 ? "" : "s"} incluído${count === 1 ? "" : "s"}`,
+        discountDifference: (value: string) => `Economia de ${value}`,
+      },
+      buttons: {
+        submit: "Salvar pacote",
+        saving: "Salvando…",
+        cancel: "Cancelar",
+      },
+      accessibility: {
+        submit: "Salvar pacote de serviços",
+        cancel: "Cancelar formulário de pacote",
+        openServicePicker: "Escolher serviço para adicionar",
+      },
+      alerts: {
+        createdTitle: "Pacote salvo",
+        createdMessage: (name: string, price: string) => `${name} • ${price}`,
+        createErrorTitle: "Não foi possível salvar o pacote",
+      },
+      validation: {
+        nameRequired: "Nome obrigatório",
+        atLeastOneService: "Adicione pelo menos um serviço",
+        discountRequired: "Informe um preço válido para o pacote",
+        discountLessThanStandard: "O preço do pacote deve ser menor que o preço cheio",
       },
     },
     productForm: {

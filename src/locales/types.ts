@@ -119,6 +119,61 @@ export type ProductFormCopy = {
   };
 };
 
+export type ServicePackageFormCopy = {
+  title: string;
+  subtitle: string;
+  fields: {
+    nameLabel: string;
+    namePlaceholder: string;
+    descriptionLabel: string;
+    descriptionPlaceholder: string;
+    discountPriceLabel: string;
+    discountPricePlaceholder: string;
+  };
+  items: {
+    title: string;
+    empty: string;
+    addService: string;
+    addServiceAccessibility: string;
+    selectedLabel: (name: string) => string;
+    quantityLabel: string;
+    quantityPlaceholder: string;
+    quantityAccessibility: (name: string) => string;
+    removeLabel: string;
+    removeAccessibility: (name: string) => string;
+    pickerTitle: string;
+    servicesUnavailable: string;
+  };
+  summary: {
+    header: string;
+    standardLabel: string;
+    discountLabel: string;
+    totalServicesLabel: (count: number) => string;
+    discountDifference: (value: string) => string;
+  };
+  buttons: {
+    submit: string;
+    saving: string;
+    cancel: string;
+  };
+  accessibility: {
+    submit: string;
+    cancel: string;
+    openServicePicker: string;
+  };
+  alerts: {
+    createdTitle: string;
+    createdMessage: (name: string, price: string) => string;
+    createErrorTitle: string;
+  };
+  validation: {
+    nameRequired: string;
+    atLeastOneService: string;
+    discountRequired: string;
+    discountLessThanStandard: string;
+  };
+};
+
 export type ImageAssistantCopy = {
   title: string;
   subtitle: { before: string; highlight: string; after: string };
