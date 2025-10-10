@@ -189,6 +189,22 @@ export function createServicePackagesRepository(client: SupabaseClientLike) {
           quantity: Math.round(item.quantity),
         }));
 
+      const { data: existingPackageData, error: existingPackageError } = await client
+        .from("service_packages")
+        .select("name,description,price_cents,regular_price_cents")
+        .eq("id", id)
+        .single();
+
+      if (existingPackageError) throw existingPackageError;
+      if (!existingPackageData) throw new Error("Service package not found");
+
+      const previousPackage = existingPackageData as {
+        name: string;
+        description: string | null;
+        price_cents: number | null;
+        regular_price_cents: number | null;
+      };
+
       const { data: existingItemsData, error: existingItemsError } = await client
         .from("service_package_items")
         .select("service_id,quantity")
@@ -211,23 +227,63 @@ export function createServicePackagesRepository(client: SupabaseClientLike) {
       if (error) throw error;
 
       const { error: deleteError } = await client.from("service_package_items").delete().eq("package_id", id);
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        const { error: revertError } = await client
+          .from("service_packages")
+          .update({
+            name: previousPackage.name,
+            description: previousPackage.description,
+            price_cents: previousPackage.price_cents,
+            regular_price_cents: previousPackage.regular_price_cents,
+          })
+          .eq("id", id);
+
+        if (revertError) {
+          throw new Error(
+            `Failed to delete service package items and restore the original package details: ${revertError.message}`,
+            { cause: deleteError }
+          );
+        }
+
+        throw deleteError;
+      }
 
       const { error: insertError } = await client
         .from("service_package_items")
         .insert(items.map((item) => ({ ...item, package_id: id })));
       if (insertError) {
+        const rollbackErrors: string[] = [];
+
+        const { error: revertPackageError } = await client
+          .from("service_packages")
+          .update({
+            name: previousPackage.name,
+            description: previousPackage.description,
+            price_cents: previousPackage.price_cents,
+            regular_price_cents: previousPackage.regular_price_cents,
+          })
+          .eq("id", id);
+
+        if (revertPackageError) {
+          rollbackErrors.push(
+            `Failed to restore the original package details: ${revertPackageError.message}`
+          );
+        }
+
         if (existingItems.length > 0) {
-          const { error: rollbackError } = await client
+          const { error: rollbackItemsError } = await client
             .from("service_package_items")
             .insert(existingItems.map((item) => ({ ...item, package_id: id })));
 
-          if (rollbackError) {
-            throw new Error(
-              `Failed to save service package items and restore the original items: ${rollbackError.message}`,
-              { cause: insertError }
+          if (rollbackItemsError) {
+            rollbackErrors.push(
+              `Failed to restore the original package items: ${rollbackItemsError.message}`
             );
           }
+        }
+
+        if (rollbackErrors.length > 0) {
+          throw new Error(rollbackErrors.join(" "), { cause: insertError });
         }
 
         throw insertError;
