@@ -1150,6 +1150,18 @@ function getInitialLanguage(): SupportedLanguage {
 }
 
 /** ========== App ========== */
+type ScreenName =
+  | "home"
+  | "bookings"
+  | "bookService"
+  | "services"
+  | "products"
+  | "cashRegister"
+  | "assistant"
+  | "imageAssistant"
+  | "team"
+  | "settings";
+
 export default function App() {
   const [services, setServices] = useState<Service[]>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
@@ -1171,18 +1183,7 @@ export default function App() {
   const [cashLoading, setCashLoading] = useState(false);
   const [teamMembers, setTeamMembers] = useState<StaffMember[]>([]);
   const [teamLoading, setTeamLoading] = useState(false);
-  const [activeScreen, setActiveScreen] = useState<
-    | "home"
-    | "bookings"
-    | "bookService"
-    | "services"
-    | "products"
-    | "cashRegister"
-    | "assistant"
-    | "imageAssistant"
-    | "team"
-    | "settings"
-  >("home");
+  const [activeScreen, setActiveScreen] = useState<ScreenName>("home");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [language, setLanguage] = useState<SupportedLanguage>(() => getInitialLanguage());
   const copy = useMemo(() => LANGUAGE_COPY[language], [language]);
@@ -2385,20 +2386,7 @@ export default function App() {
 
   const bookingsNavActive = activeScreen === "bookings" || activeScreen === "bookService";
 
-  const handleNavigate = useCallback(
-    (
-      screen:
-        | "home"
-        | "bookings"
-        | "bookService"
-        | "services"
-        | "products"
-        | "cashRegister"
-        | "assistant"
-        | "imageAssistant"
-        | "team"
-        | "settings",
-    ) => {
+  const handleNavigate = useCallback((screen: ScreenName) => {
       setActiveScreen(screen);
       setSidebarOpen(false);
     },
