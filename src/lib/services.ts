@@ -153,11 +153,20 @@ export function createServicesRepository(client: SupabaseClientLike) {
 
       const { error } = await client.from("services").delete().eq("id", id);
       if (error) {
+        const errorCode =
+          typeof error === "object" && error !== null && "code" in error
+            ? String((error as { code?: string | number }).code ?? "")
+            : "";
+        const errorMessage =
+          typeof error === "object" && error !== null && "message" in error
+            ? String((error as { message?: string }).message ?? "")
+            : "";
+
         const isForeignKeyViolation =
-          typeof error === "object" &&
-          error !== null &&
-          "code" in error &&
-          (error as { code?: string }).code === "23503";
+          errorCode === "23503" ||
+          errorCode === "PGRST116" ||
+          errorMessage.toLowerCase().includes("violates foreign key constraint") ||
+          errorMessage.toLowerCase().includes("is still referenced");
 
         if (isForeignKeyViolation) {
           throw new Error("This service is currently being used and cannot be deleted.");
