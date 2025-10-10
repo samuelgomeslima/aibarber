@@ -157,7 +157,21 @@ export function createServicePackagesRepository(client: SupabaseClientLike) {
         .from("service_package_items")
         .insert(items.map((item) => ({ ...item, package_id: createdId })));
 
-      if (itemsError) throw itemsError;
+      if (itemsError) {
+        const { error: rollbackError } = await client
+          .from("service_packages")
+          .delete()
+          .eq("id", createdId);
+
+        if (rollbackError) {
+          throw new Error(
+            `Failed to create service package items and roll back the package: ${rollbackError.message}`,
+            { cause: itemsError }
+          );
+        }
+
+        throw itemsError;
+      }
 
       return fetchById(createdId);
     },
@@ -174,6 +188,15 @@ export function createServicePackagesRepository(client: SupabaseClientLike) {
           service_id: item.service_id.trim(),
           quantity: Math.round(item.quantity),
         }));
+
+      const { data: existingItemsData, error: existingItemsError } = await client
+        .from("service_package_items")
+        .select("service_id,quantity")
+        .eq("package_id", id);
+
+      if (existingItemsError) throw existingItemsError;
+
+      const existingItems = (existingItemsData ?? []) as Array<{ service_id: string; quantity: number }>;
 
       const { error } = await client
         .from("service_packages")
@@ -193,7 +216,22 @@ export function createServicePackagesRepository(client: SupabaseClientLike) {
       const { error: insertError } = await client
         .from("service_package_items")
         .insert(items.map((item) => ({ ...item, package_id: id })));
-      if (insertError) throw insertError;
+      if (insertError) {
+        if (existingItems.length > 0) {
+          const { error: rollbackError } = await client
+            .from("service_package_items")
+            .insert(existingItems.map((item) => ({ ...item, package_id: id })));
+
+          if (rollbackError) {
+            throw new Error(
+              `Failed to save service package items and restore the original items: ${rollbackError.message}`,
+              { cause: insertError }
+            );
+          }
+        }
+
+        throw insertError;
+      }
 
       return fetchById(id);
     },
