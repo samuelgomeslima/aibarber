@@ -75,6 +75,67 @@ export type ServiceFormCopy = {
   };
 };
 
+export type ServicePackageFormCopy = {
+  createTitle: string;
+  editTitle: string;
+  createSubtitle: string;
+  editSubtitle: string;
+  fields: {
+    nameLabel: string;
+    namePlaceholder: string;
+    nameError: string;
+    priceLabel: string;
+    pricePlaceholder: string;
+    priceError: string;
+    regularPriceLabel: string;
+    regularPricePlaceholder: string;
+    regularPriceHelper?: string;
+    regularPriceError: string;
+    descriptionLabel: string;
+    descriptionPlaceholder: string;
+    itemsLabel: string;
+    addItemLabel: string;
+    itemsEmptyError: string;
+    itemsInvalidError: string;
+    itemTitle: (index: number) => string;
+    itemServiceLabel: string;
+    itemServicePlaceholder: string;
+    itemServiceError: string;
+    itemQuantityLabel: string;
+    itemQuantityPlaceholder: string;
+    itemQuantityError: string;
+    pickerTitle: string;
+    pickerSubtitle: string;
+    pickerSearchPlaceholder: string;
+    pickerCloseLabel: string;
+    pickerOptionMeta: (minutes: number, price: string) => string;
+  };
+  buttons: {
+    create: string;
+    edit: string;
+    saving: string;
+    cancel: string;
+  };
+  accessibility: {
+    submitCreate: string;
+    submitEdit: string;
+    cancel: string;
+    addItem: string;
+    removeItem: (index: number) => string;
+    openServicePicker: (index: number) => string;
+    selectService: (name: string) => string;
+    closePicker: string;
+  };
+  alerts: {
+    createdTitle: string;
+    createdMessage: (name: string) => string;
+    updatedTitle: string;
+    updatedMessage: (name: string) => string;
+    createErrorTitle: string;
+    updateErrorTitle: string;
+  };
+};
+
 export type ProductFormCopy = {
   createTitle: string;
   editTitle: string;
