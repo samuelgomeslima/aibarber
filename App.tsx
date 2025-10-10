@@ -145,6 +145,7 @@ import {
   createBooking,
   createBookingsBulk,
   cancelBooking,
+  confirmBookingPerformed,
   listCustomers,
   listRecentBookings,
   type BookingWithCustomer,
@@ -597,6 +598,53 @@ const LANGUAGE_COPY = {
           time: string;
         }) =>
           `Hi ${clientName}, this is a reminder of your appointment for ${serviceName} on ${date} at ${time}.`,
+        confirmCta: "Confirm service",
+        confirmAccessibility: ({
+          serviceName,
+          time,
+        }: {
+          serviceName: string;
+          time: string;
+        }) => `Confirm ${serviceName} at ${time}`,
+        confirmPromptTitle: "Service performed?",
+        confirmPromptMessage: ({
+          serviceName,
+          date,
+          time,
+        }: {
+          serviceName: string;
+          date: string;
+          time: string;
+        }) =>
+          `Confirm that ${serviceName} on ${date} at ${time} was completed. The sale will be recorded in the cash register.`,
+        confirmPromptConfirm: "Confirm",
+        confirmPromptCancel: "Not yet",
+        confirming: "Confirming...",
+        confirmSuccessTitle: "Service confirmed",
+        confirmSuccessMessage: ({
+          serviceName,
+          date,
+          time,
+        }: {
+          serviceName: string;
+          date: string;
+          time: string;
+        }) => `Marked ${serviceName} on ${date} at ${time} as completed.`,
+        confirmSuccessButCashFailed: ({
+          serviceName,
+          date,
+          time,
+        }: {
+          serviceName: string;
+          date: string;
+          time: string;
+        }) =>
+          `Marked ${serviceName} on ${date} at ${time} as completed, but the sale could not be stored automatically.`,
+        confirmFailedTitle: "Confirmation failed",
+        confirmFailedMessage: "We couldn't mark this booking as completed. Please try again.",
+        confirmMissingService: "The service linked to this booking is no longer available.",
+        confirmedBadge: "Completed",
+        confirmedAt: (label: string) => `Completed ${label}`,
       },
       alerts: {
         loadTitle: "Bookings list",
@@ -999,6 +1047,53 @@ const LANGUAGE_COPY = {
           time: string;
         }) =>
           `Olá ${clientName}, lembrando do seu horário para ${serviceName} em ${date} às ${time}.`,
+        confirmCta: "Confirmar atendimento",
+        confirmAccessibility: ({
+          serviceName,
+          time,
+        }: {
+          serviceName: string;
+          time: string;
+        }) => `Confirmar ${serviceName} às ${time}`,
+        confirmPromptTitle: "Atendimento realizado?",
+        confirmPromptMessage: ({
+          serviceName,
+          date,
+          time,
+        }: {
+          serviceName: string;
+          date: string;
+          time: string;
+        }) =>
+          `Confirme que ${serviceName} em ${date} às ${time} foi concluído. A venda será registrada no caixa.`,
+        confirmPromptConfirm: "Confirmar",
+        confirmPromptCancel: "Ainda não",
+        confirming: "Confirmando...",
+        confirmSuccessTitle: "Atendimento confirmado",
+        confirmSuccessMessage: ({
+          serviceName,
+          date,
+          time,
+        }: {
+          serviceName: string;
+          date: string;
+          time: string;
+        }) => `Marcamos ${serviceName} em ${date} às ${time} como concluído.`,
+        confirmSuccessButCashFailed: ({
+          serviceName,
+          date,
+          time,
+        }: {
+          serviceName: string;
+          date: string;
+          time: string;
+        }) =>
+          `Marcamos ${serviceName} em ${date} às ${time} como concluído, mas não foi possível lançar a venda automaticamente.`,
+        confirmFailedTitle: "Falha ao confirmar",
+        confirmFailedMessage: "Não foi possível marcar este agendamento como concluído. Tente novamente.",
+        confirmMissingService: "O serviço vinculado a este agendamento não está mais disponível.",
+        confirmedBadge: "Concluído",
+        confirmedAt: (label: string) => `Concluído ${label}`,
       },
       alerts: {
         loadTitle: "Lista de agendamentos",
@@ -1221,6 +1316,7 @@ export default function App() {
 
   const [bookings, setBookings] = useState<BookingWithCustomer[]>([]);
   const [loading, setLoading] = useState(false);
+  const [confirmingBookingId, setConfirmingBookingId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const [allBookings, setAllBookings] = useState<BookingWithCustomer[]>([]);
@@ -1282,6 +1378,16 @@ export default function App() {
       }),
     [locale],
   );
+
+  const updateBookingPerformed = useCallback((id: string, performedAt: string) => {
+    setBookings((prev) => prev.map((booking) => (booking.id === id ? { ...booking, performed_at: performedAt } : booking)));
+    setAllBookings((prev) =>
+      prev.map((booking) => (booking.id === id ? { ...booking, performed_at: performedAt } : booking)),
+    );
+    setWeekBookings((prev) =>
+      prev.map((booking) => (booking.id === id ? { ...booking, performed_at: performedAt } : booking)),
+    );
+  }, []);
 
   const loadServices = useCallback(async () => {
     setServicesLoading(true);
@@ -1819,22 +1925,6 @@ export default function App() {
       await loadAllBookings();
       const barberName = BARBER_MAP[selectedBarber.id]?.name ?? selectedBarber.id;
       const displayServiceName = selectedLocalizedService?.name ?? selectedService.name;
-      try {
-        const entry = await recordServiceSale({
-          serviceId: selectedService.id,
-          serviceName: displayServiceName,
-          unitPriceCents: selectedService.price_cents,
-          quantity: 1,
-          referenceId: bookingId ?? null,
-        });
-        appendCashEntry(entry);
-      } catch (registerError: any) {
-        console.error(registerError);
-        Alert.alert(
-          cashRegisterCopy.alerts.recordSaleFailedTitle,
-          cashRegisterCopy.alerts.recordSaleFailedMessage(displayServiceName),
-        );
-      }
       Alert.alert(
         bookServiceCopy.alerts.bookingSuccessTitle,
         `${displayServiceName} • ${selectedCustomer.first_name} • ${barberName} • ${start} • ${humanDate(dateKey, locale)}`,
@@ -1861,6 +1951,101 @@ export default function App() {
       setLoading(false);
     }
   };
+
+  const confirmBooking = useCallback(
+    async (booking: BookingWithCustomer) => {
+      if (!booking || booking.performed_at) return;
+      const service = serviceMap.get(booking.service_id);
+      const localized = localizedServiceMap.get(booking.service_id) ?? service;
+      const serviceName = localized?.name ?? booking.service_id;
+      if (!service) {
+        Alert.alert(bookingsCopy.results.confirmFailedTitle, bookingsCopy.results.confirmMissingService);
+        return;
+      }
+
+      setConfirmingBookingId(booking.id);
+      try {
+        const performedAt = await confirmBookingPerformed(booking.id);
+        updateBookingPerformed(booking.id, performedAt);
+
+        let saleError: unknown = null;
+        try {
+          const entry = await recordServiceSale({
+            serviceId: service.id,
+            serviceName,
+            unitPriceCents: service.price_cents,
+            quantity: 1,
+            referenceId: booking.id,
+          });
+          appendCashEntry(entry);
+        } catch (error) {
+          saleError = error;
+          console.error(error);
+        }
+
+        const dateLabel = humanDate(booking.date, locale);
+        const timeLabel = booking.start;
+
+        if (saleError) {
+          Alert.alert(
+            bookingsCopy.results.confirmSuccessTitle,
+            bookingsCopy.results.confirmSuccessButCashFailed({ serviceName, date: dateLabel, time: timeLabel }),
+          );
+          Alert.alert(
+            cashRegisterCopy.alerts.recordSaleFailedTitle,
+            cashRegisterCopy.alerts.recordSaleFailedMessage(serviceName),
+          );
+        } else {
+          Alert.alert(
+            bookingsCopy.results.confirmSuccessTitle,
+            bookingsCopy.results.confirmSuccessMessage({ serviceName, date: dateLabel, time: timeLabel }),
+          );
+        }
+      } catch (error) {
+        console.error(error);
+        Alert.alert(bookingsCopy.results.confirmFailedTitle, bookingsCopy.results.confirmFailedMessage);
+      } finally {
+        setConfirmingBookingId(null);
+      }
+    },
+    [
+      appendCashEntry,
+      bookingsCopy.results,
+      cashRegisterCopy.alerts,
+      confirmBookingPerformed,
+      locale,
+      localizedServiceMap,
+      recordServiceSale,
+      serviceMap,
+      updateBookingPerformed,
+    ],
+  );
+
+  const requestBookingConfirmation = useCallback(
+    (booking: BookingWithCustomer) => {
+      if (!booking || booking.performed_at) return;
+      const service = localizedServiceMap.get(booking.service_id) ?? serviceMap.get(booking.service_id);
+      const serviceName = service?.name ?? booking.service_id;
+      const dateLabel = humanDate(booking.date, locale);
+      const timeLabel = booking.start;
+
+      Alert.alert(
+        bookingsCopy.results.confirmPromptTitle,
+        bookingsCopy.results.confirmPromptMessage({ serviceName, date: dateLabel, time: timeLabel }),
+        [
+          { text: bookingsCopy.results.confirmPromptCancel, style: "cancel" },
+          { text: bookingsCopy.results.confirmPromptConfirm, onPress: () => void confirmBooking(booking) },
+        ],
+      );
+    },
+    [
+      bookingsCopy.results,
+      confirmBooking,
+      locale,
+      localizedServiceMap,
+      serviceMap,
+    ],
+  );
 
   /** Recorrência: usa data/horário/serviço/barbeiro já selecionados e o mesmo cliente */
   async function handleRecurrenceSubmit(opts: {
@@ -3298,6 +3483,16 @@ export default function App() {
                     });
                     const phoneDigits = booking._customer?.phone?.replace(/\D/g, "");
                     const hasPhone = Boolean(phoneDigits);
+                    const performedDate = booking.performed_at ? new Date(booking.performed_at) : null;
+                    const performedLabel = performedDate && !Number.isNaN(performedDate.getTime())
+                      ? bookingsCopy.results.confirmedAt(
+                          performedDate.toLocaleString(locale, {
+                            dateStyle: "short",
+                            timeStyle: "short",
+                          }),
+                        )
+                      : bookingsCopy.results.confirmedBadge;
+                    const isConfirming = confirmingBookingId === booking.id;
                     const openWhatsAppReminder = () => {
                       if (!phoneDigits) return;
                       const url = `https://wa.me/${phoneDigits}?text=${encodeURIComponent(reminderMessage)}`;
@@ -3333,6 +3528,12 @@ export default function App() {
                           <Text style={styles.bookingListMeta}>
                             {(barber?.name ?? booking.barber) + (customerName ? ` • ${customerName}` : "")}
                           </Text>
+                          {booking.performed_at ? (
+                            <View style={styles.bookingStatusRow}>
+                              <MaterialCommunityIcons name="check-circle" size={14} color={colors.accent} />
+                              <Text style={[styles.bookingStatusText, { color: colors.accent }]}>{performedLabel}</Text>
+                            </View>
+                          ) : null}
                         </View>
                         <View
                           style={[
@@ -3340,6 +3541,44 @@ export default function App() {
                             isUltraCompactLayout && styles.bookingListActionsCompact,
                           ]}
                         >
+                          {!booking.performed_at ? (
+                            <Pressable
+                              onPress={() => requestBookingConfirmation(booking)}
+                              disabled={isConfirming}
+                              style={[
+                                styles.smallBtn,
+                                styles.confirmBtn,
+                                {
+                                  borderColor: colors.accent,
+                                  backgroundColor: applyAlpha(colors.accent, 0.12),
+                                },
+                                isUltraCompactLayout && styles.fullWidthButton,
+                                isConfirming && styles.smallBtnDisabled,
+                              ]}
+                              accessibilityRole="button"
+                              accessibilityState={{ disabled: isConfirming }}
+                              accessibilityLabel={bookingsCopy.results.confirmAccessibility({
+                                serviceName: displayService?.name ?? booking.service_id,
+                                time: booking.start,
+                              })}
+                            >
+                              {isConfirming ? (
+                                <>
+                                  <ActivityIndicator size="small" color={colors.accent} />
+                                  <Text style={{ color: colors.accent, fontWeight: "800" }}>
+                                    {bookingsCopy.results.confirming}
+                                  </Text>
+                                </>
+                              ) : (
+                                <>
+                                  <MaterialCommunityIcons name="check" size={16} color={colors.accent} />
+                                  <Text style={{ color: colors.accent, fontWeight: "800" }}>
+                                    {bookingsCopy.results.confirmCta}
+                                  </Text>
+                                </>
+                              )}
+                            </Pressable>
+                          ) : null}
                           <Pressable
                             onPress={openWhatsAppReminder}
                             disabled={!hasPhone}
@@ -4888,7 +5127,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   bookingListClock: { color: colors.subtext, fontWeight: "700", fontSize: 12 },
   bookingListTitle: { color: colors.text, fontWeight: "800", fontSize: 15 },
   bookingListMeta: { color: colors.subtext, fontWeight: "600", fontSize: 12, marginTop: 2 },
-  bookingListActions: { flexDirection: "row", alignItems: "center" },
+  bookingStatusRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6 },
+  bookingStatusText: { fontSize: 12, fontWeight: "700" },
+  bookingListActions: { flexDirection: "row", alignItems: "center", gap: 8 },
   bookingListActionsCompact: { width: "100%" },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
 
@@ -5056,6 +5297,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   stockModalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10 },
   fullWidthButton: { alignSelf: "stretch", justifyContent: "center", alignItems: "center" },
   whatsappBtn: { flexDirection: "row", alignItems: "center", gap: 6 },
+  confirmBtn: { flexDirection: "row", alignItems: "center", gap: 6 },
   serviceRow: {
     flexDirection: "row",
     alignItems: "center",
