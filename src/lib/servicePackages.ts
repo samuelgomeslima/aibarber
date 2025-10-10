@@ -279,7 +279,10 @@ export async function createServicePackage(payload: ServicePackageInput): Promis
   if (error) {
     throw error;
   }
-  const packageId = data!.id;
+  const packageId = data?.id;
+  if (!packageId) {
+    throw new Error("Failed to create service package");
+  }
 
   const itemsPayload = input.items.map((item, index) => ({
     package_id: packageId,
@@ -295,6 +298,17 @@ export async function createServicePackage(payload: ServicePackageInput): Promis
     .select("id");
 
   if (itemsResult.error) {
+    const cleanupResult = await supabase
+      .from<ServicePackageRow>(TABLE_NAME)
+      .delete()
+      .eq("id", packageId);
+
+    if (cleanupResult.error) {
+      throw new Error(
+        `${itemsResult.error.message}. Additionally failed to clean up created package: ${cleanupResult.error.message}`,
+      );
+    }
+
     throw itemsResult.error;
   }
 
