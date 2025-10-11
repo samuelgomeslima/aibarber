@@ -406,6 +406,10 @@ const LANGUAGE_COPY = {
       empty: "— no products registered yet —",
       productMeta: (price: string, stock: number) => `${price} • ${stock} in stock`,
       descriptionLabel: "Description",
+      priceLabel: "Price",
+      stockLabel: "Stock",
+      stockValue: (stock: number) => `${stock} ${stock === 1 ? "unit" : "units"}`,
+      skuLabel: "SKU",
       actions: {
         edit: { label: "Edit", accessibility: (name: string) => `Edit ${name}` },
         delete: { label: "Delete", accessibility: (name: string) => `Delete ${name}` },
@@ -879,6 +883,10 @@ const LANGUAGE_COPY = {
       empty: "— nenhum produto cadastrado —",
       productMeta: (price: string, stock: number) => `${price} • ${stock} em estoque`,
       descriptionLabel: "Descrição",
+      priceLabel: "Preço",
+      stockLabel: "Estoque",
+      stockValue: (stock: number) => `${stock} unidade${stock === 1 ? "" : "s"}`,
+      skuLabel: "SKU",
       actions: {
         edit: { label: "Editar", accessibility: (name: string) => `Editar ${name}` },
         delete: { label: "Excluir", accessibility: (name: string) => `Excluir ${name}` },
@@ -3878,64 +3886,133 @@ export default function App() {
               localizedProducts.map((product) => {
                 const original = productMap.get(product.id) ?? product;
                 const disableSell = original.stock_quantity <= 0;
+                const isLowStock = original.stock_quantity <= 5;
+                const stockBorderColor = mixHexColor(
+                  colors.border,
+                  isLowStock ? colors.danger : colors.accent,
+                  0.45,
+                );
+                const stockBackgroundColor = applyAlpha(
+                  isLowStock ? colors.danger : colors.accent,
+                  resolvedTheme === "dark" ? 0.28 : 0.12,
+                );
+                const stockLabelColor = isLowStock ? colors.danger : colors.accent;
                 return (
                   <View
                     key={product.id}
                     style={[
-                      styles.serviceRow,
-                      styles.productRow,
-                      isUltraCompactLayout && styles.productRowCompact,
+                      styles.productCard,
+                      {
+                        borderColor: mixHexColor(colors.border, colors.accent, 0.25),
+                        backgroundColor: mixHexColor(
+                          colors.surface,
+                          colors.accent,
+                          resolvedTheme === "dark" ? 0.14 : 0.06,
+                        ),
+                      },
+                      isCompactLayout && styles.productCardCompact,
                     ]}
                   >
-                    <View
-                      style={[
-                        styles.productInfo,
-                        isUltraCompactLayout && styles.productInfoCompact,
-                      ]}
-                    >
-                      <Text style={{ color: colors.text, fontWeight: "800" }}>{product.name}</Text>
-                      <Text style={{ color: colors.subtext, fontSize: 12 }}>
-                        {productsCopy.productMeta(
-                          formatPrice(original.price_cents),
-                          original.stock_quantity,
-                        )}
-                      </Text>
+                    <View style={styles.productHeader}>
+                      <Text style={[styles.productName, { color: colors.text }]}>{product.name}</Text>
                       {original.sku ? (
-                        <Text style={{ color: colors.subtext, fontSize: 12 }}>{`SKU: ${original.sku}`}</Text>
-                      ) : null}
-                      {original.description ? (
-                        <Text style={{ color: colors.subtext, fontSize: 12 }}>
-                          {`${productsCopy.descriptionLabel}: ${original.description}`}
-                        </Text>
+                        <View
+                          style={[
+                            styles.productChip,
+                            styles.productSkuChip,
+                            {
+                              borderColor: mixHexColor(colors.border, colors.surface, 0.45),
+                              backgroundColor: mixHexColor(
+                                colors.surface,
+                                colors.border,
+                                resolvedTheme === "dark" ? 0.38 : 0.18,
+                              ),
+                            },
+                          ]}
+                        >
+                          <Text style={[styles.productChipLabel, { color: colors.subtext }]}>
+                            {productsCopy.skuLabel}
+                          </Text>
+                          <Text style={[styles.productChipValue, { color: colors.subtext }]}>
+                            {original.sku}
+                          </Text>
+                        </View>
                       ) : null}
                     </View>
+
+                    <View style={styles.productChipRow}>
+                      <View
+                        style={[
+                          styles.productChip,
+                          {
+                            borderColor: mixHexColor(colors.border, colors.accent, 0.35),
+                            backgroundColor: applyAlpha(
+                              colors.accent,
+                              resolvedTheme === "dark" ? 0.25 : 0.1,
+                            ),
+                          },
+                        ]}
+                      >
+                        <Text style={[styles.productChipLabel, { color: colors.accent }]}>
+                          {productsCopy.priceLabel}
+                        </Text>
+                        <Text style={[styles.productChipValue, { color: colors.text }]}>
+                          {formatPrice(original.price_cents)}
+                        </Text>
+                      </View>
+                      <View
+                        style={[
+                          styles.productChip,
+                          {
+                            borderColor: stockBorderColor,
+                            backgroundColor: stockBackgroundColor,
+                          },
+                        ]}
+                      >
+                        <Text style={[styles.productChipLabel, { color: stockLabelColor }]}>
+                          {productsCopy.stockLabel}
+                        </Text>
+                        <Text style={[styles.productChipValue, { color: colors.text }]}>
+                          {productsCopy.stockValue(original.stock_quantity)}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {original.description ? (
+                      <View style={styles.productDescriptionBlock}>
+                        <Text style={[styles.productChipLabel, { color: colors.subtext }]}>
+                          {productsCopy.descriptionLabel}
+                        </Text>
+                        <Text style={[styles.productDescription, { color: colors.subtext }]}>
+                          {original.description}
+                        </Text>
+                      </View>
+                    ) : null}
+
                     <View
                       style={[
-                        styles.serviceActions,
-                        styles.productActions,
-                        isUltraCompactLayout && styles.productActionsCompact,
+                        styles.productActionsContainer,
+                        isCompactLayout && styles.productActionsContainerStacked,
                       ]}
                     >
                       <Pressable
                         onPress={() => handleOpenSellProduct(original)}
                         disabled={disableSell}
                         style={[
-                          styles.smallBtn,
-                          {
-                            borderColor: disableSell ? colors.border : colors.accent,
-                            backgroundColor: disableSell ? colors.surface : "rgba(37,99,235,0.12)",
-                          },
-                          disableSell && styles.smallBtnDisabled,
-                          isUltraCompactLayout && styles.productActionButtonCompact,
+                          styles.productActionButton,
+                          styles.productPrimaryAction,
+                          disableSell && styles.productActionDisabled,
+                          isCompactLayout && styles.productActionButtonFullWidth,
                         ]}
                         accessibilityRole="button"
                         accessibilityLabel={productsCopy.actions.sell.accessibility(product.name)}
                       >
                         <Text
-                          style={{
-                            color: disableSell ? colors.subtext : colors.accent,
-                            fontWeight: "800",
-                          }}
+                          style={[
+                            styles.productActionLabel,
+                            styles.productActionPrimaryLabel,
+                            disableSell && styles.productActionDisabledLabel,
+                          ]}
                         >
                           {productsCopy.actions.sell.label}
                         </Text>
@@ -3943,48 +4020,48 @@ export default function App() {
                       <Pressable
                         onPress={() => handleOpenRestockProduct(original)}
                         style={[
-                          styles.smallBtn,
-                          {
-                            borderColor: colors.accent,
-                            backgroundColor: "rgba(37,99,235,0.12)",
-                          },
-                          isUltraCompactLayout && styles.productActionButtonCompact,
+                          styles.productActionButton,
+                          styles.productPrimaryAction,
+                          isCompactLayout && styles.productActionButtonFullWidth,
                         ]}
                         accessibilityRole="button"
                         accessibilityLabel={productsCopy.actions.restock.accessibility(product.name)}
                       >
-                        <Text style={{ color: colors.accent, fontWeight: "800" }}>
+                        <Text
+                          style={[styles.productActionLabel, styles.productActionPrimaryLabel]}
+                        >
                           {productsCopy.actions.restock.label}
                         </Text>
                       </Pressable>
                       <Pressable
                         onPress={() => handleOpenEditProduct(original)}
                         style={[
-                          styles.smallBtn,
-                          { borderColor: colors.border },
-                          isUltraCompactLayout && styles.productActionButtonCompact,
+                          styles.productActionButton,
+                          styles.productSecondaryAction,
+                          isCompactLayout && styles.productActionButtonFullWidth,
                         ]}
                         accessibilityRole="button"
                         accessibilityLabel={productsCopy.actions.edit.accessibility(product.name)}
                       >
-                        <Text style={{ color: colors.subtext, fontWeight: "800" }}>
+                        <Text
+                          style={[styles.productActionLabel, styles.productActionSecondaryLabel]}
+                        >
                           {productsCopy.actions.edit.label}
                         </Text>
                       </Pressable>
                       <Pressable
                         onPress={() => handleDeleteProduct(original)}
                         style={[
-                          styles.smallBtn,
-                          {
-                            borderColor: colors.danger,
-                            backgroundColor: "rgba(239,68,68,0.1)",
-                          },
-                          isUltraCompactLayout && styles.productActionButtonCompact,
+                          styles.productActionButton,
+                          styles.productDangerAction,
+                          isCompactLayout && styles.productActionButtonFullWidth,
                         ]}
                         accessibilityRole="button"
                         accessibilityLabel={productsCopy.actions.delete.accessibility(product.name)}
                       >
-                        <Text style={{ color: colors.danger, fontWeight: "800" }}>
+                        <Text
+                          style={[styles.productActionLabel, styles.productActionDangerLabel]}
+                        >
                           {productsCopy.actions.delete.label}
                         </Text>
                       </Pressable>
@@ -5701,39 +5778,120 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
   },
-  productRow: {
-    alignItems: "flex-start",
-  },
-  productRowCompact: {
-    flexDirection: "column",
-    alignItems: "stretch",
-  },
   serviceActions: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     flexWrap: "wrap",
   },
-  productActions: {
-    justifyContent: "flex-end",
+  productCard: {
+    padding: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    backgroundColor: colors.surface,
+    gap: 12,
   },
-  productActionsCompact: {
-    width: "100%",
-    justifyContent: "flex-start",
-    alignItems: "stretch",
-    flexDirection: "column",
+  productCardCompact: {
+    padding: 14,
   },
-  productInfo: {
-    flex: 1,
+  productHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 12,
+    flexWrap: "wrap",
+  },
+  productName: {
+    fontSize: 16,
+    fontWeight: "800",
+    flexShrink: 1,
+  },
+  productChipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  productChip: {
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    gap: 2,
+  },
+  productChipLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  productChipValue: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  productSkuChip: {
+    alignSelf: "flex-start",
+    backgroundColor: applyAlpha(colors.border, 0.2),
+  },
+  productDescriptionBlock: {
     gap: 4,
   },
-  productInfoCompact: {
-    width: "100%",
+  productDescription: {
+    fontSize: 12,
+    fontWeight: "600",
+    lineHeight: 17,
   },
-  productActionButtonCompact: {
-    width: "100%",
+  productActionsContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    alignItems: "stretch",
+  },
+  productActionsContainerStacked: {
+    flexDirection: "column",
+  },
+  productActionButton: {
+    flexGrow: 1,
+    minWidth: 140,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     alignItems: "center",
     justifyContent: "center",
+  },
+  productActionButtonFullWidth: {
+    width: "100%",
+  },
+  productPrimaryAction: {
+    borderColor: colors.accent,
+    backgroundColor: applyAlpha(colors.accent, 0.12),
+  },
+  productSecondaryAction: {
+    borderColor: colors.border,
+    backgroundColor: applyAlpha(colors.border, 0.12),
+  },
+  productDangerAction: {
+    borderColor: colors.danger,
+    backgroundColor: applyAlpha(colors.danger, 0.12),
+  },
+  productActionLabel: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  productActionPrimaryLabel: {
+    color: colors.accent,
+  },
+  productActionSecondaryLabel: {
+    color: colors.subtext,
+  },
+  productActionDangerLabel: {
+    color: colors.danger,
+  },
+  productActionDisabled: {
+    opacity: 0.55,
+  },
+  productActionDisabledLabel: {
+    color: colors.subtext,
   },
   cashSummaryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   cashSummaryItem: {
