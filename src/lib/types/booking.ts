@@ -6,6 +6,7 @@ export type DbBooking = {
   service_id: string;
   barber: string;
   customer_id?: string | null;
+  note?: string | null;
   performed_at?: string | null;
 };
 

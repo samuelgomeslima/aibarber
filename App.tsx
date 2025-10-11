@@ -533,6 +533,8 @@ const LANGUAGE_COPY = {
     userForm: COMPONENT_COPY.en.userForm,
     recurrenceModal: COMPONENT_COPY.en.recurrenceModal,
     occurrencePreview: COMPONENT_COPY.en.occurrencePreview,
+    freezeModal: COMPONENT_COPY.en.freezeModal,
+    freezePreview: COMPONENT_COPY.en.freezePreview,
     weekTitle: "This week",
     overviewSubtitle: (range?: string | null) =>
       `Overview of bookings scheduled for ${range?.trim() ? range : "the current week"}.`,
@@ -728,20 +730,36 @@ const LANGUAGE_COPY = {
         cancelFailureTitle: "Cancel failed",
         customerErrorTitle: "Customers",
         recurrence: {
-          noPreviewTitle: "Nothing to preview",
-          noPreviewMessage: "Check the start date, time, and occurrence count.",
-          previewFailureTitle: "Preview failed",
-          noCreateTitle: "Nothing to create",
-          noCreateMessage: "All occurrences were skipped.",
-          createSuccessTitle: "Created",
-          createSuccessMessage: (count: number, barberName: string, skipped: number) =>
-            `Added ${count} with ${barberName}${skipped ? ` • Skipped ${skipped}` : ""}`,
-          createFailureTitle: "Create failed",
+          booking: {
+            noPreviewTitle: "Nothing to preview",
+            noPreviewMessage: "Check the start date, time, and occurrence count.",
+            previewFailureTitle: "Preview failed",
+            noCreateTitle: "Nothing to create",
+            noCreateMessage: "All occurrences were skipped.",
+            createSuccessTitle: "Created",
+            createSuccessMessage: (count: number, barberName: string, skipped: number) =>
+              `Added ${count} with ${barberName}${skipped ? ` • Skipped ${skipped}` : ""}`,
+            createFailureTitle: "Create failed",
+          },
+          freeze: {
+            noPreviewTitle: "Nothing to freeze",
+            noPreviewMessage: "Check the start date, time, and occurrence count.",
+            previewFailureTitle: "Freeze preview failed",
+            noCreateTitle: "Nothing to freeze",
+            noCreateMessage: "All occurrences were skipped.",
+            createSuccessTitle: "Schedule frozen",
+            createSuccessMessage: (count: number, barberName: string, skipped: number) =>
+              `Frozen ${count} slot${count === 1 ? "" : "s"} for ${barberName}${
+                skipped ? ` • Skipped ${skipped}` : ""
+              }`,
+            createFailureTitle: "Freeze failed",
+          },
         },
       },
       actions: {
         book: { label: "Book service", accessibility: "Book service" },
         repeat: { label: "Repeat…", accessibility: "Open recurrence" },
+        freeze: { label: "Freeze…", accessibility: "Freeze recurring slots" },
       },
       bookingsList: {
         title: "Your bookings",
@@ -1012,6 +1030,8 @@ const LANGUAGE_COPY = {
     userForm: COMPONENT_COPY.pt.userForm,
     recurrenceModal: COMPONENT_COPY.pt.recurrenceModal,
     occurrencePreview: COMPONENT_COPY.pt.occurrencePreview,
+    freezeModal: COMPONENT_COPY.pt.freezeModal,
+    freezePreview: COMPONENT_COPY.pt.freezePreview,
     weekTitle: "Esta semana",
     overviewSubtitle: (range?: string | null) =>
       `Visão geral dos agendamentos marcados para ${range?.trim() ? range : "a semana atual"}.`,
@@ -1208,20 +1228,36 @@ const LANGUAGE_COPY = {
         cancelFailureTitle: "Falha ao cancelar",
         customerErrorTitle: "Clientes",
         recurrence: {
-          noPreviewTitle: "Nada para pré-visualizar",
-          noPreviewMessage: "Verifique a data inicial, o horário e a quantidade de ocorrências.",
-          previewFailureTitle: "Erro na pré-visualização",
-          noCreateTitle: "Nada para criar",
-          noCreateMessage: "Todas as ocorrências foram ignoradas.",
-          createSuccessTitle: "Criado",
-          createSuccessMessage: (count: number, barberName: string, skipped: number) =>
-            `Adicionados ${count} com ${barberName}${skipped ? ` • Ignorados ${skipped}` : ""}`,
-          createFailureTitle: "Falha ao criar",
+          booking: {
+            noPreviewTitle: "Nada para pré-visualizar",
+            noPreviewMessage: "Verifique a data inicial, o horário e a quantidade de ocorrências.",
+            previewFailureTitle: "Erro na pré-visualização",
+            noCreateTitle: "Nada para criar",
+            noCreateMessage: "Todas as ocorrências foram ignoradas.",
+            createSuccessTitle: "Criado",
+            createSuccessMessage: (count: number, barberName: string, skipped: number) =>
+              `Adicionados ${count} com ${barberName}${skipped ? ` • Ignorados ${skipped}` : ""}`,
+            createFailureTitle: "Falha ao criar",
+          },
+          freeze: {
+            noPreviewTitle: "Nada para bloquear",
+            noPreviewMessage: "Verifique a data inicial, o horário e a quantidade de ocorrências.",
+            previewFailureTitle: "Erro na prévia de bloqueio",
+            noCreateTitle: "Nada para bloquear",
+            noCreateMessage: "Todas as ocorrências foram ignoradas.",
+            createSuccessTitle: "Horários bloqueados",
+            createSuccessMessage: (count: number, barberName: string, skipped: number) =>
+              `Bloqueado${count === 1 ? "" : "s"} ${count} horário${count === 1 ? "" : "s"} para ${barberName}${
+                skipped ? ` • Ignorados ${skipped}` : ""
+              }`,
+            createFailureTitle: "Falha ao bloquear",
+          },
         },
       },
       actions: {
         book: { label: "Agendar serviço", accessibility: "Agendar serviço" },
         repeat: { label: "Repetir…", accessibility: "Abrir recorrência" },
+        freeze: { label: "Bloquear…", accessibility: "Bloquear horários recorrentes" },
       },
       bookingsList: {
         title: "Seus agendamentos",
@@ -1405,6 +1441,8 @@ export default function App() {
   const [bookingFilterEndTime, setBookingFilterEndTime] = useState("");
 
   const [recurrenceOpen, setRecurrenceOpen] = useState(false);
+  const [recurrenceMode, setRecurrenceMode] = useState<"booking" | "freeze">("booking");
+  const [previewMode, setPreviewMode] = useState<"booking" | "freeze">("booking");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewItems, setPreviewItems] = useState<PreviewItem[]>([]);
 
@@ -2257,13 +2295,18 @@ export default function App() {
     startFrom: Date;
     frequency: RecurrenceFrequency;
   }) {
-    if (!selectedCustomer) {
-      Alert.alert(bookServiceCopy.alerts.selectClient.title, bookServiceCopy.alerts.selectClient.message);
-      return;
-    }
+    const isFreeze = recurrenceMode === "freeze";
+    const recurrenceAlerts = isFreeze
+      ? bookServiceCopy.alerts.recurrence.freeze
+      : bookServiceCopy.alerts.recurrence.booking;
 
     if (!selectedService) {
       Alert.alert(bookServiceCopy.alerts.selectService.title, bookServiceCopy.alerts.selectService.message);
+      return;
+    }
+
+    if (!selectedCustomer && !isFreeze) {
+      Alert.alert(bookServiceCopy.alerts.selectClient.title, bookServiceCopy.alerts.selectClient.message);
       return;
     }
 
@@ -2306,10 +2349,7 @@ export default function App() {
     });
 
     if (raw.length === 0) {
-      Alert.alert(
-        bookServiceCopy.alerts.recurrence.noPreviewTitle,
-        bookServiceCopy.alerts.recurrence.noPreviewMessage,
-      );
+      Alert.alert(recurrenceAlerts.noPreviewTitle, recurrenceAlerts.noPreviewMessage);
       return;
     }
 
@@ -2333,25 +2373,31 @@ export default function App() {
 
       setPreviewItems(out);
       setRecurrenceOpen(false);
+      setPreviewMode(recurrenceMode);
       setPreviewOpen(true);
     } catch (e: any) {
       console.error(e);
-      Alert.alert(bookServiceCopy.alerts.recurrence.previewFailureTitle, e?.message ?? String(e));
+      Alert.alert(recurrenceAlerts.previewFailureTitle, e?.message ?? String(e));
     } finally {
       setLoading(false);
     }
   }
 
   async function confirmPreviewInsert() {
-    if (!selectedCustomer) {
-      setPreviewOpen(false);
-      Alert.alert(bookServiceCopy.alerts.selectClient.title, bookServiceCopy.alerts.selectClient.message);
-      return;
-    }
+    const isFreeze = previewMode === "freeze";
+    const recurrenceAlerts = isFreeze
+      ? bookServiceCopy.alerts.recurrence.freeze
+      : bookServiceCopy.alerts.recurrence.booking;
 
     if (!selectedService) {
       setPreviewOpen(false);
       Alert.alert(bookServiceCopy.alerts.selectService.title, bookServiceCopy.alerts.selectService.message);
+      return;
+    }
+
+    if (!selectedCustomer && !isFreeze) {
+      setPreviewOpen(false);
+      Alert.alert(bookServiceCopy.alerts.selectClient.title, bookServiceCopy.alerts.selectClient.message);
       return;
     }
 
@@ -2363,36 +2409,36 @@ export default function App() {
         end: i.end,
         service_id: selectedService.id,
         barber: selectedBarber.id,
-        customer_id: selectedCustomer.id,
+        customer_id: isFreeze ? null : selectedCustomer?.id ?? null,
+        note: isFreeze ? "Schedule freeze" : null,
       }));
 
     if (toInsert.length === 0) {
       setPreviewOpen(false);
-      Alert.alert(
-        bookServiceCopy.alerts.recurrence.noCreateTitle,
-        bookServiceCopy.alerts.recurrence.noCreateMessage,
-      );
+      Alert.alert(recurrenceAlerts.noCreateTitle, recurrenceAlerts.noCreateMessage);
       return;
     }
     try {
       setLoading(true);
       await createBookingsBulk(toInsert);
-      const displayServiceName = selectedLocalizedService?.name ?? selectedService.name;
-      try {
-        const entry = await recordServiceSale({
-          serviceId: selectedService.id,
-          serviceName: displayServiceName,
-          unitPriceCents: selectedService.price_cents,
-          quantity: toInsert.length,
-          referenceId: null,
-        });
-        appendCashEntry(entry);
-      } catch (registerError: any) {
-        console.error(registerError);
-        Alert.alert(
-          cashRegisterCopy.alerts.recordSaleFailedTitle,
-          cashRegisterCopy.alerts.recordSaleFailedMessage(displayServiceName),
-        );
+      if (!isFreeze) {
+        const displayServiceName = selectedLocalizedService?.name ?? selectedService.name;
+        try {
+          const entry = await recordServiceSale({
+            serviceId: selectedService.id,
+            serviceName: displayServiceName,
+            unitPriceCents: selectedService.price_cents,
+            quantity: toInsert.length,
+            referenceId: null,
+          });
+          appendCashEntry(entry);
+        } catch (registerError: any) {
+          console.error(registerError);
+          Alert.alert(
+            cashRegisterCopy.alerts.recordSaleFailedTitle,
+            cashRegisterCopy.alerts.recordSaleFailedMessage(displayServiceName),
+          );
+        }
       }
       setPreviewOpen(false);
       await load();
@@ -2400,12 +2446,12 @@ export default function App() {
       const skipped = previewItems.length - toInsert.length;
       const barberName = BARBER_MAP[selectedBarber.id]?.name ?? selectedBarber.id;
       Alert.alert(
-        bookServiceCopy.alerts.recurrence.createSuccessTitle,
-        bookServiceCopy.alerts.recurrence.createSuccessMessage(toInsert.length, barberName, skipped),
+        recurrenceAlerts.createSuccessTitle,
+        recurrenceAlerts.createSuccessMessage(toInsert.length, barberName, skipped),
       );
     } catch (e: any) {
       console.error(e);
-      Alert.alert(bookServiceCopy.alerts.recurrence.createFailureTitle, e?.message ?? String(e));
+      Alert.alert(recurrenceAlerts.createFailureTitle, e?.message ?? String(e));
     } finally {
       setLoading(false);
     }
@@ -3266,6 +3312,7 @@ export default function App() {
                     );
                     return;
                   }
+                  setRecurrenceMode("booking");
                   setRecurrenceOpen(true);
                 }}
                 style={[styles.bookBtn, (!selectedSlot || loading || !selectedCustomer) && styles.bookBtnDisabled, { flexDirection: "row", alignItems: "center" }]}
@@ -3275,6 +3322,36 @@ export default function App() {
                 <Ionicons name="repeat" size={16} color={colors.accentFgOn} />
                 <Text style={[styles.bookBtnText, { marginLeft: 6 }]}>
                   {bookServiceCopy.actions.repeat.label}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  if (!selectedSlot) {
+                    Alert.alert(
+                      bookServiceCopy.alerts.selectSlot.title,
+                      bookServiceCopy.alerts.selectSlot.message,
+                    );
+                    return;
+                  }
+                  if (!selectedService) {
+                    Alert.alert(
+                      bookServiceCopy.alerts.selectService.title,
+                      bookServiceCopy.alerts.selectService.message,
+                    );
+                    return;
+                  }
+                  setRecurrenceMode("freeze");
+                  setRecurrenceOpen(true);
+                }}
+                style={[styles.bookBtn, (!selectedSlot || loading) && styles.bookBtnDisabled, { flexDirection: "row", alignItems: "center" }]}
+                disabled={!selectedSlot || loading}
+                accessibilityRole="button"
+                accessibilityLabel={bookServiceCopy.actions.freeze.accessibility}
+              >
+                <Ionicons name="snow-outline" size={16} color={colors.accentFgOn} />
+                <Text style={[styles.bookBtnText, { marginLeft: 6 }]}>
+                  {bookServiceCopy.actions.freeze.label}
                 </Text>
               </Pressable>
             </View>
@@ -3350,7 +3427,7 @@ export default function App() {
           fixedService={selectedLocalizedService?.name ?? ""}
           fixedBarber={BARBER_MAP[selectedBarber.id]?.name || selectedBarber.id}
           colors={{ text: colors.text, subtext: colors.subtext, surface: colors.surface, border: colors.border, accent: colors.accent, bg: colors.sidebarBg }}
-          copy={copy.recurrenceModal}
+          copy={recurrenceMode === "freeze" ? copy.freezeModal : copy.recurrenceModal}
         />
         <OccurrencePreviewModal
           visible={previewOpen}
@@ -3358,7 +3435,7 @@ export default function App() {
           onClose={() => setPreviewOpen(false)}
           onConfirm={confirmPreviewInsert}
           colors={{ text: colors.text, subtext: colors.subtext, surface: colors.surface, border: colors.border, accent: colors.accent, bg: colors.bg, danger: colors.danger }}
-          copy={copy.occurrencePreview}
+          copy={previewMode === "freeze" ? copy.freezePreview : copy.occurrencePreview}
         />
 
         {/* Modal de clientes (lista + criar via UserForm) */}

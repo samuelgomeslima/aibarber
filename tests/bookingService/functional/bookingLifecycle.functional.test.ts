@@ -27,6 +27,7 @@ describe("booking service functional flow", () => {
       service_id: "cut",
       barber: "Mina",
       customer_id: customerRecord.id,
+      note: null,
     };
 
     const customersTable = supabaseMock.useTable("customers");
@@ -57,6 +58,7 @@ describe("booking service functional flow", () => {
         service_id: bookingRecord.service_id,
         barber: bookingRecord.barber,
         customer_id: bookingRecord.customer_id,
+        note: null,
       });
       bookingsTable.returns({ data: { id: bookingRecord.id }, error: null, status: 201 });
       return bookingsTable;
