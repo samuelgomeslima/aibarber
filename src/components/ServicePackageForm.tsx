@@ -215,14 +215,18 @@ export default function ServicePackageForm({
     setServiceSearch("");
   }, []);
 
+  const handleCloseServicePicker = useCallback(() => {
+    setServicePickerItemId(null);
+    setServiceSearch("");
+  }, []);
+
   const handleSelectService = useCallback((serviceId: string) => {
     if (!servicePickerItemId) return;
     setItems((prev) =>
       prev.map((item) => (item.id === servicePickerItemId ? { ...item, serviceId } : item)),
     );
-    setServicePickerItemId(null);
-    setServiceSearch("");
-  }, [servicePickerItemId]);
+    handleCloseServicePicker();
+  }, [handleCloseServicePicker, servicePickerItemId]);
 
   const handleAddItem = useCallback(() => {
     const usedIds = new Set(items.map((item) => item.serviceId).filter(Boolean) as string[]);
@@ -304,6 +308,11 @@ export default function ServicePackageForm({
   ]);
 
   const servicePickerVisible = servicePickerItemId !== null;
+
+  const activePickerItem = useMemo(
+    () => items.find((item) => item.id === servicePickerItemId) ?? null,
+    [items, servicePickerItemId],
+  );
 
   return (
     <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface }]}>
@@ -472,39 +481,83 @@ export default function ServicePackageForm({
         transparent={false}
         visible={servicePickerVisible}
         animationType="fade"
-        onRequestClose={() => setServicePickerItemId(null)}
+        onRequestClose={handleCloseServicePicker}
       >
         <View style={styles.modalBackdrop}>
-          <View style={[styles.modalCard, { borderColor: colors.border, backgroundColor: colors.surface }]}> 
-            <Text style={[styles.modalTitle, { color: colors.text }]}>{copy.servicePicker.title}</Text>
-            <TextInput
-              value={serviceSearch}
-              onChangeText={setServiceSearch}
-              placeholder={copy.servicePicker.searchPlaceholder}
-              placeholderTextColor="#94a3b8"
-              style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-              autoCapitalize="none"
-            />
-            <ScrollView style={{ maxHeight: 280 }}>
-              {filteredServices.map((svc) => (
-                <Pressable
-                  key={svc.id}
-                  onPress={() => handleSelectService(svc.id)}
-                  style={[styles.modalOption, { borderColor: colors.border }]}
-                >
-                  <Text style={{ color: colors.text }}>{svc.name}</Text>
-                </Pressable>
-              ))}
+          <View style={[styles.modalCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>{copy.servicePicker.title}</Text>
+              <Pressable
+                onPress={handleCloseServicePicker}
+                style={[styles.modalCloseBtn, { borderColor: colors.border, backgroundColor: "rgba(148,163,184,0.12)" }]}
+                accessibilityRole="button"
+                accessibilityLabel={copy.buttons.cancel}
+              >
+                <MaterialCommunityIcons name="close" size={18} color={colors.subtext} />
+              </Pressable>
+            </View>
+            <View style={[styles.modalSearchWrapper, { borderColor: colors.border, backgroundColor: "rgba(15,23,42,0.25)" }]}> 
+              <MaterialCommunityIcons name="magnify" size={18} color={colors.subtext} />
+              <TextInput
+                value={serviceSearch}
+                onChangeText={setServiceSearch}
+                placeholder={copy.servicePicker.searchPlaceholder}
+                placeholderTextColor="#94a3b8"
+                style={[styles.modalSearchInput, { color: colors.text }]}
+                autoCapitalize="none"
+                autoFocus
+              />
+            </View>
+            <ScrollView
+              style={styles.modalList}
+              contentContainerStyle={{ gap: 10, paddingVertical: 4 }}
+              keyboardShouldPersistTaps="handled"
+            >
+              {filteredServices.map((svc) => {
+                const isSelected = activePickerItem?.serviceId === svc.id;
+                const priceLabel = formatPrice(svc.price_cents);
+                const durationLabel = `${svc.estimated_minutes} min`;
+                return (
+                  <Pressable
+                    key={svc.id}
+                    onPress={() => handleSelectService(svc.id)}
+                    style={[
+                      styles.modalOption,
+                      {
+                        borderColor: isSelected ? colors.accent : colors.border,
+                        backgroundColor: isSelected ? "rgba(37,99,235,0.14)" : "rgba(15,23,42,0.18)",
+                      },
+                    ]}
+                  >
+                    <View style={[styles.modalOptionIcon, { backgroundColor: "rgba(37,99,235,0.12)" }]}>
+                      <MaterialCommunityIcons name={svc.icon} size={22} color={colors.accent} />
+                    </View>
+                    <View style={styles.modalOptionContent}>
+                      <Text style={[styles.modalOptionTitle, { color: colors.text }]} numberOfLines={1}>
+                        {svc.name}
+                      </Text>
+                      <Text style={[styles.modalOptionMeta, { color: colors.subtext }]}>
+                        {durationLabel} · {priceLabel}
+                      </Text>
+                    </View>
+                    {isSelected ? (
+                      <MaterialCommunityIcons name="check-circle" size={20} color={colors.accent} />
+                    ) : null}
+                  </Pressable>
+                );
+              })}
               {filteredServices.length === 0 ? (
-                <Text style={{ color: colors.subtext, paddingVertical: 12 }}>{copy.items.empty}</Text>
+                <Text style={[styles.modalEmpty, { color: colors.subtext }]}>{copy.items.empty}</Text>
               ) : null}
             </ScrollView>
-            <Pressable
-              onPress={() => setServicePickerItemId(null)}
-              style={[styles.secondaryBtn, { borderColor: colors.border, alignSelf: "flex-end" }]}
-            >
-              <Text style={{ color: colors.subtext, fontWeight: "700" }}>{copy.buttons.cancel}</Text>
-            </Pressable>
+            <View style={styles.modalFooter}>
+              <Pressable
+                onPress={handleCloseServicePicker}
+                style={[styles.secondaryBtn, { borderColor: colors.border }]}
+              >
+                <Text style={{ color: colors.subtext, fontWeight: "700" }}>{copy.buttons.cancel}</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       </Modal>
@@ -665,14 +718,78 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 16,
     padding: 20,
+    gap: 16,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: 12,
   },
   modalTitle: {
     fontSize: 16,
     fontWeight: "800",
   },
+  modalCloseBtn: {
+    borderWidth: 1,
+    borderRadius: 999,
+    padding: 6,
+  },
+  modalSearchWrapper: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  modalSearchInput: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  modalList: {
+    maxHeight: 320,
+  },
   modalOption: {
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 14,
     paddingVertical: 12,
-    borderBottomWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  modalOptionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalOptionContent: {
+    flex: 1,
+    gap: 2,
+  },
+  modalOptionTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  modalOptionMeta: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  modalEmpty: {
+    textAlign: "center",
+    fontSize: 13,
+    fontWeight: "600",
+    paddingVertical: 24,
+  },
+  modalFooter: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
   },
 });
