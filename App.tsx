@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -1324,6 +1324,7 @@ export default function App() {
   const [serviceBeingEdited, setServiceBeingEdited] = useState<Service | null>(null);
   const [servicePackages, setServicePackages] = useState<ServicePackage[]>([]);
   const [servicePackagesLoading, setServicePackagesLoading] = useState(false);
+  const servicePackagesRequestId = useRef(0);
   const [packageFormVisible, setPackageFormVisible] = useState(false);
   const [packageFormMode, setPackageFormMode] = useState<"create" | "edit">("create");
   const [packageBeingEdited, setPackageBeingEdited] = useState<ServicePackage | null>(null);
@@ -1485,16 +1486,23 @@ export default function App() {
   useEffect(() => { loadServices(); }, [loadServices]);
 
   const loadServicePackages = useCallback(async () => {
+    const requestId = ++servicePackagesRequestId.current;
     setServicePackagesLoading(true);
     try {
       const rows = await listServicePackages();
-      setServicePackages(rows);
+      if (servicePackagesRequestId.current === requestId) {
+        setServicePackages(rows);
+      }
     } catch (e: any) {
       console.error(e);
-      Alert.alert(packagesCopy.alerts.loadTitle, e?.message ?? String(e));
-      setServicePackages([]);
+      if (servicePackagesRequestId.current === requestId) {
+        Alert.alert(packagesCopy.alerts.loadTitle, e?.message ?? String(e));
+        setServicePackages([]);
+      }
     } finally {
-      setServicePackagesLoading(false);
+      if (servicePackagesRequestId.current === requestId) {
+        setServicePackagesLoading(false);
+      }
     }
   }, [packagesCopy.alerts.loadTitle]);
 
