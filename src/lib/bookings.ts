@@ -97,12 +97,16 @@ export type BookingInsertPayload = {
   service_id: string;
   barber: string;
   customer_id?: string | null;
+  note?: string | null;
 };
 
 export async function createBooking(payload: BookingInsertPayload) {
   const gateway = getBookingGateway();
   try {
-    const { data, status } = await gateway.insertBooking(payload);
+    const { data, status } = await gateway.insertBooking({
+      ...payload,
+      note: payload.note ?? null,
+    });
     const bookingId = data?.id ?? null;
     logger.info("bookings.createBooking succeeded", { bookingId, status });
     return bookingId;
@@ -117,7 +121,12 @@ export async function createBookingsBulk(payloads: BookingInsertPayload[]): Prom
   if (payloads.length === 0) return;
   const gateway = getBookingGateway();
   try {
-    const { status } = await gateway.insertManyBookings(payloads);
+    const { status } = await gateway.insertManyBookings(
+      payloads.map((payload) => ({
+        ...payload,
+        note: payload.note ?? null,
+      })),
+    );
     logger.info("bookings.createBookingsBulk succeeded", {
       status,
       count: payloads.length,

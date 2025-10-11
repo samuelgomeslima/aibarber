@@ -20,6 +20,8 @@ type ComponentCopy = {
   userForm: UserFormCopy;
   recurrenceModal: RecurrenceModalCopy;
   occurrencePreview: OccurrencePreviewCopy;
+  freezeModal: RecurrenceModalCopy;
+  freezePreview: OccurrencePreviewCopy;
 };
 
 export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
@@ -341,6 +343,48 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
         confirm: (count: number) => `Create ${count}`,
       },
     },
+    freezeModal: {
+      title: "Freeze schedule",
+      labels: {
+        service: "Service",
+        barber: "Barber",
+        startDate: "Start date",
+        time: "Time",
+        frequency: "Frequency",
+        count: "Count (1–10)",
+      },
+      frequencyOptions: [
+        { value: "weekly", label: "Weekly" },
+        { value: "every-15-days", label: "Every two weeks" },
+        { value: "monthly", label: "Monthly" },
+      ],
+      placeholders: {
+        count: "10",
+      },
+      actions: {
+        cancel: "Cancel",
+        preview: "Preview freeze",
+      },
+    },
+    freezePreview: {
+      title: "Preview frozen slots",
+      summary: (frozen: number, skipped: number) =>
+        `${frozen} will be frozen${skipped ? ` • ${skipped} skipped` : ""}`,
+      headers: {
+        date: "Date",
+        time: "Time",
+        status: "Status",
+      },
+      status: {
+        ok: "OK",
+        conflict: "Conflict",
+        outsideHours: "Outside hours",
+      },
+      actions: {
+        back: "Back",
+        confirm: (count: number) => `Freeze ${count}`,
+      },
+    },
   },
   pt: {
     assistantChat: {
@@ -660,6 +704,48 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
       actions: {
         back: "Voltar",
         confirm: (count: number) => `Criar ${count}`,
+      },
+    },
+    freezeModal: {
+      title: "Bloquear horário",
+      labels: {
+        service: "Serviço",
+        barber: "Barbeiro",
+        startDate: "Data inicial",
+        time: "Horário",
+        frequency: "Frequência",
+        count: "Quantidade (1–10)",
+      },
+      frequencyOptions: [
+        { value: "weekly", label: "Semanal" },
+        { value: "every-15-days", label: "A cada duas semanas" },
+        { value: "monthly", label: "Mensal" },
+      ],
+      placeholders: {
+        count: "10",
+      },
+      actions: {
+        cancel: "Cancelar",
+        preview: "Pré-visualizar bloqueio",
+      },
+    },
+    freezePreview: {
+      title: "Prévia de bloqueios",
+      summary: (frozen: number, skipped: number) =>
+        `${frozen} serão bloqueados${skipped ? ` • ${skipped} ignorados` : ""}`,
+      headers: {
+        date: "Data",
+        time: "Horário",
+        status: "Status",
+      },
+      status: {
+        ok: "OK",
+        conflict: "Conflito",
+        outsideHours: "Fora do horário",
+      },
+      actions: {
+        back: "Voltar",
+        confirm: (count: number) => `Bloquear ${count}`,
       },
     },
   },
