@@ -4784,7 +4784,7 @@ export default function App() {
                   placeholder={cashRegisterCopy.adjustmentModal.amountPlaceholder}
                   placeholderTextColor={placeholderColor}
                   style={[styles.input, styles.modalTextInput]}
-                  keyboardType={Platform.OS === "ios" ? "numbers-and-punctuation" : "decimal-pad"}
+                  keyboardType={Platform.OS === "ios" ? "numbers-and-punctuation" : "numeric"}
                   accessibilityLabel={cashRegisterCopy.adjustmentModal.amountLabel}
                 />
                 <Text style={[styles.modalHint, { color: colors.subtext }]}>
