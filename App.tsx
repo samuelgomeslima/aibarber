@@ -39,6 +39,49 @@ import {
 import { polyglotProductName, polyglotProducts, polyglotServices } from "./src/lib/polyglot";
 import { COMPONENT_COPY } from "./src/locales/componentCopy";
 import type { RecurrenceFrequency } from "./src/locales/types";
+import {
+  getBookings,
+  getBookingsForRange,
+  getBookingsForDates,
+  createBooking,
+  createBookingsBulk,
+  cancelBooking,
+  confirmBookingPerformed,
+  listCustomers,
+  listRecentBookings,
+  type BookingInsertPayload,
+  type BookingWithCustomer,
+  type Customer,
+} from "./src/lib/bookings";
+import { deleteService, listServices } from "./src/lib/services";
+import { listServicePackages, deleteServicePackage } from "./src/lib/servicePackages";
+import {
+  listProducts,
+  deleteProduct,
+  sellProduct,
+  restockProduct,
+  listProductSalesTotals,
+} from "./src/lib/products";
+import {
+  listCashEntries,
+  recordProductSale,
+  recordServiceSale,
+  summarizeCashEntries,
+  type CashEntry,
+} from "./src/lib/cashRegister";
+import { listStaffMembers, type StaffMember, type StaffRole } from "./src/lib/users";
+import DateSelector from "./src/components/DateSelector";
+import RecurrenceModal from "./src/components/RecurrenceModal"; // recebe fixedDate/fixedTime/fixedService/fixedBarber
+import OccurrencePreviewModal, { PreviewItem } from "./src/components/OccurrencePreviewModal";
+import BarberSelector, { Barber } from "./src/components/BarberSelector";
+import AssistantChat from "./src/components/AssistantChat";
+import ImageAssistant from "./src/components/ImageAssistant";
+import ServicePackageForm from "./src/components/ServicePackageForm";
+import ServiceForm from "./src/components/ServiceForm";
+import ProductForm from "./src/components/ProductForm";
+import FilterToggle from "./src/components/FilterToggle";
+import DateTimeInput from "./src/components/DateTimeInput";
+import UserForm from "./src/components/UserForm";
 
 const getTodayDateKey = () => toDateKey(new Date());
 
@@ -139,53 +182,6 @@ const buildDateTime = (
   if (Number.isNaN(value.getTime())) return null;
   return value;
 };
-import {
-  getBookings,
-  getBookingsForRange,
-  getBookingsForDates,
-  createBooking,
-  createBookingsBulk,
-  cancelBooking,
-  confirmBookingPerformed,
-  listCustomers,
-  listRecentBookings,
-  type BookingInsertPayload,
-  type BookingWithCustomer,
-  type Customer,
-} from "./src/lib/bookings";
-import { deleteService, listServices } from "./src/lib/services";
-import { listServicePackages, deleteServicePackage } from "./src/lib/servicePackages";
-import {
-  listProducts,
-  deleteProduct,
-  sellProduct,
-  restockProduct,
-  listProductSalesTotals,
-} from "./src/lib/products";
-import {
-  listCashEntries,
-  recordProductSale,
-  recordServiceSale,
-  summarizeCashEntries,
-  type CashEntry,
-} from "./src/lib/cashRegister";
-import { listStaffMembers, type StaffMember, type StaffRole } from "./src/lib/users";
-
-/* Components (mantidos) */
-import DateSelector from "./src/components/DateSelector";
-import RecurrenceModal from "./src/components/RecurrenceModal"; // recebe fixedDate/fixedTime/fixedService/fixedBarber
-import OccurrencePreviewModal, { PreviewItem } from "./src/components/OccurrencePreviewModal";
-import BarberSelector, { Barber } from "./src/components/BarberSelector";
-import AssistantChat from "./src/components/AssistantChat";
-import ImageAssistant from "./src/components/ImageAssistant";
-import ServicePackageForm from "./src/components/ServicePackageForm";
-import ServiceForm from "./src/components/ServiceForm";
-import ProductForm from "./src/components/ProductForm";
-import FilterToggle from "./src/components/FilterToggle";
-import DateTimeInput from "./src/components/DateTimeInput";
-
-/* Novo: formulário de usuário (com date_of_birth e salvando no Supabase) */
-import UserForm from "./src/components/UserForm";
 
 type DonutChartSegment = {
   value: number;
