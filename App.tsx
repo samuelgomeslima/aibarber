@@ -5459,7 +5459,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  bookingListRowCompact: { flexDirection: "column", alignItems: "flex-start", gap: 8 },
+  bookingListRowCompact: {
+    flexDirection: "column",
+    alignItems: "flex-start",
+    gap: 8,
+    alignSelf: "stretch",
+  },
   bookingListSection: { gap: 12, marginTop: 18 },
   bookingListSectionFirst: { marginTop: 8 },
   bookingListSectionHeader: {
@@ -5483,7 +5488,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   bookingStatusRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6 },
   bookingStatusText: { fontSize: 12, fontWeight: "700" },
   bookingListActions: { flexDirection: "row", alignItems: "center", gap: 8 },
-  bookingListActionsCompact: { width: "100%" },
+  bookingListActionsCompact: {
+    width: "100%",
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: 8,
+  },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
 
   slotGroup: { gap: 8 },
@@ -5648,7 +5658,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: "rgba(15,23,42,0.35)",
   },
   stockModalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10 },
-  fullWidthButton: { alignSelf: "stretch", justifyContent: "center", alignItems: "center" },
+  fullWidthButton: {
+    alignSelf: "stretch",
+    justifyContent: "center",
+    alignItems: "center",
+    width: "100%",
+  },
   whatsappBtn: { flexDirection: "row", alignItems: "center", gap: 6 },
   confirmBtn: { flexDirection: "row", alignItems: "center", gap: 6 },
   serviceRow: {
