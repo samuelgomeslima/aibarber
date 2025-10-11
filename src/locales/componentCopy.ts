@@ -212,8 +212,13 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
         quantityError: "Enter a quantity greater than zero",
       },
       summary: {
-        basePrice: (price: string) => `Regular total ${price}`,
-        discount: (percent: string) => `${percent}% discount`,
+        title: "Package summary",
+        subtitle: (count: number) => `${count} ${count === 1 ? "service" : "services"} included`,
+        packagePriceLabel: "Package price",
+        regularPriceLabel: "Original value",
+        savingsLabel: "You save",
+        noSavings: "No savings",
+        discount: (percent: string) => `${percent}% off`,
       },
       buttons: {
         create: "Save package",
@@ -527,7 +532,13 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
         quantityError: "Informe uma quantidade maior que zero",
       },
       summary: {
-        basePrice: (price: string) => `Somando serviços: ${price}`,
+        title: "Resumo do pacote",
+        subtitle: (count: number) =>
+          `${count} ${count === 1 ? "serviço incluído" : "serviços incluídos"}`,
+        packagePriceLabel: "Preço do pacote",
+        regularPriceLabel: "Valor cheio",
+        savingsLabel: "Você economiza",
+        noSavings: "Sem economia",
         discount: (percent: string) => `${percent}% de desconto`,
       },
       buttons: {

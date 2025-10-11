@@ -129,6 +129,29 @@ export default function ServicePackageForm({
     return Math.max(0, Math.round(ratio * 100));
   }, [basePriceCents, priceCents]);
 
+  const totalServicesIncluded = useMemo(() => {
+    return items.reduce((total, item) => {
+      if (!item.serviceId || !serviceMap.has(item.serviceId)) {
+        return total;
+      }
+      const quantity = Number(item.quantityText);
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        return total;
+      }
+      return total + Math.round(quantity);
+    }, 0);
+  }, [items, serviceMap]);
+
+  const hasValidPrice = Number.isFinite(priceCents) && priceCents >= 0;
+  const formattedPackagePrice = hasValidPrice ? formatPrice(priceCents) : "—";
+  const formattedRegularPrice = basePriceCents > 0 ? formatPrice(basePriceCents) : "—";
+  const savingsCents = hasValidPrice ? Math.max(0, basePriceCents - priceCents) : NaN;
+  const discountLabel = discountPercent > 0 ? copy.summary.discount(String(discountPercent)) : null;
+  const formattedSavings =
+    Number.isFinite(savingsCents) && savingsCents > 0
+      ? `${formatPrice(savingsCents)}${discountLabel ? ` (${discountLabel})` : ""}`
+      : copy.summary.noSavings;
+
   const itemValidation = useMemo(() => {
     const serviceCounts = new Map<string, number>();
     items.forEach((item) => {
@@ -396,15 +419,26 @@ export default function ServicePackageForm({
         <Text style={{ color: colors.accent, fontWeight: "700" }}>{copy.items.addLabel}</Text>
       </Pressable>
 
-      <View style={styles.summaryRow}>
-        <Text style={[styles.summaryText, { color: colors.subtext }]}>
-          {copy.summary.basePrice(formatPrice(basePriceCents))}
+      <View style={[styles.summaryCard, { borderColor: colors.border, backgroundColor: "rgba(15,23,42,0.45)" }]}>
+        <Text style={[styles.summaryTitle, { color: colors.text }]}>{copy.summary.title}</Text>
+        <Text style={[styles.summarySubtitle, { color: colors.subtext }]}>
+          {copy.summary.subtitle(totalServicesIncluded)}
         </Text>
-        {discountPercent > 0 ? (
-          <Text style={[styles.discountBadge, { color: colors.accent }]}>
-            {copy.summary.discount(String(discountPercent))}
-          </Text>
-        ) : null}
+        <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
+        <View style={styles.summaryList}>
+          <View style={styles.summaryLine}>
+            <Text style={[styles.summaryLabel, { color: colors.subtext }]}>{copy.summary.packagePriceLabel}</Text>
+            <Text style={[styles.summaryValue, { color: colors.text }]}>{formattedPackagePrice}</Text>
+          </View>
+          <View style={styles.summaryLine}>
+            <Text style={[styles.summaryLabel, { color: colors.subtext }]}>{copy.summary.regularPriceLabel}</Text>
+            <Text style={[styles.summaryValue, { color: colors.text }]}>{formattedRegularPrice}</Text>
+          </View>
+          <View style={styles.summaryLine}>
+            <Text style={[styles.summaryLabel, { color: colors.subtext }]}>{copy.summary.savingsLabel}</Text>
+            <Text style={[styles.summaryValue, { color: colors.text }]}>{formattedSavings}</Text>
+          </View>
+        </View>
       </View>
 
       <View style={styles.actionsRow}>
@@ -435,7 +469,7 @@ export default function ServicePackageForm({
       </View>
 
       <Modal
-        transparent
+        transparent={false}
         visible={servicePickerVisible}
         animationType="fade"
         onRequestClose={() => setServicePickerItemId(null)}
@@ -561,18 +595,45 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "center",
   },
-  summaryRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+  summaryCard: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
   },
-  summaryText: {
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  discountBadge: {
-    fontSize: 13,
+  summaryTitle: {
+    fontSize: 15,
     fontWeight: "800",
+  },
+  summarySubtitle: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  summaryDivider: {
+    height: 1,
+    opacity: 0.5,
+  },
+  summaryList: {
+    gap: 10,
+  },
+  summaryLine: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  summaryLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    flexShrink: 1,
+  },
+  summaryValue: {
+    fontSize: 14,
+    fontWeight: "700",
+    textAlign: "right",
+    flexShrink: 1,
   },
   actionsRow: {
     flexDirection: "row",

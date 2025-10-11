@@ -147,7 +147,12 @@ export type ServicePackageFormCopy = {
     quantityError: string;
   };
   summary: {
-    basePrice: (price: string) => string;
+    title: string;
+    subtitle: (count: number) => string;
+    packagePriceLabel: string;
+    regularPriceLabel: string;
+    savingsLabel: string;
+    noSavings: string;
     discount: (percent: string) => string;
   };
   buttons: {
