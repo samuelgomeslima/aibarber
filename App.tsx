@@ -149,6 +149,7 @@ import {
   confirmBookingPerformed,
   listCustomers,
   listRecentBookings,
+  type BookingInsertPayload,
   type BookingWithCustomer,
   type Customer,
 } from "./src/lib/bookings";
@@ -737,11 +738,21 @@ const LANGUAGE_COPY = {
           createSuccessMessage: (count: number, barberName: string, skipped: number) =>
             `Added ${count} with ${barberName}${skipped ? ` • Skipped ${skipped}` : ""}`,
           createFailureTitle: "Create failed",
+          freezeSuccessTitle: "Schedule frozen",
+          freezeSuccessMessage: (count: number, barberName: string, skipped: number) =>
+            `Frozen ${count} with ${barberName}${skipped ? ` • Skipped ${skipped}` : ""}`,
         },
       },
       actions: {
         book: { label: "Book service", accessibility: "Book service" },
         repeat: { label: "Repeat…", accessibility: "Open recurrence" },
+        freeze: {
+          label: "Freeze…",
+          accessibility: "Freeze recurring slots",
+          modalTitle: "Freeze schedule",
+          previewTitle: "Preview frozen slots",
+          previewConfirm: (count: number) => `Freeze ${count}`,
+        },
       },
       bookingsList: {
         title: "Your bookings",
@@ -1217,11 +1228,21 @@ const LANGUAGE_COPY = {
           createSuccessMessage: (count: number, barberName: string, skipped: number) =>
             `Adicionados ${count} com ${barberName}${skipped ? ` • Ignorados ${skipped}` : ""}`,
           createFailureTitle: "Falha ao criar",
+          freezeSuccessTitle: "Horário bloqueado",
+          freezeSuccessMessage: (count: number, barberName: string, skipped: number) =>
+            `Bloqueados ${count} para ${barberName}${skipped ? ` • Ignorados ${skipped}` : ""}`,
         },
       },
       actions: {
         book: { label: "Agendar serviço", accessibility: "Agendar serviço" },
         repeat: { label: "Repetir…", accessibility: "Abrir recorrência" },
+        freeze: {
+          label: "Bloquear…",
+          accessibility: "Bloquear horários recorrentes",
+          modalTitle: "Bloquear agenda",
+          previewTitle: "Pré-visualizar bloqueios",
+          previewConfirm: (count: number) => `Bloquear ${count}`,
+        },
       },
       bookingsList: {
         title: "Seus agendamentos",
@@ -1356,6 +1377,32 @@ export default function App() {
   const copy = useMemo(() => LANGUAGE_COPY[language], [language]);
   const locale = language === "pt" ? "pt-BR" : "en-US";
   const bookServiceCopy = copy.bookService;
+  const recurrenceModalCopy = useMemo(
+    () =>
+      recurrenceMode === "freeze"
+        ? { ...copy.recurrenceModal, title: bookServiceCopy.actions.freeze.modalTitle }
+        : copy.recurrenceModal,
+    [bookServiceCopy.actions.freeze.modalTitle, copy.recurrenceModal, recurrenceMode],
+  );
+  const occurrencePreviewCopy = useMemo(
+    () =>
+      pendingRecurrenceMode === "freeze"
+        ? {
+            ...copy.occurrencePreview,
+            title: bookServiceCopy.actions.freeze.previewTitle,
+            actions: {
+              ...copy.occurrencePreview.actions,
+              confirm: bookServiceCopy.actions.freeze.previewConfirm,
+            },
+          }
+        : copy.occurrencePreview,
+    [
+      bookServiceCopy.actions.freeze.previewConfirm,
+      bookServiceCopy.actions.freeze.previewTitle,
+      copy.occurrencePreview,
+      pendingRecurrenceMode,
+    ],
+  );
   const bookingsCopy = copy.bookings;
   const assistantCopy = copy.assistant;
   const imageAssistantCopy = copy.imageAssistant;
@@ -1405,6 +1452,9 @@ export default function App() {
   const [bookingFilterEndTime, setBookingFilterEndTime] = useState("");
 
   const [recurrenceOpen, setRecurrenceOpen] = useState(false);
+  const [recurrenceMode, setRecurrenceMode] = useState<"book" | "freeze">("book");
+  const [pendingRecurrenceMode, setPendingRecurrenceMode] = useState<"book" | "freeze">("book");
+  const [pendingRecurrencePayload, setPendingRecurrencePayload] = useState<BookingInsertPayload[]>([]);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewItems, setPreviewItems] = useState<PreviewItem[]>([]);
 
@@ -2251,13 +2301,16 @@ export default function App() {
   );
 
   /** Recorrência: usa data/horário/serviço/barbeiro já selecionados e o mesmo cliente */
-  async function handleRecurrenceSubmit(opts: {
-    time: string;
-    count: number;
-    startFrom: Date;
-    frequency: RecurrenceFrequency;
-  }) {
-    if (!selectedCustomer) {
+  async function handleRecurrenceSubmit(
+    mode: "book" | "freeze",
+    opts: {
+      time: string;
+      count: number;
+      startFrom: Date;
+      frequency: RecurrenceFrequency;
+    },
+  ) {
+    if (mode === "book" && !selectedCustomer) {
       Alert.alert(bookServiceCopy.alerts.selectClient.title, bookServiceCopy.alerts.selectClient.message);
       return;
     }
@@ -2331,7 +2384,18 @@ export default function App() {
         return hasConflict ? { ...r, ok: false, reason: "conflict" } : { ...r, ok: true };
       });
 
+      const payloads = raw.map((r) => ({
+        date: r.date,
+        start: r.start,
+        end: r.end,
+        service_id: selectedService.id,
+        barber: selectedBarber.id,
+        customer_id: mode === "book" ? selectedCustomer?.id ?? null : null,
+      }));
+
       setPreviewItems(out);
+      setPendingRecurrencePayload(payloads);
+      setPendingRecurrenceMode(mode);
       setRecurrenceOpen(false);
       setPreviewOpen(true);
     } catch (e: any) {
@@ -2343,31 +2407,31 @@ export default function App() {
   }
 
   async function confirmPreviewInsert() {
-    if (!selectedCustomer) {
+    if (pendingRecurrenceMode === "book" && !selectedCustomer) {
       setPreviewOpen(false);
       Alert.alert(bookServiceCopy.alerts.selectClient.title, bookServiceCopy.alerts.selectClient.message);
+      setPendingRecurrencePayload([]);
+      setPendingRecurrenceMode("book");
       return;
     }
 
     if (!selectedService) {
       setPreviewOpen(false);
       Alert.alert(bookServiceCopy.alerts.selectService.title, bookServiceCopy.alerts.selectService.message);
+      setPendingRecurrencePayload([]);
+      setPendingRecurrenceMode("book");
       return;
     }
 
     const toInsert = previewItems
-      .filter((i) => i.ok)
-      .map((i) => ({
-        date: i.date,
-        start: i.start,
-        end: i.end,
-        service_id: selectedService.id,
-        barber: selectedBarber.id,
-        customer_id: selectedCustomer.id,
-      }));
+      .map((item, index) => ({ item, payload: pendingRecurrencePayload[index] }))
+      .filter(({ item, payload }) => Boolean(item.ok) && Boolean(payload))
+      .map(({ payload }) => payload as BookingInsertPayload);
 
     if (toInsert.length === 0) {
       setPreviewOpen(false);
+      setPendingRecurrencePayload([]);
+      setPendingRecurrenceMode("book");
       Alert.alert(
         bookServiceCopy.alerts.recurrence.noCreateTitle,
         bookServiceCopy.alerts.recurrence.noCreateMessage,
@@ -2377,32 +2441,43 @@ export default function App() {
     try {
       setLoading(true);
       await createBookingsBulk(toInsert);
-      const displayServiceName = selectedLocalizedService?.name ?? selectedService.name;
-      try {
-        const entry = await recordServiceSale({
-          serviceId: selectedService.id,
-          serviceName: displayServiceName,
-          unitPriceCents: selectedService.price_cents,
-          quantity: toInsert.length,
-          referenceId: null,
-        });
-        appendCashEntry(entry);
-      } catch (registerError: any) {
-        console.error(registerError);
-        Alert.alert(
-          cashRegisterCopy.alerts.recordSaleFailedTitle,
-          cashRegisterCopy.alerts.recordSaleFailedMessage(displayServiceName),
-        );
-      }
       setPreviewOpen(false);
+      if (pendingRecurrenceMode === "book") {
+        const displayServiceName = selectedLocalizedService?.name ?? selectedService.name;
+        try {
+          const entry = await recordServiceSale({
+            serviceId: selectedService.id,
+            serviceName: displayServiceName,
+            unitPriceCents: selectedService.price_cents,
+            quantity: toInsert.length,
+            referenceId: null,
+          });
+          appendCashEntry(entry);
+        } catch (registerError: any) {
+          console.error(registerError);
+          Alert.alert(
+            cashRegisterCopy.alerts.recordSaleFailedTitle,
+            cashRegisterCopy.alerts.recordSaleFailedMessage(displayServiceName),
+          );
+        }
+      }
+      setPendingRecurrencePayload([]);
+      setPendingRecurrenceMode("book");
       await load();
       await loadWeek();
       const skipped = previewItems.length - toInsert.length;
       const barberName = BARBER_MAP[selectedBarber.id]?.name ?? selectedBarber.id;
-      Alert.alert(
-        bookServiceCopy.alerts.recurrence.createSuccessTitle,
-        bookServiceCopy.alerts.recurrence.createSuccessMessage(toInsert.length, barberName, skipped),
-      );
+      if (pendingRecurrenceMode === "book") {
+        Alert.alert(
+          bookServiceCopy.alerts.recurrence.createSuccessTitle,
+          bookServiceCopy.alerts.recurrence.createSuccessMessage(toInsert.length, barberName, skipped),
+        );
+      } else {
+        Alert.alert(
+          bookServiceCopy.alerts.recurrence.freezeSuccessTitle,
+          bookServiceCopy.alerts.recurrence.freezeSuccessMessage(toInsert.length, barberName, skipped),
+        );
+      }
     } catch (e: any) {
       console.error(e);
       Alert.alert(bookServiceCopy.alerts.recurrence.createFailureTitle, e?.message ?? String(e));
@@ -2410,6 +2485,17 @@ export default function App() {
       setLoading(false);
     }
   }
+
+  const closeRecurrenceModal = useCallback(() => {
+    setRecurrenceOpen(false);
+    setRecurrenceMode("book");
+  }, []);
+
+  const closePreviewModal = useCallback(() => {
+    setPreviewOpen(false);
+    setPendingRecurrencePayload([]);
+    setPendingRecurrenceMode("book");
+  }, []);
 
   /** Tira de 10 dias */
   const days = useMemo(() => {
@@ -3266,8 +3352,10 @@ export default function App() {
                     );
                     return;
                   }
+                  setRecurrenceMode("book");
                   setRecurrenceOpen(true);
                 }}
+                disabled={!selectedSlot || loading || !selectedCustomer}
                 style={[styles.bookBtn, (!selectedSlot || loading || !selectedCustomer) && styles.bookBtnDisabled, { flexDirection: "row", alignItems: "center" }]}
                 accessibilityRole="button"
                 accessibilityLabel={bookServiceCopy.actions.repeat.accessibility}
@@ -3275,6 +3363,36 @@ export default function App() {
                 <Ionicons name="repeat" size={16} color={colors.accentFgOn} />
                 <Text style={[styles.bookBtnText, { marginLeft: 6 }]}>
                   {bookServiceCopy.actions.repeat.label}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  if (!selectedSlot) {
+                    Alert.alert(
+                      bookServiceCopy.alerts.selectSlot.title,
+                      bookServiceCopy.alerts.selectSlot.message,
+                    );
+                    return;
+                  }
+                  if (!selectedService) {
+                    Alert.alert(
+                      bookServiceCopy.alerts.selectService.title,
+                      bookServiceCopy.alerts.selectService.message,
+                    );
+                    return;
+                  }
+                  setRecurrenceMode("freeze");
+                  setRecurrenceOpen(true);
+                }}
+                disabled={!selectedSlot || loading || !selectedService}
+                style={[styles.bookBtn, (!selectedSlot || loading || !selectedService) && styles.bookBtnDisabled, { flexDirection: "row", alignItems: "center" }]}
+                accessibilityRole="button"
+                accessibilityLabel={bookServiceCopy.actions.freeze.accessibility}
+              >
+                <Ionicons name="snow-outline" size={16} color={colors.accentFgOn} />
+                <Text style={[styles.bookBtnText, { marginLeft: 6 }]}>
+                  {bookServiceCopy.actions.freeze.label}
                 </Text>
               </Pressable>
             </View>
@@ -3343,22 +3461,22 @@ export default function App() {
         {/* Modals: Recorrência e Preview (mantidos) */}
         <RecurrenceModal
           visible={recurrenceOpen}
-          onClose={() => setRecurrenceOpen(false)}
-          onSubmit={handleRecurrenceSubmit}
+          onClose={closeRecurrenceModal}
+          onSubmit={(opts) => { void handleRecurrenceSubmit(recurrenceMode, opts); }}
           fixedDate={day}
           fixedTime={selectedSlot || "00:00"}
           fixedService={selectedLocalizedService?.name ?? ""}
           fixedBarber={BARBER_MAP[selectedBarber.id]?.name || selectedBarber.id}
           colors={{ text: colors.text, subtext: colors.subtext, surface: colors.surface, border: colors.border, accent: colors.accent, bg: colors.sidebarBg }}
-          copy={copy.recurrenceModal}
+          copy={recurrenceModalCopy}
         />
         <OccurrencePreviewModal
           visible={previewOpen}
           items={previewItems}
-          onClose={() => setPreviewOpen(false)}
+          onClose={closePreviewModal}
           onConfirm={confirmPreviewInsert}
           colors={{ text: colors.text, subtext: colors.subtext, surface: colors.surface, border: colors.border, accent: colors.accent, bg: colors.bg, danger: colors.danger }}
-          copy={copy.occurrencePreview}
+          copy={occurrencePreviewCopy}
         />
 
         {/* Modal de clientes (lista + criar via UserForm) */}
