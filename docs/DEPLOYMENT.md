@@ -109,6 +109,19 @@ if (!response.ok) {
 const data = await response.json();
 ```
 
+> ℹ️ The function only supports `POST` requests. Navigating to
+> `https://<your-app-name>.azurestaticapps.net/api/images/generate` in a
+> browser issues a `GET` and results in a 404. Use a tool such as
+> `curl`, Postman, or your front-end to send a `POST` request with the
+> required headers and JSON body instead:
+
+```bash
+curl -X POST "https://<your-app-name>.azurestaticapps.net/api/images/generate" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: $IMAGE_API_TOKEN" \
+  -d '{"prompt":"High-resolution haircut design"}'
+```
+
 Define `VITE_IMAGE_API_TOKEN` (Vite build) or `EXPO_PUBLIC_IMAGE_API_TOKEN` (Expo dev server) as a build-time environment variable for the front-end using the SWA configuration or GitHub Actions if necessary.
 
 ## 8. Verification Checklist
