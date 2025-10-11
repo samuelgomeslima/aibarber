@@ -139,6 +139,34 @@ const buildDateTime = (
   if (Number.isNaN(value.getTime())) return null;
   return value;
 };
+
+const parseCurrencyToCents = (input: string): number | null => {
+  if (!input) return null;
+  const compact = input.replace(/\s+/g, "");
+  if (!compact) return null;
+  const sanitized = compact.replace(/[^0-9.,+-]/g, "");
+  if (!sanitized) return null;
+
+  const lastComma = sanitized.lastIndexOf(",");
+  const lastDot = sanitized.lastIndexOf(".");
+
+  let normalized = sanitized;
+  if (lastComma !== -1 && lastDot !== -1) {
+    if (lastComma > lastDot) {
+      normalized = sanitized.replace(/\./g, "").replace(/,/g, ".");
+    } else {
+      normalized = sanitized.replace(/,/g, "");
+    }
+  } else if (lastComma !== -1) {
+    normalized = sanitized.replace(/,/g, ".");
+  }
+
+  const amount = Number(normalized);
+  if (!Number.isFinite(amount)) {
+    return null;
+  }
+  return Math.round(amount * 100);
+};
 import {
   getBookings,
   getBookingsForRange,
@@ -163,6 +191,7 @@ import {
 } from "./src/lib/products";
 import {
   listCashEntries,
+  recordCashAdjustment,
   recordProductSale,
   recordServiceSale,
   summarizeCashEntries,
@@ -448,6 +477,7 @@ const LANGUAGE_COPY = {
       subtitle: "Track revenue from services and retail in one ledger.",
       refresh: "Refresh",
       refreshAccessibility: "Refresh cash register",
+      adjustmentCta: { label: "Record adjustment", accessibility: "Open cash adjustment form" },
       summaryTitle: "Summary",
       summary: {
         total: "Total balance",
@@ -467,6 +497,24 @@ const LANGUAGE_COPY = {
         unitPrice: (price: string) => `Unit: ${price}`,
         reference: (reference: string) => `Reference: ${reference}`,
         note: (note: string) => `Note: ${note}`,
+      },
+      adjustmentModal: {
+        title: "Record cash adjustment",
+        subtitle: "Document manual inflows or payouts to keep your totals accurate.",
+        amountLabel: "Amount",
+        amountHint: "Use negative values for payouts.",
+        amountPlaceholder: "+50.00 or -20.00",
+        amountError: "Enter a non-zero amount.",
+        noteLabel: "Note (optional)",
+        notePlaceholder: "Reason for the adjustment",
+        referenceLabel: "Reference (optional)",
+        referencePlaceholder: "Ticket or receipt number",
+        cancel: "Cancel",
+        confirm: "Save adjustment",
+        successTitle: "Adjustment saved",
+        successMessage: (amount: string) => `Recorded an adjustment of ${amount}.`,
+        saving: "Saving...",
+        errorTitle: "Record adjustment",
       },
       alerts: {
         loadTitle: "Cash register",
@@ -945,6 +993,7 @@ const LANGUAGE_COPY = {
       subtitle: "Controle a receita de serviços e produtos em um único livro-caixa.",
       refresh: "Atualizar",
       refreshAccessibility: "Atualizar caixa",
+      adjustmentCta: { label: "Registrar ajuste", accessibility: "Abrir formulário de ajuste de caixa" },
       summaryTitle: "Resumo",
       summary: {
         total: "Saldo total",
@@ -964,6 +1013,24 @@ const LANGUAGE_COPY = {
         unitPrice: (price: string) => `Unitário: ${price}`,
         reference: (reference: string) => `Referência: ${reference}`,
         note: (note: string) => `Observação: ${note}`,
+      },
+      adjustmentModal: {
+        title: "Registrar ajuste de caixa",
+        subtitle: "Lance entradas ou saídas manuais para manter o saldo correto.",
+        amountLabel: "Valor",
+        amountHint: "Use valores negativos para saídas de dinheiro.",
+        amountPlaceholder: "+50,00 ou -20,00",
+        amountError: "Informe um valor diferente de zero.",
+        noteLabel: "Observação (opcional)",
+        notePlaceholder: "Motivo do ajuste",
+        referenceLabel: "Referência (opcional)",
+        referencePlaceholder: "Número do comprovante",
+        cancel: "Cancelar",
+        confirm: "Salvar ajuste",
+        successTitle: "Ajuste salvo",
+        successMessage: (amount: string) => `Ajuste de ${amount} registrado.`,
+        saving: "Salvando...",
+        errorTitle: "Registrar ajuste",
       },
       alerts: {
         loadTitle: "Caixa",
@@ -1384,6 +1451,11 @@ export default function App() {
   const [stockSaving, setStockSaving] = useState(false);
   const [cashEntries, setCashEntries] = useState<CashEntry[]>([]);
   const [cashLoading, setCashLoading] = useState(false);
+  const [adjustmentModalOpen, setAdjustmentModalOpen] = useState(false);
+  const [adjustmentAmountText, setAdjustmentAmountText] = useState("");
+  const [adjustmentNoteText, setAdjustmentNoteText] = useState("");
+  const [adjustmentReferenceText, setAdjustmentReferenceText] = useState("");
+  const [adjustmentSaving, setAdjustmentSaving] = useState(false);
   const [teamMembers, setTeamMembers] = useState<StaffMember[]>([]);
   const [teamLoading, setTeamLoading] = useState(false);
   const [activeScreen, setActiveScreen] = useState<ScreenName>("home");
@@ -1409,6 +1481,7 @@ export default function App() {
   const resolvedTheme = themePreference === "system" ? (colorScheme === "dark" ? "dark" : "light") : themePreference;
   const colors = useMemo(() => THEMES[resolvedTheme], [resolvedTheme]);
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const placeholderColor = useMemo(() => `${colors.subtext}99`, [colors.subtext]);
 
   // Cliente -> obrigatório antes do barbeiro
   const [clientModalOpen, setClientModalOpen] = useState(false);
@@ -1614,6 +1687,69 @@ export default function App() {
     },
     [sortCashEntries],
   );
+
+  const resetAdjustmentForm = useCallback(() => {
+    setAdjustmentAmountText("");
+    setAdjustmentNoteText("");
+    setAdjustmentReferenceText("");
+  }, []);
+
+  const handleOpenAdjustmentModal = useCallback(() => {
+    resetAdjustmentForm();
+    setAdjustmentSaving(false);
+    setAdjustmentModalOpen(true);
+  }, [resetAdjustmentForm]);
+
+  const handleCloseAdjustmentModal = useCallback(() => {
+    setAdjustmentModalOpen(false);
+    setAdjustmentSaving(false);
+    resetAdjustmentForm();
+  }, [resetAdjustmentForm]);
+
+  const handleSubmitAdjustment = useCallback(async () => {
+    const amountCents = parseCurrencyToCents(adjustmentAmountText);
+    if (amountCents === null || amountCents === 0) {
+      Alert.alert(
+        cashRegisterCopy.adjustmentModal.errorTitle,
+        cashRegisterCopy.adjustmentModal.amountError,
+      );
+      return;
+    }
+
+    const note = adjustmentNoteText.trim();
+    const reference = adjustmentReferenceText.trim();
+
+    try {
+      setAdjustmentSaving(true);
+      const entry = await recordCashAdjustment({
+        amount_cents: amountCents,
+        note: note ? note : null,
+        reference_id: reference ? reference : null,
+      });
+      appendCashEntry(entry);
+      Alert.alert(
+        cashRegisterCopy.adjustmentModal.successTitle,
+        cashRegisterCopy.adjustmentModal.successMessage(formatPrice(entry.amount_cents)),
+      );
+      handleCloseAdjustmentModal();
+    } catch (e: any) {
+      console.error(e);
+      Alert.alert(
+        cashRegisterCopy.adjustmentModal.errorTitle,
+        e?.message ?? String(e),
+      );
+    } finally {
+      setAdjustmentSaving(false);
+    }
+  }, [
+    adjustmentAmountText,
+    adjustmentNoteText,
+    adjustmentReferenceText,
+    appendCashEntry,
+    cashRegisterCopy.adjustmentModal,
+    handleCloseAdjustmentModal,
+    recordCashAdjustment,
+  ]);
 
   const cashSummary = useMemo(() => summarizeCashEntries(cashEntries), [cashEntries]);
   const cashEntryTypeLabels = useMemo(
@@ -4388,11 +4524,12 @@ export default function App() {
         </View>
       </ScrollView>
     ) : activeScreen === "cashRegister" ? (
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}
-        refreshControl={<RefreshControl refreshing={cashLoading} onRefresh={loadCashRegister} />}
-      >
+      <>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}
+          refreshControl={<RefreshControl refreshing={cashLoading} onRefresh={loadCashRegister} />}
+        >
         <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
           <View style={[styles.listHeaderRow, isCompactLayout && styles.listHeaderRowCompact]}>
             <View style={{ flex: 1, gap: 4 }}>
@@ -4401,14 +4538,35 @@ export default function App() {
                 {cashRegisterCopy.subtitle}
               </Text>
             </View>
-            <Pressable
-              onPress={loadCashRegister}
-              style={[styles.defaultCta, { marginTop: 0 }, isCompactLayout && styles.fullWidthButton]}
-              accessibilityRole="button"
-              accessibilityLabel={cashRegisterCopy.refreshAccessibility}
+            <View
+              style={[styles.listHeaderActions, isCompactLayout && styles.listHeaderActionsCompact]}
             >
-              <Text style={styles.defaultCtaText}>{cashRegisterCopy.refresh}</Text>
-            </Pressable>
+              <Pressable
+                onPress={loadCashRegister}
+                style={[styles.defaultCta, { marginTop: 0 }, isCompactLayout && styles.fullWidthButton]}
+                accessibilityRole="button"
+                accessibilityLabel={cashRegisterCopy.refreshAccessibility}
+              >
+                <Text style={styles.defaultCtaText}>{cashRegisterCopy.refresh}</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleOpenAdjustmentModal}
+                style={[
+                  styles.smallBtn,
+                  {
+                    borderColor: colors.accent,
+                    backgroundColor: applyAlpha(colors.accent, 0.12),
+                  },
+                  isCompactLayout && styles.fullWidthButton,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={cashRegisterCopy.adjustmentCta.accessibility}
+              >
+                <Text style={{ color: colors.accent, fontWeight: "800" }}>
+                  {cashRegisterCopy.adjustmentCta.label}
+                </Text>
+              </Pressable>
+            </View>
           </View>
         </View>
 
@@ -4596,7 +4754,112 @@ export default function App() {
             })
           )}
         </View>
-      </ScrollView>
+        </ScrollView>
+        <Modal
+          visible={adjustmentModalOpen}
+          transparent
+          animationType="fade"
+          onRequestClose={handleCloseAdjustmentModal}
+        >
+          <View style={styles.stockModalBackdrop}>
+            <View
+              style={[
+                styles.stockModalCard,
+                { borderColor: colors.border, backgroundColor: colors.sidebarBg },
+              ]}
+            >
+              <Text style={[styles.stockModalTitle, { color: colors.text }]}>
+                {cashRegisterCopy.adjustmentModal.title}
+              </Text>
+              <Text style={[styles.stockModalSubtitle, { color: colors.subtext }]}>
+                {cashRegisterCopy.adjustmentModal.subtitle}
+              </Text>
+              <View style={styles.modalFieldGroup}>
+                <Text style={[styles.stockModalLabel, { color: colors.subtext }]}>
+                  {cashRegisterCopy.adjustmentModal.amountLabel}
+                </Text>
+                <TextInput
+                  value={adjustmentAmountText}
+                  onChangeText={setAdjustmentAmountText}
+                  placeholder={cashRegisterCopy.adjustmentModal.amountPlaceholder}
+                  placeholderTextColor={placeholderColor}
+                  style={[styles.input, styles.modalTextInput]}
+                  keyboardType={Platform.OS === "ios" ? "numbers-and-punctuation" : "decimal-pad"}
+                  accessibilityLabel={cashRegisterCopy.adjustmentModal.amountLabel}
+                />
+                <Text style={[styles.modalHint, { color: colors.subtext }]}>
+                  {cashRegisterCopy.adjustmentModal.amountHint}
+                </Text>
+              </View>
+              <View style={styles.modalFieldGroup}>
+                <Text style={[styles.stockModalLabel, { color: colors.subtext }]}>
+                  {cashRegisterCopy.adjustmentModal.noteLabel}
+                </Text>
+                <TextInput
+                  value={adjustmentNoteText}
+                  onChangeText={setAdjustmentNoteText}
+                  placeholder={cashRegisterCopy.adjustmentModal.notePlaceholder}
+                  placeholderTextColor={placeholderColor}
+                  style={[styles.input, styles.modalTextInput]}
+                  multiline
+                  autoCapitalize="sentences"
+                  textAlignVertical="top"
+                  accessibilityLabel={cashRegisterCopy.adjustmentModal.noteLabel}
+                />
+              </View>
+              <View style={styles.modalFieldGroup}>
+                <Text style={[styles.stockModalLabel, { color: colors.subtext }]}>
+                  {cashRegisterCopy.adjustmentModal.referenceLabel}
+                </Text>
+                <TextInput
+                  value={adjustmentReferenceText}
+                  onChangeText={setAdjustmentReferenceText}
+                  placeholder={cashRegisterCopy.adjustmentModal.referencePlaceholder}
+                  placeholderTextColor={placeholderColor}
+                  style={[styles.input, styles.modalTextInput]}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  accessibilityLabel={cashRegisterCopy.adjustmentModal.referenceLabel}
+                />
+              </View>
+              <View style={styles.stockModalActions}>
+                <Pressable
+                  onPress={handleCloseAdjustmentModal}
+                  style={[styles.smallBtn, { borderColor: colors.border }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={cashRegisterCopy.adjustmentModal.cancel}
+                >
+                  <Text style={{ color: colors.subtext, fontWeight: "800" }}>
+                    {cashRegisterCopy.adjustmentModal.cancel}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleSubmitAdjustment}
+                  disabled={adjustmentSaving}
+                  style={[
+                    styles.smallBtn,
+                    {
+                      borderColor: colors.accent,
+                      backgroundColor: adjustmentSaving
+                        ? "rgba(255,255,255,0.08)"
+                        : "rgba(37,99,235,0.12)",
+                    },
+                    adjustmentSaving && styles.smallBtnDisabled,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={cashRegisterCopy.adjustmentModal.confirm}
+                >
+                  <Text style={{ color: colors.accent, fontWeight: "800" }}>
+                    {adjustmentSaving
+                      ? cashRegisterCopy.adjustmentModal.saving
+                      : cashRegisterCopy.adjustmentModal.confirm}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </>
     ) : activeScreen === "assistant" ? (
       <AssistantChat
         colors={{
@@ -5607,6 +5870,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   filterActionsCompact: { justifyContent: "flex-start" },
   listHeaderRow: { flexDirection: "row", alignItems: "center", gap: 12, justifyContent: "space-between" },
   listHeaderRowCompact: { flexDirection: "column", alignItems: "stretch", gap: 12 },
+  listHeaderActions: { flexDirection: "row", alignItems: "center", gap: 8 },
+  listHeaderActionsCompact: { flexDirection: "column", alignItems: "stretch", gap: 8 },
   listHeaderMeta: { alignItems: "flex-end", gap: 4 },
   listHeaderMetaCompact: { alignItems: "flex-start" },
   bookingListNotice: { color: colors.subtext, fontSize: 12, fontWeight: "600" },
@@ -5795,6 +6060,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.surface,
   },
   smallBtnDisabled: { opacity: 0.5 },
+  modalFieldGroup: { gap: 6 },
+  modalHint: { fontSize: 12, fontWeight: "600" },
+  modalTextInput: { marginTop: 4 },
   stockModalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.55)",
