@@ -351,10 +351,13 @@ export default function DateTimeInput({
       {pickerVisible && inlinePicker ? (
         <Modal transparent animationType="fade" onRequestClose={closePicker}>
           <View style={styles.modalRoot}>
-            <Pressable style={styles.modalBackdrop} onPress={closePicker}>
-              <View />
-            </Pressable>
-            <View style={styles.modalContainer}>
+            <Pressable
+              style={styles.modalBackdrop}
+              onPress={closePicker}
+              accessibilityRole="button"
+              accessibilityLabel={cancelLabel}
+            />
+            <View style={styles.modalContainer} pointerEvents="box-none">
               <View
                 style={[
                   styles.modalContent,
@@ -426,11 +429,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modalBackdrop: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.4)",
   },
   modalContainer: {
@@ -438,6 +437,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
+    zIndex: 1,
   },
   modalContent: {
     borderWidth: 1,
