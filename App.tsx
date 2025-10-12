@@ -139,6 +139,27 @@ const buildDateTime = (
   if (Number.isNaN(value.getTime())) return null;
   return value;
 };
+
+const sanitizeSignedCurrencyInput = (input: string) => {
+  if (!input) return "";
+  let sanitized = input.replace(/[^0-9.,-]/g, "");
+  const isNegative = sanitized.startsWith("-");
+  sanitized = sanitized.replace(/-/g, "");
+  return isNegative ? `-${sanitized}` : sanitized;
+};
+
+const parseSignedCurrency = (input: string): number => {
+  if (!input) return NaN;
+  const trimmed = input.trim();
+  if (!trimmed) return NaN;
+  const negative = trimmed.startsWith("-");
+  const numericPart = trimmed.replace(/[^0-9.,]/g, "").replace(/,/g, ".");
+  if (!numericPart) return NaN;
+  const value = Number.parseFloat(numericPart);
+  if (!Number.isFinite(value)) return NaN;
+  const cents = Math.round(value * 100);
+  return negative ? -cents : cents;
+};
 import {
   getBookings,
   getBookingsForRange,
@@ -163,6 +184,7 @@ import {
 } from "./src/lib/products";
 import {
   listCashEntries,
+  recordCashAdjustment,
   recordProductSale,
   recordServiceSale,
   summarizeCashEntries,
@@ -448,6 +470,10 @@ const LANGUAGE_COPY = {
       subtitle: "Track revenue from services and retail in one ledger.",
       refresh: "Refresh",
       refreshAccessibility: "Refresh cash register",
+      adjustmentCta: {
+        label: "Add adjustment",
+        accessibility: "Add a manual adjustment to the cash register",
+      },
       summaryTitle: "Summary",
       summary: {
         total: "Total balance",
@@ -468,11 +494,28 @@ const LANGUAGE_COPY = {
         reference: (reference: string) => `Reference: ${reference}`,
         note: (note: string) => `Note: ${note}`,
       },
+      adjustmentModal: {
+        title: "Add adjustment",
+        subtitle: "Record manual adjustments such as cash drops or corrections.",
+        amountLabel: "Amount",
+        amountPlaceholder: "e.g. -50.00",
+        amountHelp: "Use a minus sign for cash removed from the register.",
+        amountError: "Enter an amount different from zero",
+        noteLabel: "Note (optional)",
+        referenceLabel: "Reference (optional)",
+        cancel: "Cancel",
+        confirm: "Save adjustment",
+        saving: "Saving...",
+        successTitle: "Adjustment saved",
+        successMessage: (amount: string) => `Recorded an adjustment of ${amount}.`,
+      },
       alerts: {
         loadTitle: "Cash register",
         recordSaleFailedTitle: "Cash register",
         recordSaleFailedMessage: (name: string) =>
           `The sale for "${name}" was created but could not be stored in the cash register. Please add it manually.`,
+        adjustmentFailedTitle: "Cash register",
+        adjustmentFailedMessage: "Could not record the adjustment. Please try again.",
       },
     },
     serviceForm: COMPONENT_COPY.en.serviceForm,
@@ -945,6 +988,10 @@ const LANGUAGE_COPY = {
       subtitle: "Controle a receita de serviços e produtos em um único livro-caixa.",
       refresh: "Atualizar",
       refreshAccessibility: "Atualizar caixa",
+      adjustmentCta: {
+        label: "Adicionar ajuste",
+        accessibility: "Adicionar um ajuste manual no caixa",
+      },
       summaryTitle: "Resumo",
       summary: {
         total: "Saldo total",
@@ -965,11 +1012,28 @@ const LANGUAGE_COPY = {
         reference: (reference: string) => `Referência: ${reference}`,
         note: (note: string) => `Observação: ${note}`,
       },
+      adjustmentModal: {
+        title: "Adicionar ajuste",
+        subtitle: "Registre ajustes manuais como sangrias ou correções.",
+        amountLabel: "Valor",
+        amountPlaceholder: "ex.: -50,00",
+        amountHelp: "Use o sinal de menos para valores retirados do caixa.",
+        amountError: "Informe um valor diferente de zero",
+        noteLabel: "Observação (opcional)",
+        referenceLabel: "Referência (opcional)",
+        cancel: "Cancelar",
+        confirm: "Salvar ajuste",
+        saving: "Salvando...",
+        successTitle: "Ajuste salvo",
+        successMessage: (amount: string) => `Foi registrado um ajuste de ${amount}.`,
+      },
       alerts: {
         loadTitle: "Caixa",
         recordSaleFailedTitle: "Caixa",
         recordSaleFailedMessage: (name: string) =>
           `A venda de "${name}" foi criada, mas não pôde ser registrada no caixa. Faça o lançamento manualmente.`,
+        adjustmentFailedTitle: "Caixa",
+        adjustmentFailedMessage: "Não foi possível registrar o ajuste. Tente novamente.",
       },
     },
     serviceForm: COMPONENT_COPY.pt.serviceForm,
@@ -1384,6 +1448,12 @@ export default function App() {
   const [stockSaving, setStockSaving] = useState(false);
   const [cashEntries, setCashEntries] = useState<CashEntry[]>([]);
   const [cashLoading, setCashLoading] = useState(false);
+  const [adjustmentModalOpen, setAdjustmentModalOpen] = useState(false);
+  const [adjustmentAmountText, setAdjustmentAmountText] = useState("");
+  const [adjustmentNote, setAdjustmentNote] = useState("");
+  const [adjustmentReference, setAdjustmentReference] = useState("");
+  const [adjustmentSaving, setAdjustmentSaving] = useState(false);
+  const [adjustmentError, setAdjustmentError] = useState<string | null>(null);
   const [teamMembers, setTeamMembers] = useState<StaffMember[]>([]);
   const [teamLoading, setTeamLoading] = useState(false);
   const [activeScreen, setActiveScreen] = useState<ScreenName>("home");
@@ -1624,6 +1694,82 @@ export default function App() {
     }),
     [cashRegisterCopy.entryLabels],
   );
+
+  const handleOpenAdjustmentModal = useCallback(() => {
+    setAdjustmentAmountText("");
+    setAdjustmentNote("");
+    setAdjustmentReference("");
+    setAdjustmentError(null);
+    setAdjustmentSaving(false);
+    setAdjustmentModalOpen(true);
+  }, []);
+
+  const handleCloseAdjustmentModal = useCallback(() => {
+    if (adjustmentSaving) return;
+    setAdjustmentModalOpen(false);
+    setAdjustmentAmountText("");
+    setAdjustmentNote("");
+    setAdjustmentReference("");
+    setAdjustmentError(null);
+    setAdjustmentSaving(false);
+  }, [adjustmentSaving]);
+
+  const handleAdjustmentAmountChange = useCallback((text: string) => {
+    setAdjustmentAmountText(sanitizeSignedCurrencyInput(text));
+    setAdjustmentError(null);
+  }, []);
+
+  const handleAdjustmentNoteChange = useCallback((text: string) => {
+    setAdjustmentNote(text);
+  }, []);
+
+  const handleAdjustmentReferenceChange = useCallback((text: string) => {
+    setAdjustmentReference(text);
+  }, []);
+
+  const handleConfirmAdjustment = useCallback(async () => {
+    const amountCents = parseSignedCurrency(adjustmentAmountText);
+    if (!Number.isFinite(amountCents) || amountCents === 0) {
+      setAdjustmentError(cashRegisterCopy.adjustmentModal.amountError);
+      return;
+    }
+
+    setAdjustmentSaving(true);
+    try {
+      const entry = await recordCashAdjustment({
+        amount_cents: amountCents,
+        note: adjustmentNote.trim() ? adjustmentNote.trim() : null,
+        reference_id: adjustmentReference.trim() ? adjustmentReference.trim() : null,
+      });
+
+      appendCashEntry(entry);
+      setAdjustmentModalOpen(false);
+      setAdjustmentAmountText("");
+      setAdjustmentNote("");
+      setAdjustmentReference("");
+      setAdjustmentError(null);
+
+      Alert.alert(
+        cashRegisterCopy.adjustmentModal.successTitle,
+        cashRegisterCopy.adjustmentModal.successMessage(formatPrice(entry.amount_cents)),
+      );
+    } catch (error: any) {
+      console.error(error);
+      Alert.alert(
+        cashRegisterCopy.alerts.adjustmentFailedTitle,
+        error?.message ?? cashRegisterCopy.alerts.adjustmentFailedMessage,
+      );
+    } finally {
+      setAdjustmentSaving(false);
+    }
+  }, [
+    adjustmentAmountText,
+    adjustmentNote,
+    adjustmentReference,
+    appendCashEntry,
+    cashRegisterCopy.adjustmentModal,
+    cashRegisterCopy.alerts,
+  ]);
 
   const loadTeamMembers = useCallback(async () => {
     setTeamLoading(true);
@@ -4388,11 +4534,12 @@ export default function App() {
         </View>
       </ScrollView>
     ) : activeScreen === "cashRegister" ? (
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}
-        refreshControl={<RefreshControl refreshing={cashLoading} onRefresh={loadCashRegister} />}
-      >
+      <>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}
+          refreshControl={<RefreshControl refreshing={cashLoading} onRefresh={loadCashRegister} />}
+        >
         <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
           <View style={[styles.listHeaderRow, isCompactLayout && styles.listHeaderRowCompact]}>
             <View style={{ flex: 1, gap: 4 }}>
@@ -4401,14 +4548,29 @@ export default function App() {
                 {cashRegisterCopy.subtitle}
               </Text>
             </View>
-            <Pressable
-              onPress={loadCashRegister}
-              style={[styles.defaultCta, { marginTop: 0 }, isCompactLayout && styles.fullWidthButton]}
-              accessibilityRole="button"
-              accessibilityLabel={cashRegisterCopy.refreshAccessibility}
+            <View
+              style={[
+                styles.cashHeaderActions,
+                isCompactLayout && styles.cashHeaderActionsCompact,
+              ]}
             >
-              <Text style={styles.defaultCtaText}>{cashRegisterCopy.refresh}</Text>
-            </Pressable>
+              <Pressable
+                onPress={handleOpenAdjustmentModal}
+                style={[styles.secondaryCta, isCompactLayout && styles.fullWidthButton]}
+                accessibilityRole="button"
+                accessibilityLabel={cashRegisterCopy.adjustmentCta.accessibility}
+              >
+                <Text style={styles.secondaryCtaText}>{cashRegisterCopy.adjustmentCta.label}</Text>
+              </Pressable>
+              <Pressable
+                onPress={loadCashRegister}
+                style={[styles.defaultCta, { marginTop: 0 }, isCompactLayout && styles.fullWidthButton]}
+                accessibilityRole="button"
+                accessibilityLabel={cashRegisterCopy.refreshAccessibility}
+              >
+                <Text style={styles.defaultCtaText}>{cashRegisterCopy.refresh}</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
 
@@ -4497,7 +4659,119 @@ export default function App() {
             })
           )}
         </View>
-      </ScrollView>
+        </ScrollView>
+
+        <Modal
+          visible={adjustmentModalOpen}
+          transparent
+          animationType="fade"
+          onRequestClose={handleCloseAdjustmentModal}
+        >
+          <View style={styles.adjustmentModalBackdrop}>
+            <View
+              style={[
+                styles.adjustmentModalCard,
+                { borderColor: colors.border, backgroundColor: colors.sidebarBg },
+              ]}
+            >
+              <Text style={[styles.adjustmentModalTitle, { color: colors.text }]}>
+                {cashRegisterCopy.adjustmentModal.title}
+              </Text>
+              <Text style={[styles.adjustmentModalSubtitle, { color: colors.subtext }]}>
+                {cashRegisterCopy.adjustmentModal.subtitle}
+              </Text>
+
+              <View style={{ gap: 6 }}>
+                <Text style={[styles.adjustmentModalLabel, { color: colors.subtext }]}>
+                  {cashRegisterCopy.adjustmentModal.amountLabel}
+                </Text>
+                <TextInput
+                  value={adjustmentAmountText}
+                  onChangeText={handleAdjustmentAmountChange}
+                  keyboardType="decimal-pad"
+                  placeholder={cashRegisterCopy.adjustmentModal.amountPlaceholder}
+                  placeholderTextColor="#94a3b8"
+                  style={[styles.adjustmentTextInput, { borderColor: colors.border, color: colors.text }]}
+                />
+                <Text style={[styles.adjustmentHelperText, { color: colors.subtext }]}>
+                  {cashRegisterCopy.adjustmentModal.amountHelp}
+                </Text>
+                {adjustmentError ? (
+                  <Text style={[styles.adjustmentErrorText, { color: colors.danger }]}>
+                    {adjustmentError}
+                  </Text>
+                ) : null}
+              </View>
+
+              <View style={{ gap: 6 }}>
+                <Text style={[styles.adjustmentModalLabel, { color: colors.subtext }]}>
+                  {cashRegisterCopy.adjustmentModal.noteLabel}
+                </Text>
+                <TextInput
+                  value={adjustmentNote}
+                  onChangeText={handleAdjustmentNoteChange}
+                  multiline
+                  numberOfLines={3}
+                  placeholder={cashRegisterCopy.adjustmentModal.noteLabel}
+                  placeholderTextColor="#94a3b8"
+                  style={[styles.adjustmentTextArea, { borderColor: colors.border, color: colors.text }]}
+                  textAlignVertical="top"
+                />
+              </View>
+
+              <View style={{ gap: 6 }}>
+                <Text style={[styles.adjustmentModalLabel, { color: colors.subtext }]}>
+                  {cashRegisterCopy.adjustmentModal.referenceLabel}
+                </Text>
+                <TextInput
+                  value={adjustmentReference}
+                  onChangeText={handleAdjustmentReferenceChange}
+                  placeholder={cashRegisterCopy.adjustmentModal.referenceLabel}
+                  placeholderTextColor="#94a3b8"
+                  style={[styles.adjustmentTextInput, { borderColor: colors.border, color: colors.text }]}
+                />
+              </View>
+
+              <View style={styles.adjustmentModalActions}>
+                <Pressable
+                  onPress={handleCloseAdjustmentModal}
+                  disabled={adjustmentSaving}
+                  style={[styles.smallBtn, { borderColor: colors.border }, adjustmentSaving && styles.smallBtnDisabled]}
+                  accessibilityRole="button"
+                  accessibilityLabel={cashRegisterCopy.adjustmentModal.cancel}
+                >
+                  <Text style={{ color: colors.subtext, fontWeight: "800" }}>
+                    {cashRegisterCopy.adjustmentModal.cancel}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleConfirmAdjustment}
+                  disabled={adjustmentSaving}
+                  style={[
+                    styles.smallBtn,
+                    {
+                      borderColor: colors.accent,
+                      backgroundColor: adjustmentSaving
+                        ? "rgba(255,255,255,0.08)"
+                        : "rgba(37,99,235,0.12)",
+                    },
+                    adjustmentSaving && styles.smallBtnDisabled,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={cashRegisterCopy.adjustmentModal.confirm}
+                >
+                  <Text style={{ color: colors.accent, fontWeight: "800" }}>
+                    {adjustmentSaving
+                      ? cashRegisterCopy.adjustmentModal.saving
+                      : cashRegisterCopy.adjustmentModal.confirm}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+      </>
     ) : activeScreen === "services" ? (
       <ScrollView
         style={{ flex: 1 }}
@@ -5820,12 +6094,64 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: "rgba(15,23,42,0.35)",
   },
   stockModalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10 },
+  adjustmentModalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    justifyContent: "center",
+    padding: 20,
+  },
+  adjustmentModalCard: {
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: 20,
+    gap: 14,
+    width: "100%",
+    maxWidth: 420,
+    alignSelf: "center",
+  },
+  adjustmentModalTitle: { fontSize: 18, fontWeight: "800" },
+  adjustmentModalSubtitle: { fontSize: 13, fontWeight: "600" },
+  adjustmentModalLabel: { fontSize: 12, fontWeight: "700" },
+  adjustmentTextInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    fontWeight: "700",
+    backgroundColor: "rgba(15,23,42,0.35)",
+  },
+  adjustmentTextArea: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    fontWeight: "600",
+    minHeight: 96,
+    backgroundColor: "rgba(15,23,42,0.35)",
+  },
+  adjustmentHelperText: { fontSize: 12, fontWeight: "600" },
+  adjustmentErrorText: { fontSize: 12, fontWeight: "700" },
+  adjustmentModalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10 },
   fullWidthButton: {
     alignSelf: "stretch",
     justifyContent: "center",
     alignItems: "center",
     width: "100%",
   },
+  cashHeaderActions: { flexDirection: "row", alignItems: "center", gap: 10 },
+  cashHeaderActionsCompact: { flexDirection: "column", alignItems: "stretch", gap: 10, width: "100%" },
+  secondaryCta: {
+    marginTop: 0,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    backgroundColor: applyAlpha(colors.accent, 0.12),
+  },
+  secondaryCtaText: { color: colors.accent, fontWeight: "800", fontSize: 14 },
   whatsappBtn: { flexDirection: "row", alignItems: "center", gap: 6 },
   confirmBtn: { flexDirection: "row", alignItems: "center", gap: 6 },
   serviceRow: {
