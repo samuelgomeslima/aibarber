@@ -38,6 +38,7 @@ app.http("chat", {
     const { messages, model, temperature, ...rest } = body ?? {};
     const openAIModel = model ?? "gpt-4o-mini";
     const openAITemperature = temperature ?? 0.6;
+    const wantsStream = rest?.stream === true;
 
     if (!Array.isArray(messages)) {
       return {
@@ -65,7 +66,40 @@ app.http("chat", {
         }),
       });
 
-      const data = await response.json();
+      const contentType = response.headers.get("content-type") ?? "";
+
+      if (wantsStream && contentType.includes("text/event-stream")) {
+        const headers = new Headers();
+        response.headers.forEach((value, key) => {
+          headers.set(key, value);
+        });
+
+        return new Response(response.body, {
+          status: response.status,
+          headers,
+        });
+      }
+
+      const text = await response.text();
+      let data;
+
+      if (text) {
+        try {
+          data = JSON.parse(text);
+        } catch (parseError) {
+          context.error("Failed to parse OpenAI response as JSON.", parseError);
+          return {
+            status: 502,
+            jsonBody: {
+              error: {
+                message: "Received an unexpected response format from the AI service.",
+              },
+            },
+          };
+        }
+      } else {
+        data = null;
+      }
 
       if (!response.ok) {
         context.warn("OpenAI API returned an error response.", data);
