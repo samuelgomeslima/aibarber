@@ -8,6 +8,9 @@ This guide walks through configuring the new Azure Functions backend under the `
 /
 ├─ api/                # Azure Functions app (Node.js)
 │  ├─ GenerateImage/   # HTTP trigger for OpenAI image generation
+│  ├─ functions/
+│  │  ├─ chat.js        # HTTP trigger for chat completions
+│  │  └─ transcribe.js  # HTTP trigger for speech-to-text
 │  ├─ host.json
 │  ├─ package.json
 │  └─ .gitignore
@@ -37,7 +40,13 @@ Azure Static Web Apps automatically discovers the Azure Functions application be
      }
    }
    ```
-4. Run both the SWA front-end and the Azure Functions backend locally using the SWA CLI or separate terminals:
+4. Create a `.env.local` file in the repo root with the URLs Expo should use for the local Functions:
+   ```bash
+   EXPO_PUBLIC_CHAT_API_URL=http://localhost:7071/api/chat
+   EXPO_PUBLIC_TRANSCRIBE_API_URL=http://localhost:7071/api/transcribe
+   EXPO_PUBLIC_IMAGE_API_TOKEN=local-dev-token
+   ```
+5. Run both the SWA front-end and the Azure Functions backend locally using the SWA CLI or separate terminals:
    ```bash
    npm run dev          # front-end
    npm run start --prefix api   # backend (func start)
@@ -46,7 +55,7 @@ Azure Static Web Apps automatically discovers the Azure Functions application be
 ## 3. Secure Configuration
 
 - `OPENAI_API_KEY` **must never be committed to the repository.** Store it as an application setting in Azure.
-- The function expects requests to include an `x-api-key` header that matches `IMAGE_API_TOKEN`. This allows you to control who can call the API while keeping the function itself anonymous for SWA routing.
+- The image generation function expects requests to include an `x-api-key` header that matches `IMAGE_API_TOKEN`. This allows you to control who can call the API while keeping the function itself anonymous for SWA routing.
 - Rotate keys regularly and remove unused secrets from Azure.
 
 ## 4. Azure Resources
@@ -70,7 +79,7 @@ output_location: "dist"      # Vite build output
 | Secret Name                   | Where to define                          | Purpose                                     |
 | ----------------------------- | ---------------------------------------- | ------------------------------------------- |
 | `AZURE_STATIC_WEB_APPS_API_TOKEN` | GitHub repository → Settings → Secrets    | Authentication for the SWA deployment task. |
-| `OPENAI_API_KEY`              | Azure Portal → Static Web App → Configuration | Used by the Azure Function at runtime.      |
+| `OPENAI_API_KEY`              | Azure Portal → Static Web App → Configuration | Used by the chat, transcription, and image Functions at runtime. |
 | `IMAGE_API_TOKEN`             | Azure Portal → Static Web App → Configuration | Shared secret between the client and API.   |
 
 > Do **not** store `OPENAI_API_KEY` or `IMAGE_API_TOKEN` as GitHub secrets unless you specifically need them for unit tests. They should stay in the Azure environment.
@@ -81,11 +90,12 @@ output_location: "dist"      # Vite build output
 2. Go to **Configuration** and add the following application settings:
    - `OPENAI_API_KEY` = `sk-...`
    - `IMAGE_API_TOKEN` = a random string that your assistant will send in the `x-api-key` header.
+   - (optional) `CHAT_API_URL` / `TRANSCRIBE_API_URL` if you need to override routing for hybrid deployments.
 3. Trigger a redeploy from GitHub Actions or manually restart the Functions API to apply the new settings.
 
 ## 7. Consuming the API from the Assistant
 
-Example `fetch` call from the SWA front-end:
+Example `fetch` call from the SWA front-end for image generation:
 
 ```ts
 const response = await fetch('/api/images/generate', {
@@ -122,12 +132,13 @@ curl -X POST "https://<your-app-name>.azurestaticapps.net/api/images/generate" \
   -d '{"prompt":"High-resolution haircut design"}'
 ```
 
-Define `VITE_IMAGE_API_TOKEN` (Vite build) or `EXPO_PUBLIC_IMAGE_API_TOKEN` (Expo dev server) as a build-time environment variable for the front-end using the SWA configuration or GitHub Actions if necessary.
+Define `VITE_IMAGE_API_TOKEN` (Vite build) or `EXPO_PUBLIC_IMAGE_API_TOKEN` (Expo dev server) as a build-time environment variable for the front-end using the SWA configuration or GitHub Actions if necessary. The chat assistant communicates with the `/api/chat` and `/api/transcribe` Functions so no OpenAI keys are bundled with the client.
 
 ## 8. Verification Checklist
 
 - [ ] GitHub Actions workflow references `api_location: "api"`.
 - [ ] Azure Static Web App configuration includes `OPENAI_API_KEY` and `IMAGE_API_TOKEN`.
+- [ ] `.env.local` (or Expo config) points to the deployed `/api/chat` and `/api/transcribe` endpoints.
 - [ ] Front-end requests include the `x-api-key` header.
 - [ ] Secrets are never committed to the repository.
 - [ ] `api/` folder is checked in so that SWA deploys the Functions app.

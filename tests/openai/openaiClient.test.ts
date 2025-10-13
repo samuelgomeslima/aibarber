@@ -19,7 +19,8 @@ describe("createOpenAIClient", () => {
     }));
 
     const client = createOpenAIClient({
-      apiKey: "test-key",
+      apiUrl: "https://example.com/api/chat",
+      transcriptionUrl: "https://example.com/api/transcribe",
       fetchImpl: fetchImpl as unknown as typeof fetch,
     });
 
@@ -27,21 +28,18 @@ describe("createOpenAIClient", () => {
     const response = await client.callChatCompletion(payload);
 
     expect(fetchImpl).toHaveBeenCalledTimes(1);
-    expect(fetchImpl).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({
-        method: "POST",
-        headers: expect.objectContaining({ Authorization: `Bearer test-key` }),
-      }),
-    );
+    expect(fetchImpl).toHaveBeenCalledWith("https://example.com/api/chat", expect.objectContaining({
+      method: "POST",
+      headers: expect.objectContaining({ "Content-Type": "application/json" }),
+    }));
     expect(response.choices[0]?.message.content).toBe("Hello");
   });
 
-  it("throws a configuration error when the API key is missing", async () => {
-    const client = createOpenAIClient({ apiKey: "" });
+  it("throws a configuration error when the chat endpoint is missing", async () => {
+    const client = createOpenAIClient({ apiUrl: "" });
     await expect(
       client.callChatCompletion({ messages: [{ role: "user", content: "" }] }),
-    ).rejects.toThrowError(/OpenAI API key is not configured/);
+    ).rejects.toThrowError(/OpenAI assistant is not configured/);
   });
 });
 

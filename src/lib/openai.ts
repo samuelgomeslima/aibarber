@@ -1,5 +1,5 @@
-const API_URL = "https://api.openai.com/v1/chat/completions";
-const AUDIO_TRANSCRIPTION_URL = "https://api.openai.com/v1/audio/transcriptions";
+const API_URL = "/api/chat";
+const AUDIO_TRANSCRIPTION_URL = "/api/transcribe";
 
 export type ChatCompletionToolCall = {
   id: string;
@@ -86,7 +86,6 @@ type TranscribeAudioInput =
   | { blob: BlobLike; fileName?: string; mimeType?: string };
 
 export type OpenAIClientConfig = {
-  apiKey: string;
   fetchImpl?: typeof fetch;
   apiUrl?: string;
   transcriptionUrl?: string;
@@ -103,11 +102,11 @@ export function createOpenAIClient(config: OpenAIClientConfig): OpenAIClient {
   const apiUrl = config.apiUrl ?? API_URL;
   const transcriptionUrl = config.transcriptionUrl ?? AUDIO_TRANSCRIPTION_URL;
   const fetchImpl = config.fetchImpl ?? fetch;
-  const isConfigured = typeof config.apiKey === "string" && config.apiKey.length > 0;
+  const isConfigured = typeof apiUrl === "string" && apiUrl.length > 0;
 
   const ensureConfigured = () => {
     if (!isConfigured) {
-      throw new Error("OpenAI API key is not configured. Set EXPO_PUBLIC_OPENAI_API_KEY in your environment.");
+      throw new Error("OpenAI assistant is not configured. Ensure the serverless functions are deployed.");
     }
   };
 
@@ -124,7 +123,6 @@ export function createOpenAIClient(config: OpenAIClientConfig): OpenAIClient {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${config.apiKey}`,
       },
       body: JSON.stringify(bodyPayload),
     });
@@ -154,6 +152,10 @@ export function createOpenAIClient(config: OpenAIClientConfig): OpenAIClient {
   async function transcribeAudio(input: TranscribeAudioInput) {
     ensureConfigured();
 
+    if (!transcriptionUrl) {
+      throw new Error("Voice transcription service is not configured.");
+    }
+
     const formData = new FormData();
     formData.append("model", "gpt-4o-mini-transcribe");
 
@@ -178,9 +180,6 @@ export function createOpenAIClient(config: OpenAIClientConfig): OpenAIClient {
 
     const response = await fetchImpl(transcriptionUrl, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-      },
       body: formData,
     });
 
@@ -210,7 +209,8 @@ export function createOpenAIClient(config: OpenAIClientConfig): OpenAIClient {
 }
 
 const defaultClient = createOpenAIClient({
-  apiKey: process.env.EXPO_PUBLIC_OPENAI_API_KEY ?? "",
+  apiUrl: process.env.EXPO_PUBLIC_CHAT_API_URL ?? API_URL,
+  transcriptionUrl: process.env.EXPO_PUBLIC_TRANSCRIBE_API_URL ?? AUDIO_TRANSCRIPTION_URL,
 });
 
 export const isOpenAiConfigured = defaultClient.isConfigured;

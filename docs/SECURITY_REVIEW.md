@@ -17,10 +17,10 @@
 - **Issue**: Client-supplied `size`, `quality`, `response_format`, and arbitrarily long prompts were forwarded directly to OpenAI, risking service abuse and unexpected costs.
 - **Remediation**: Added server-side validation to enforce known-safe values and reasonable prompt length limits.
 
-### 3. Front-end OpenAI API key exposure (informational)
-- **Severity**: High (architectural)
-- **Issue**: The Expo client uses `EXPO_PUBLIC_OPENAI_API_KEY`, which is bundled into the client and exposed to end users. Anyone with the app can extract the key and abuse it.
-- **Recommendation**: Proxy OpenAI requests through a secured backend (such as an authenticated Azure Function) instead of calling OpenAI directly from the client. Remove public API key usage and store secrets server-side.
+### 3. Front-end OpenAI API key exposure (resolved)
+- **Severity**: Closed
+- **Issue**: The Expo client previously relied on `EXPO_PUBLIC_OPENAI_API_KEY`, exposing secrets to end users.
+- **Remediation**: Chat, transcription, and image requests now flow through Azure Functions (`/api/chat`, `/api/transcribe`, `/api/GenerateImage`) that read the OpenAI key from server-side configuration. No OpenAI secrets are bundled with the client.
 
 ## Additional Recommendations
 - Implement request logging with caution to avoid storing prompts that may contain sensitive data; prefer structured logging with redaction options.

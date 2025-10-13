@@ -373,7 +373,7 @@ async function cancelService(
 
 export async function runBookingAgent(options: AgentRunOptions): Promise<string> {
   if (!isOpenAiConfigured) {
-    throw new Error("OpenAI API key is not configured. Set EXPO_PUBLIC_OPENAI_API_KEY in your environment.");
+    throw new Error("OpenAI assistant is not configured. Ensure the serverless functions are available.");
   }
 
   const { systemPrompt, contextSummary, conversation, onBookingsMutated, services } = options;

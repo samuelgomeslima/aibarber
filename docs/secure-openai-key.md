@@ -7,14 +7,16 @@ Storing your OpenAI API key directly in frontend code exposes it to end users. I
 ```
 root
 ├── api
-│   └── chat
-│       └── index.ts
+│   └── functions
+│       ├── chat.js
+│       └── transcribe.js
 ├── src
 │   └── ...
 └── staticwebapp.config.json
 ```
 
-* `api/chat/index.ts`: Azure Function handling requests to `/api/chat`.
+* `api/functions/chat.js`: Azure Function handling requests to `/api/chat`.
+* `api/functions/transcribe.js`: Azure Function handling requests to `/api/transcribe`.
 * `staticwebapp.config.json`: Optional routing config to secure endpoints (if not already present).
 
 ## Step 1: Store the OpenAI API Key as a Secret
@@ -27,60 +29,13 @@ root
 
 > 💡 Environment variables stored in SWA configuration are only available server-side and are not exposed to the client bundle.
 
-## Step 2: Implement the Azure Function
-Below is a sample TypeScript function using Azure Static Web Apps' serverless API folder. Requests to `https://example-username.azurestaticapps.net/api/chat` will run this handler.
+## Step 2: Implement the Azure Functions
+The repository ships with JavaScript implementations that proxy chat completions and audio transcriptions to OpenAI while keeping the API key on the server:
 
-```ts
-// api/chat/index.ts
-import type { Context, HttpRequest } from '@azure/functions';
-import fetch from 'node-fetch';
+* `api/functions/chat.js` forwards chat completion requests to `https://api.openai.com/v1/chat/completions`.
+* `api/functions/transcribe.js` accepts audio uploads and forwards them to `https://api.openai.com/v1/audio/transcriptions`.
 
-const OPENAI_ENDPOINT = 'https://api.openai.com/v1/chat/completions';
-
-export default async function handler(context: Context, req: HttpRequest) {
-  const messages = req.body?.messages;
-
-  if (!Array.isArray(messages)) {
-    context.res = {
-      status: 400,
-      body: { error: 'Expected an array of chat messages.' },
-    };
-    return;
-  }
-
-  const response = await fetch(OPENAI_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-    context.log.error('OpenAI request failed', errorBody);
-    context.res = {
-      status: response.status,
-      body: { error: 'OpenAI request failed.' },
-    };
-    return;
-  }
-
-  const data = await response.json();
-
-  context.res = {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: data,
-  };
-}
-```
+Both handlers validate incoming payloads, surface helpful error messages, and return the OpenAI response body. Refer to the source files for the latest logic.
 
 ### Local Development Configuration
 To test locally with the SWA CLI:
@@ -98,8 +53,15 @@ To test locally with the SWA CLI:
 }
 ```
 
-3. Run the app: `swa start http://localhost:5173 --api-location ./api`.
-4. Your frontend can now call `http://localhost:4280/api/chat` without exposing the key.
+3. Add a `.env.local` file with the local function URLs:
+
+```bash
+EXPO_PUBLIC_CHAT_API_URL=http://localhost:7071/api/chat
+EXPO_PUBLIC_TRANSCRIBE_API_URL=http://localhost:7071/api/transcribe
+```
+
+4. Run the app: `swa start http://localhost:5173 --api-location ./api` (or `npm run start --prefix api` in another terminal).
+5. Your frontend can now call the local proxy endpoints without exposing the key.
 
 ## Step 3: Frontend Usage
 In your React/Vue/Svelte/etc. frontend, call the backend instead of OpenAI directly:

@@ -24,7 +24,8 @@ npm install
 Create a file named `.env.local` in the project root and add the following values:
 
 ```bash
-EXPO_PUBLIC_OPENAI_API_KEY=sk-your-openai-api-key
+EXPO_PUBLIC_CHAT_API_URL=http://localhost:7071/api/chat
+EXPO_PUBLIC_TRANSCRIBE_API_URL=http://localhost:7071/api/transcribe
 EXPO_PUBLIC_IMAGE_API_TOKEN=local-dev-token
 ```
 
@@ -47,6 +48,8 @@ Create `api/local.settings.json` (excluded from git) with matching secrets:
 ```
 
 Make sure `IMAGE_API_TOKEN` matches the value used in `.env.local`. The function checks the `x-api-key` header and rejects requests that do not match.
+
+`EXPO_PUBLIC_CHAT_API_URL` and `EXPO_PUBLIC_TRANSCRIBE_API_URL` tell the Expo client how to reach the local Azure Functions that proxy requests to OpenAI. Update them if you bind the Functions runtime to a different host or port.
 
 ## 4. Start the services
 

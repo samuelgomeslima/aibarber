@@ -29,7 +29,7 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
     assistantChat: {
       initialMessage:
         "Hi! I'm your AIBarber agent. I can check availability, book services, and cancel existing appointments for you.",
-      apiKeyWarning: "Set EXPO_PUBLIC_OPENAI_API_KEY to enable the assistant.",
+      apiKeyWarning: "Deploy the AI Functions to enable the assistant.",
       contextPrefix: "Booking context:",
       quickRepliesTitle: "Suggested prompts",
       quickRepliesToggleShow: "Show suggestions",
@@ -54,7 +54,7 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
       },
       errors: {
         generic: "Something went wrong.",
-        missingApiKey: "Set EXPO_PUBLIC_OPENAI_API_KEY to enable voice input.",
+        missingApiKey: "Deploy the AI Functions to enable voice input.",
         voiceWebOnly: "Voice capture is currently supported on the web experience only.",
         voiceUnsupported: "Voice capture is not supported in this browser.",
         voiceStartFailed: "Unable to start voice recording.",
@@ -390,7 +390,7 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
     assistantChat: {
       initialMessage:
         "Olá! Sou o seu agente AIBarber. Posso verificar disponibilidade, agendar serviços e cancelar compromissos existentes para você.",
-      apiKeyWarning: "Defina EXPO_PUBLIC_OPENAI_API_KEY para habilitar o assistente.",
+      apiKeyWarning: "Publique as funções de IA para habilitar o assistente.",
       contextPrefix: "Contexto de agendamentos:",
       quickRepliesTitle: "Prompts sugeridos",
       quickRepliesToggleShow: "Mostrar sugestões",
@@ -415,7 +415,7 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
       },
       errors: {
         generic: "Algo deu errado.",
-        missingApiKey: "Defina EXPO_PUBLIC_OPENAI_API_KEY para habilitar a entrada por voz.",
+        missingApiKey: "Publique as funções de IA para habilitar a entrada por voz.",
         voiceWebOnly: "A captura de voz está disponível apenas na experiência web no momento.",
         voiceUnsupported: "A captura de voz não é suportada neste navegador.",
         voiceStartFailed: "Não foi possível iniciar a gravação de voz.",
