@@ -1,4 +1,5 @@
 const { app } = require("@azure/functions");
+const { Readable } = require("stream");
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -69,15 +70,22 @@ app.http("chat", {
       const contentType = response.headers.get("content-type") ?? "";
 
       if (wantsStream && contentType.includes("text/event-stream")) {
-        const headers = new Headers();
+        const headers = {};
         response.headers.forEach((value, key) => {
-          headers.set(key, value);
+          headers[key] = value;
         });
 
-        return new Response(response.body, {
+        let bodyStream = response.body;
+        if (bodyStream && typeof bodyStream.getReader === "function" && Readable.fromWeb) {
+          bodyStream = Readable.fromWeb(bodyStream);
+        }
+
+        return {
           status: response.status,
           headers,
-        });
+          body: bodyStream,
+          enableContentNegotiation: false,
+        };
       }
 
       const text = await response.text();
