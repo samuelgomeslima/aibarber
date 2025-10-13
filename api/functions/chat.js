@@ -35,7 +35,9 @@ app.http("chat", {
       };
     }
 
-    const { messages, temperature = 0.6 } = body ?? {};
+    const { messages, model, temperature, ...rest } = body ?? {};
+    const openAIModel = model ?? "gpt-4o-mini";
+    const openAITemperature = temperature ?? 0.6;
 
     if (!Array.isArray(messages)) {
       return {
@@ -56,9 +58,10 @@ app.http("chat", {
           Authorization: `Bearer ${OPENAI_API_KEY}`,
         },
         body: JSON.stringify({
-          model: "gpt-4o-mini",
+          model: openAIModel,
           messages,
-          temperature,
+          temperature: openAITemperature,
+          ...rest,
         }),
       });
 
