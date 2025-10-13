@@ -3,7 +3,11 @@ import { Platform } from "react-native";
 
 import { runBookingAgent } from "../lib/bookingAgent";
 import { BARBERS, type Service } from "../lib/domain";
-import { isOpenAiConfigured, transcribeAudio } from "../lib/openai";
+import {
+  isOpenAiConfigured,
+  isVoiceTranscriptionConfigured,
+  transcribeAudio,
+} from "../lib/openai";
 import type { AssistantChatCopy } from "../locales/types";
 
 export type DisplayMessage = {
@@ -175,7 +179,7 @@ export function useAssistantChat({
   }, [input, pending, voiceTranscribing]);
 
   const startVoiceRecording = useCallback(async () => {
-    if (!isOpenAiConfigured) {
+    if (!isVoiceTranscriptionConfigured) {
       setError(copy.errors.missingApiKey);
       return;
     }
@@ -214,7 +218,7 @@ export function useAssistantChat({
     copy.errors.voiceStartFailed,
     copy.errors.voiceUnsupported,
     copy.errors.voiceWebOnly,
-    isOpenAiConfigured,
+    isVoiceTranscriptionConfigured,
   ]);
 
   const stopVoiceRecording = useCallback(async () => {
@@ -371,7 +375,11 @@ export function useAssistantChat({
     isRecording,
     voiceTranscribing,
     voiceButtonDisabled:
-      !isOpenAiConfigured || pending || voiceTranscribing || (!voiceSupported && !isRecording),
+      !isOpenAiConfigured ||
+      !isVoiceTranscriptionConfigured ||
+      pending ||
+      voiceTranscribing ||
+      (!voiceSupported && !isRecording),
     handleSend,
     handleQuickReply,
     handleVoicePress,

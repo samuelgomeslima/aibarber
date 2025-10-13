@@ -29,7 +29,7 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
     assistantChat: {
       initialMessage:
         "Hi! I'm your AIBarber agent. I can check availability, book services, and cancel existing appointments for you.",
-      apiKeyWarning: "Set EXPO_PUBLIC_OPENAI_API_KEY to enable the assistant.",
+      apiKeyWarning: "The AI assistant service is unavailable. Ask an administrator to configure the chat API.",
       contextPrefix: "Booking context:",
       quickRepliesTitle: "Suggested prompts",
       quickRepliesToggleShow: "Show suggestions",
@@ -54,7 +54,7 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
       },
       errors: {
         generic: "Something went wrong.",
-        missingApiKey: "Set EXPO_PUBLIC_OPENAI_API_KEY to enable voice input.",
+        missingApiKey: "Voice input is unavailable because transcription isn't configured on the server.",
         voiceWebOnly: "Voice capture is currently supported on the web experience only.",
         voiceUnsupported: "Voice capture is not supported in this browser.",
         voiceStartFailed: "Unable to start voice recording.",
@@ -390,7 +390,7 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
     assistantChat: {
       initialMessage:
         "Olá! Sou o seu agente AIBarber. Posso verificar disponibilidade, agendar serviços e cancelar compromissos existentes para você.",
-      apiKeyWarning: "Defina EXPO_PUBLIC_OPENAI_API_KEY para habilitar o assistente.",
+      apiKeyWarning: "O serviço do assistente de IA está indisponível. Peça a um administrador para configurar a API de chat.",
       contextPrefix: "Contexto de agendamentos:",
       quickRepliesTitle: "Prompts sugeridos",
       quickRepliesToggleShow: "Mostrar sugestões",
@@ -415,7 +415,7 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
       },
       errors: {
         generic: "Algo deu errado.",
-        missingApiKey: "Defina EXPO_PUBLIC_OPENAI_API_KEY para habilitar a entrada por voz.",
+        missingApiKey: "A entrada por voz está indisponível porque a transcrição não está configurada no servidor.",
         voiceWebOnly: "A captura de voz está disponível apenas na experiência web no momento.",
         voiceUnsupported: "A captura de voz não é suportada neste navegador.",
         voiceStartFailed: "Não foi possível iniciar a gravação de voz.",
