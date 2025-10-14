@@ -66,10 +66,11 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
       title: "Image assistant",
       subtitle: {
         before: "Generate marketing visuals for your shop using the OpenAI image API deployed under ",
-        highlight: "/api/GenerateImage",
+        highlight: "/api/images/generate",
         after: ".",
       },
-      helperMessage: "Set EXPO_PUBLIC_IMAGE_API_TOKEN to authenticate requests to the GenerateImage function.",
+      helperMessage:
+        "Set EXPO_PUBLIC_OPENAI_PROXY_TOKEN (or EXPO_PUBLIC_IMAGE_API_TOKEN for legacy setups) to authenticate requests to the image proxy.",
       promptLabel: "Prompt",
       promptPlaceholder:
         "Create a premium hero image for a barber shop website featuring a modern haircut session.",
@@ -427,11 +428,11 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
       title: "Laboratório de imagens",
       subtitle: {
         before: "Gere visuais de marketing para a sua barbearia usando a API de imagens da OpenAI disponível em ",
-        highlight: "/api/GenerateImage",
+        highlight: "/api/images/generate",
         after: ".",
       },
       helperMessage:
-        "Defina EXPO_PUBLIC_IMAGE_API_TOKEN para autenticar as requisições para a função GenerateImage.",
+        "Defina EXPO_PUBLIC_OPENAI_PROXY_TOKEN (ou EXPO_PUBLIC_IMAGE_API_TOKEN para configurações legadas) para autenticar as requisições para o proxy de imagens.",
       promptLabel: "Prompt",
       promptPlaceholder:
         "Crie uma imagem hero premium para o site de uma barbearia mostrando um corte moderno.",

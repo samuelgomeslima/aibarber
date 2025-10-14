@@ -10,7 +10,7 @@
 ### 1. Missing authentication enforcement on image generation endpoint
 - **Severity**: High
 - **Issue**: The Azure Function previously accepted requests without verifying an API token when `IMAGE_API_TOKEN` was not configured, allowing unauthenticated use of the OpenAI image endpoint.
-- **Remediation**: The function now fails fast when the token is absent and requires clients to supply the matching `x-api-key` (or `x-functions-key`).
+- **Remediation**: The function now fails fast when the proxy token (`OPENAI_PROXY_TOKEN`, or the legacy `IMAGE_API_TOKEN`) is absent and requires clients to supply the matching `x-api-key` (or `x-functions-key`).
 
 ### 2. Insufficient input validation for OpenAI image parameters
 - **Severity**: Medium

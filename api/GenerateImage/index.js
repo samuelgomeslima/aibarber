@@ -1,42 +1,95 @@
-const OpenAI = require('openai');
+const OPENAI_URL = "https://api.openai.com/v1/images/generations";
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const OPENAI_PROXY_TOKEN = process.env.OPENAI_PROXY_TOKEN;
+const LEGACY_IMAGE_TOKEN = process.env.IMAGE_API_TOKEN;
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function getProvidedToken(req) {
+  if (!req || typeof req !== "object" || !req.headers) return undefined;
+  const headers = req.headers;
+  return headers["x-api-key"] || headers["x-functions-key"];
+}
+
+function parseRequestBody(req) {
+  if (req.body && typeof req.body === "object") {
+    return req.body;
+  }
+
+  if (typeof req.rawBody === "string" && req.rawBody.trim().length > 0) {
+    return JSON.parse(req.rawBody);
+  }
+
+  if (Buffer.isBuffer(req.rawBody) && req.rawBody.length > 0) {
+    return JSON.parse(req.rawBody.toString("utf8"));
+  }
+
+  return undefined;
+}
 
 module.exports = async function (context, req) {
-  context.log('GenerateImage function processed a request.');
-
-  if (!process.env.OPENAI_API_KEY) {
-    context.log.error('Missing OPENAI_API_KEY configuration.');
+  if (!OPENAI_API_KEY) {
+    context.log.warn("Missing OPENAI_API_KEY environment variable.");
     context.res = {
       status: 500,
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: {
-        error: 'Server misconfiguration: missing OpenAI credentials.',
+        error: {
+          message: "The OpenAI API key is not configured on the server.",
+        },
       },
     };
     return;
   }
 
-  const configuredToken = process.env.IMAGE_API_TOKEN;
-  const providedToken = req.headers['x-api-key'] || req.headers['x-functions-key'];
+  const configuredToken = OPENAI_PROXY_TOKEN || LEGACY_IMAGE_TOKEN;
 
   if (!configuredToken) {
-    context.log.error('Missing IMAGE_API_TOKEN configuration.');
+    context.log.error("Missing OPENAI_PROXY_TOKEN (or IMAGE_API_TOKEN fallback).");
     context.res = {
       status: 500,
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: {
-        error: 'Server misconfiguration: missing image API token.',
+        error: {
+          message: "Server misconfiguration: missing OpenAI proxy token.",
+        },
       },
     };
     return;
   }
 
-  if (!providedToken || configuredToken !== providedToken) {
+  const providedToken = getProvidedToken(req);
+  if (!providedToken || providedToken !== configuredToken) {
     context.res = {
       status: 401,
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: {
-        error: 'Unauthorized request.',
+        error: {
+          message: "Unauthorized request.",
+        },
+      },
+    };
+    return;
+  }
+
+  let body;
+  try {
+    body = parseRequestBody(req);
+  } catch (error) {
+    context.log.warn("Failed to parse request body as JSON.", error);
+    context.res = {
+      status: 400,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: {
+        error: {
+          message: "Invalid JSON payload in request body.",
+        },
       },
     };
     return;
@@ -44,16 +97,21 @@ module.exports = async function (context, req) {
 
   const {
     prompt,
-    size = '1024x1024',
-    quality = 'standard',
-    response_format = 'b64_json',
-  } = req.body || {};
+    size = "1024x1024",
+    quality = "standard",
+    response_format = "b64_json",
+  } = body || {};
 
-  if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
+  if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
     context.res = {
       status: 400,
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: {
-        error: 'A non-empty "prompt" field is required in the request body.',
+        error: {
+          message: 'A non-empty "prompt" field is required in the request body.',
+        },
       },
     };
     return;
@@ -62,82 +120,155 @@ module.exports = async function (context, req) {
   if (prompt.length > 1000) {
     context.res = {
       status: 400,
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: {
-        error: 'Prompt is too long. Limit to 1000 characters.',
+        error: {
+          message: "Prompt is too long. Limit to 1000 characters.",
+        },
       },
     };
     return;
   }
 
-  const allowedSizes = new Set(['256x256', '512x512', '1024x1024']);
+  const allowedSizes = new Set(["256x256", "512x512", "1024x1024"]);
   if (!allowedSizes.has(size)) {
     context.res = {
       status: 400,
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: {
-        error: 'Invalid "size" requested.',
+        error: {
+          message: 'Invalid "size" requested.',
+        },
       },
     };
     return;
   }
 
-  const allowedQualities = new Set(['standard', 'hd']);
+  const allowedQualities = new Set(["standard", "hd"]);
   if (!allowedQualities.has(quality)) {
     context.res = {
       status: 400,
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: {
-        error: 'Invalid "quality" requested.',
+        error: {
+          message: 'Invalid "quality" requested.',
+        },
       },
     };
     return;
   }
 
-  if (response_format !== 'b64_json') {
+  if (response_format !== "b64_json") {
     context.res = {
       status: 400,
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: {
-        error: 'Unsupported "response_format" requested.',
+        error: {
+          message: 'Unsupported "response_format" requested.',
+        },
       },
     };
     return;
   }
 
   try {
-    const response = await client.images.generate({
-      model: 'gpt-image-1',
-      prompt,
+    const payload = {
+      model: "gpt-image-1",
+      prompt: prompt.trim(),
       size,
       quality,
       response_format,
+    };
+
+    const response = await fetch(OPENAI_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify(payload),
     });
 
-    const image = response.data?.[0];
+    let data;
+    try {
+      data = await response.json();
+    } catch (error) {
+      context.log.error("Image API did not return JSON.", error);
+      context.res = {
+        status: 502,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: {
+          error: {
+            message: "Unexpected response from the OpenAI image service.",
+          },
+        },
+      };
+      return;
+    }
 
+    if (!response.ok) {
+      context.log.warn("OpenAI image generation failed.", data);
+      context.res = {
+        status: response.status,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: data,
+      };
+      return;
+    }
+
+    const image = Array.isArray(data?.data) ? data.data[0] : undefined;
     if (!image) {
-      throw new Error('No image returned by OpenAI.');
+      context.log.error("OpenAI response missing image payload.", data);
+      context.res = {
+        status: 502,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: {
+          error: {
+            message: "No image returned by OpenAI.",
+          },
+        },
+      };
+      return;
     }
 
     context.res = {
       status: 200,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: {
-        prompt,
-        size,
-        quality,
-        response_format,
+        prompt: payload.prompt,
+        size: payload.size,
+        quality: payload.quality,
+        response_format: payload.response_format,
         data: image,
       },
     };
   } catch (error) {
-    context.log.error('Failed to generate image', error);
-    const status = error.status ?? 500;
-
+    context.log.error("Failed to generate image via OpenAI.", error);
     context.res = {
-      status,
+      status: 500,
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: {
-        error: 'Failed to generate image.',
-        details: error.message,
+        error: {
+          message: "Unable to contact the image generation service right now.",
+        },
       },
     };
   }

@@ -1,5 +1,6 @@
 const API_ROUTE = "/api/images/generate";
-const IMAGE_API_TOKEN = process.env.EXPO_PUBLIC_IMAGE_API_TOKEN;
+const IMAGE_API_TOKEN =
+  process.env.EXPO_PUBLIC_OPENAI_PROXY_TOKEN ?? process.env.EXPO_PUBLIC_IMAGE_API_TOKEN;
 
 export type GenerateImageOptions = {
   prompt: string;
@@ -36,7 +37,7 @@ function buildErrorMessage(status: number, body: any) {
     }
   }
 
-  if (status === 401) return "Unauthorized request to the image generator.";
+  if (status === 401) return "Unauthorized request to the image proxy.";
   if (status >= 400 && status < 500) return `Request failed with status ${status}.`;
   if (status >= 500) return "Image service is currently unavailable.";
   return "Unexpected error contacting the image API.";

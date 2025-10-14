@@ -32,9 +32,9 @@ Azure Static Web Apps automatically discovers the Azure Functions application be
      "Values": {
        "AzureWebJobsStorage": "UseDevelopmentStorage=true",
        "FUNCTIONS_WORKER_RUNTIME": "node",
-       "OPENAI_API_KEY": "sk-your-key",
-       "IMAGE_API_TOKEN": "local-dev-token",
-       "OPENAI_PROXY_TOKEN": "local-dev-token"
+      "OPENAI_API_KEY": "sk-your-key",
+      "OPENAI_PROXY_TOKEN": "local-dev-token",
+      "IMAGE_API_TOKEN": "local-dev-token"
      }
    }
    ```
@@ -47,9 +47,10 @@ Azure Static Web Apps automatically discovers the Azure Functions application be
 ## 3. Secure Configuration
 
 - `OPENAI_API_KEY` **must never be committed to the repository.** Store it as an application setting in Azure.
-- The HTTP triggers expect requests to include an `x-api-key` header that matches `IMAGE_API_TOKEN` (image generation) or
-  `OPENAI_PROXY_TOKEN` (chat/transcribe). This allows you to control who can call the APIs while keeping the functions
-  anonymous for SWA routing.
+- The HTTP triggers expect requests to include an `x-api-key` header that matches `OPENAI_PROXY_TOKEN`. This token now
+  protects chat, transcription, and image proxy calls so you can control who can call the APIs while keeping the
+  functions anonymous for SWA routing. For backwards compatibility, the image endpoint still accepts
+  `IMAGE_API_TOKEN`, but plan to migrate to `OPENAI_PROXY_TOKEN`.
 - Rotate keys regularly and remove unused secrets from Azure.
 
 ## 4. Azure Resources
@@ -74,8 +75,8 @@ output_location: "dist"      # Vite build output
 | ----------------------------- | ---------------------------------------- | ------------------------------------------- |
 | `AZURE_STATIC_WEB_APPS_API_TOKEN` | GitHub repository → Settings → Secrets    | Authentication for the SWA deployment task. |
 | `OPENAI_API_KEY`              | Azure Portal → Static Web App → Configuration | Used by the Azure Function at runtime.      |
-| `IMAGE_API_TOKEN`             | Azure Portal → Static Web App → Configuration | Shared secret between the client and image API. |
-| `OPENAI_PROXY_TOKEN`          | Azure Portal → Static Web App → Configuration | Shared secret between the client and chat/transcribe APIs. |
+| `OPENAI_PROXY_TOKEN`          | Azure Portal → Static Web App → Configuration | Shared secret between the client and chat/transcribe/image proxies. |
+| `IMAGE_API_TOKEN` *(optional)* | Azure Portal → Static Web App → Configuration | Legacy shared secret accepted by the image proxy. |
 
 > Do **not** store `OPENAI_API_KEY`, `IMAGE_API_TOKEN`, or `OPENAI_PROXY_TOKEN` as GitHub secrets unless you specifically need them for unit tests. They should stay in the Azure environment.
 
@@ -84,8 +85,8 @@ output_location: "dist"      # Vite build output
 1. In the Azure Portal, open your Static Web App resource.
 2. Go to **Configuration** and add the following application settings:
    - `OPENAI_API_KEY` = `sk-...`
-   - `IMAGE_API_TOKEN` = a random string that your assistant will send in the `x-api-key` header.
-   - `OPENAI_PROXY_TOKEN` = another random string that protects `/api/chat` and `/api/transcribe`.
+   - `OPENAI_PROXY_TOKEN` = a random string that protects `/api/chat`, `/api/transcribe`, and `/api/images/generate`.
+   - *(Optional)* `IMAGE_API_TOKEN` = legacy fallback for image requests if you have older clients deployed.
 3. Trigger a redeploy from GitHub Actions or manually restart the Functions API to apply the new settings.
 
 ## 7. Consuming the API from the Assistant
@@ -97,7 +98,7 @@ const response = await fetch('/api/images/generate', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
-    'x-api-key': import.meta.env.VITE_IMAGE_API_TOKEN,
+    'x-api-key': import.meta.env.VITE_OPENAI_PROXY_TOKEN,
   },
   body: JSON.stringify({
     prompt: 'High-resolution haircut design for a modern barber shop',
@@ -123,18 +124,17 @@ const data = await response.json();
 ```bash
 curl -X POST "https://<your-app-name>.azurestaticapps.net/api/images/generate" \
   -H "Content-Type: application/json" \
-  -H "x-api-key: $IMAGE_API_TOKEN" \
+  -H "x-api-key: $OPENAI_PROXY_TOKEN" \
   -d '{"prompt":"High-resolution haircut design"}'
 ```
 
-Define `VITE_IMAGE_API_TOKEN` (Vite build) or `EXPO_PUBLIC_IMAGE_API_TOKEN` (Expo dev server) as a build-time environment variable for the front-end using the SWA configuration or GitHub Actions if necessary.
-
-For chat and transcription calls, configure `VITE_OPENAI_PROXY_TOKEN` (Vite) or `EXPO_PUBLIC_OPENAI_PROXY_TOKEN` (Expo) to match `OPENAI_PROXY_TOKEN`. The front-end automatically forwards the token in the `x-api-key` header when present.
+Define `VITE_OPENAI_PROXY_TOKEN` (Vite build) or `EXPO_PUBLIC_OPENAI_PROXY_TOKEN` (Expo dev server) as a build-time environment variable for the front-end using the SWA configuration or GitHub Actions if necessary. The image helper still
+accepts `VITE_IMAGE_API_TOKEN`/`EXPO_PUBLIC_IMAGE_API_TOKEN` as a fallback, but plan to migrate to the unified proxy token.
 
 ## 8. Verification Checklist
 
 - [ ] GitHub Actions workflow references `api_location: "api"`.
-- [ ] Azure Static Web App configuration includes `OPENAI_API_KEY`, `IMAGE_API_TOKEN`, and `OPENAI_PROXY_TOKEN`.
+- [ ] Azure Static Web App configuration includes `OPENAI_API_KEY` and `OPENAI_PROXY_TOKEN` (`IMAGE_API_TOKEN` optional for legacy clients).
 - [ ] Front-end requests include the `x-api-key` header.
 - [ ] Secrets are never committed to the repository.
 - [ ] `api/` folder is checked in so that SWA deploys the Functions app.
