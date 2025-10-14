@@ -10,7 +10,7 @@
 ### 1. Missing authentication enforcement on image generation endpoint
 - **Severity**: High
 - **Issue**: The Azure Function previously accepted requests without verifying an API token when `IMAGE_API_TOKEN` was not configured, allowing unauthenticated use of the OpenAI image endpoint.
-- **Remediation**: The function now fails fast when the token is absent and requires clients to supply the matching `x-api-key` (or `x-functions-key`).
+- **Remediation**: The function now fails fast when the proxy token (`OPENAI_PROXY_TOKEN`, or the legacy `IMAGE_API_TOKEN`) is absent and requires clients to supply the matching `x-api-key` (or `x-functions-key`).
 
 ### 2. Insufficient input validation for OpenAI image parameters
 - **Severity**: Medium
@@ -21,6 +21,11 @@
 - **Severity**: High (architectural)
 - **Issue**: The Expo client previously used `EXPO_PUBLIC_OPENAI_API_KEY`, which bundled the key into the client and exposed it to end users. Anyone with the app could extract the key and abuse it.
 - **Remediation**: Chat and transcription requests now proxy through Azure Functions (`/api/chat` and `/api/transcribe`), which read the `OPENAI_API_KEY` from server-side configuration. The Expo bundle no longer includes the OpenAI secret.
+
+### 4. Anonymous access to chat/transcription proxies (resolved)
+- **Severity**: High
+- **Issue**: The new proxy endpoints allowed anonymous POSTs, creating an open relay for the server-side OpenAI key.
+- **Remediation**: Both proxies now require a shared `OPENAI_PROXY_TOKEN` in the `x-api-key` header and fail fast when the token is missing or incorrect.
 
 ## Additional Recommendations
 - Implement request logging with caution to avoid storing prompts that may contain sensitive data; prefer structured logging with redaction options.

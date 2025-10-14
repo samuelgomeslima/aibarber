@@ -1,5 +1,12 @@
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const OPENAI_PROXY_TOKEN = process.env.OPENAI_PROXY_TOKEN;
+
+function getProvidedToken(req) {
+  if (!req || typeof req !== "object" || !req.headers) return undefined;
+  const headers = req.headers;
+  return headers["x-api-key"] || headers["x-functions-key"];
+}
 
 module.exports = async function (context, req) {
   if (!OPENAI_API_KEY) {
@@ -12,6 +19,38 @@ module.exports = async function (context, req) {
       body: {
         error: {
           message: "The OpenAI API key is not configured on the server.",
+        },
+      },
+    };
+    return;
+  }
+
+  if (!OPENAI_PROXY_TOKEN) {
+    context.log.error("Missing OPENAI_PROXY_TOKEN configuration.");
+    context.res = {
+      status: 500,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: {
+        error: {
+          message: "Server misconfiguration: missing OpenAI proxy token.",
+        },
+      },
+    };
+    return;
+  }
+
+  const providedToken = getProvidedToken(req);
+  if (!providedToken || providedToken !== OPENAI_PROXY_TOKEN) {
+    context.res = {
+      status: 401,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: {
+        error: {
+          message: "Unauthorized request.",
         },
       },
     };

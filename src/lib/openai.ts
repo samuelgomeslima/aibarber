@@ -1,6 +1,7 @@
 const CHAT_API_URL = process.env.EXPO_PUBLIC_OPENAI_PROXY_URL ?? "/api/chat";
 const AUDIO_TRANSCRIPTION_URL =
   process.env.EXPO_PUBLIC_OPENAI_TRANSCRIBE_URL ?? "/api/transcribe";
+const OPENAI_PROXY_TOKEN = process.env.EXPO_PUBLIC_OPENAI_PROXY_TOKEN;
 
 export type ChatCompletionToolCall = {
   id: string;
@@ -123,11 +124,17 @@ export function createOpenAIClient(config: OpenAIClientConfig): OpenAIClient {
       ...payload,
     };
 
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    if (OPENAI_PROXY_TOKEN) {
+      headers["x-api-key"] = OPENAI_PROXY_TOKEN;
+    }
+
     const response = await fetchImpl(apiUrl, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify(bodyPayload),
     });
 
@@ -183,8 +190,14 @@ export function createOpenAIClient(config: OpenAIClientConfig): OpenAIClient {
       );
     }
 
+    const headers: Record<string, string> = {};
+    if (OPENAI_PROXY_TOKEN) {
+      headers["x-api-key"] = OPENAI_PROXY_TOKEN;
+    }
+
     const response = await fetchImpl(transcriptionUrl, {
       method: "POST",
+      headers,
       body: formData,
     });
 

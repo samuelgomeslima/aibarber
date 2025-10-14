@@ -24,10 +24,12 @@ npm install
 Create a file named `.env.local` in the project root and add the following values:
 
 ```bash
-EXPO_PUBLIC_IMAGE_API_TOKEN=local-dev-token
+EXPO_PUBLIC_OPENAI_PROXY_TOKEN=local-dev-token
+# Optional legacy fallback
+# EXPO_PUBLIC_IMAGE_API_TOKEN=local-dev-token
 ```
 
-Expo automatically exposes variables prefixed with `EXPO_PUBLIC_` to the client at runtime. Restart the dev server whenever these values change. The OpenAI Chat API key is now stored exclusively on the Azure Functions backend and loaded from the `OPENAI_API_KEY` setting, so no chat-related secrets are required in the Expo environment.
+Expo automatically exposes variables prefixed with `EXPO_PUBLIC_` to the client at runtime. Restart the dev server whenever these values change. The OpenAI Chat API key is stored exclusively on the Azure Functions backend and loaded from the `OPENAI_API_KEY` setting, so no chat-related secrets are required in the Expo environment.
 
 ### 3.2 Azure Function
 
@@ -40,12 +42,13 @@ Create `api/local.settings.json` (excluded from git) with matching secrets:
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
     "FUNCTIONS_WORKER_RUNTIME": "node",
     "OPENAI_API_KEY": "sk-your-openai-api-key",
+    "OPENAI_PROXY_TOKEN": "local-dev-token",
     "IMAGE_API_TOKEN": "local-dev-token"
   }
 }
 ```
 
-Make sure `IMAGE_API_TOKEN` matches the value used in `.env.local`. The function checks the `x-api-key` header and rejects requests that do not match.
+Make sure `OPENAI_PROXY_TOKEN` matches the value used in `.env.local`. The function checks the `x-api-key` header and rejects requests that do not match. `IMAGE_API_TOKEN` remains available as a fallback while older clients are updated.
 
 ## 4. Start the services
 
@@ -67,8 +70,8 @@ npm run start --prefix api   # starts the Azure Functions app (func start)
 
 If requests fail with **Unauthorized request**, double-check that:
 
-- `EXPO_PUBLIC_IMAGE_API_TOKEN` is defined in `.env.local`.
-- `IMAGE_API_TOKEN` in `api/local.settings.json` matches the same string.
+- `EXPO_PUBLIC_OPENAI_PROXY_TOKEN` is defined in `.env.local` (or the legacy `EXPO_PUBLIC_IMAGE_API_TOKEN` if you still rely on it).
+- `OPENAI_PROXY_TOKEN` in `api/local.settings.json` matches the same string.
 - The Azure Functions server has been restarted after editing `local.settings.json`.
 
 With these steps you can iterate on prompts locally while keeping API keys out of source control.
