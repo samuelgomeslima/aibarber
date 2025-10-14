@@ -26,6 +26,89 @@ function parseRequestBody(req) {
 }
 
 module.exports = async function (context, req) {
+  const method = (req?.method || "GET").toUpperCase();
+  const configuredToken = OPENAI_PROXY_TOKEN || LEGACY_IMAGE_TOKEN;
+  const providedToken = getProvidedToken(req);
+
+  if (method === "GET") {
+    if (!OPENAI_API_KEY) {
+      context.log.warn("Missing OPENAI_API_KEY environment variable.");
+      context.res = {
+        status: 503,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: {
+          ok: false,
+          error: {
+            message: "The OpenAI API key is not configured on the server.",
+          },
+        },
+      };
+      return;
+    }
+
+    if (!configuredToken) {
+      context.log.error("Missing OPENAI_PROXY_TOKEN (or IMAGE_API_TOKEN fallback).");
+      context.res = {
+        status: 503,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: {
+          ok: false,
+          error: {
+            message: "Server misconfiguration: missing OpenAI proxy token.",
+          },
+        },
+      };
+      return;
+    }
+
+    if (!providedToken || providedToken !== configuredToken) {
+      context.res = {
+        status: 401,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: {
+          ok: false,
+          error: {
+            message: "Unauthorized request.",
+          },
+        },
+      };
+      return;
+    }
+
+    context.res = {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: {
+        ok: true,
+        message: "Image generation proxy is ready.",
+      },
+    };
+    return;
+  }
+
+  if (method !== "POST") {
+    context.res = {
+      status: 405,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: {
+        error: {
+          message: "Method not allowed.",
+        },
+      },
+    };
+    return;
+  }
+
   if (!OPENAI_API_KEY) {
     context.log.warn("Missing OPENAI_API_KEY environment variable.");
     context.res = {
@@ -41,8 +124,6 @@ module.exports = async function (context, req) {
     };
     return;
   }
-
-  const configuredToken = OPENAI_PROXY_TOKEN || LEGACY_IMAGE_TOKEN;
 
   if (!configuredToken) {
     context.log.error("Missing OPENAI_PROXY_TOKEN (or IMAGE_API_TOKEN fallback).");
@@ -60,7 +141,6 @@ module.exports = async function (context, req) {
     return;
   }
 
-  const providedToken = getProvidedToken(req);
   if (!providedToken || providedToken !== configuredToken) {
     context.res = {
       status: 401,

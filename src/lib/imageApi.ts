@@ -95,3 +95,6 @@ export async function generateImage(options: GenerateImageOptions): Promise<Gene
 
   return body as GenerateImageResponse;
 }
+
+export const IMAGE_API_ENDPOINT = API_ROUTE;
+export const IMAGE_API_AUTH_TOKEN = IMAGE_API_TOKEN;

@@ -231,6 +231,10 @@ export function createOpenAIClient(config: OpenAIClientConfig): OpenAIClient {
   };
 }
 
+export const OPENAI_CHAT_ENDPOINT = CHAT_API_URL;
+export const OPENAI_TRANSCRIPTION_ENDPOINT = AUDIO_TRANSCRIPTION_URL;
+export const OPENAI_PROXY_AUTH_TOKEN = OPENAI_PROXY_TOKEN;
+
 const defaultClient = createOpenAIClient({});
 
 export const isOpenAiConfigured = defaultClient.isConfigured;
