@@ -112,6 +112,7 @@ const AFTERNOON_END_MINUTES = 17 * 60;
 type SlotPeriod = "morning" | "afternoon" | "evening";
 const BOOKING_LIMIT_OPTIONS = [200, 500, 1000] as const;
 type BookingLimitOption = (typeof BOOKING_LIMIT_OPTIONS)[number];
+const API_STATUS_ORDER: ApiServiceName[] = ["chat", "transcribe", "image"];
 
 const normalizeTimeInput = (input?: string | null): string | null => {
   if (!input) return null;
@@ -191,6 +192,7 @@ import {
   type CashEntry,
 } from "./src/lib/cashRegister";
 import { listStaffMembers, type StaffMember, type StaffRole } from "./src/lib/users";
+import { checkApiStatuses, type ApiServiceName, type ApiServiceStatus } from "./src/lib/apiStatus";
 
 /* Components (mantidos) */
 import DateSelector from "./src/components/DateSelector";
@@ -327,6 +329,24 @@ const LANGUAGE_COPY = {
         system: "System",
         light: "Light",
         dark: "Dark",
+      },
+      apiStatus: {
+        title: "AI services",
+        description: "Verify the availability of chat, transcription, and image integrations.",
+        refresh: "Check again",
+        refreshing: "Checking…",
+        loading: "Checking services…",
+        error: "Unable to verify the services.",
+        labels: {
+          chat: "Chat assistant",
+          transcribe: "Voice transcription",
+          image: "Image generator",
+        },
+        states: {
+          available: "Available",
+          unavailable: "Unavailable",
+          unauthorized: "Unauthorized",
+        },
       },
     },
     teamPage: {
@@ -843,6 +863,24 @@ const LANGUAGE_COPY = {
         system: "Sistema",
         light: "Claro",
         dark: "Escuro",
+      },
+      apiStatus: {
+        title: "Serviços de IA",
+        description: "Verifique a disponibilidade dos recursos de chat, transcrição e imagens.",
+        refresh: "Verificar novamente",
+        refreshing: "Verificando…",
+        loading: "Verificando serviços…",
+        error: "Não foi possível verificar os serviços.",
+        labels: {
+          chat: "Assistente de chat",
+          transcribe: "Transcrição de voz",
+          image: "Gerador de imagens",
+        },
+        states: {
+          available: "Disponível",
+          unavailable: "Indisponível",
+          unauthorized: "Não autorizado",
+        },
       },
     },
     teamPage: {
@@ -1456,6 +1494,10 @@ export default function App() {
   const [adjustmentError, setAdjustmentError] = useState<string | null>(null);
   const [teamMembers, setTeamMembers] = useState<StaffMember[]>([]);
   const [teamLoading, setTeamLoading] = useState(false);
+  const [apiStatuses, setApiStatuses] = useState<ApiServiceStatus[]>([]);
+  const [apiStatusLoading, setApiStatusLoading] = useState(false);
+  const [apiStatusError, setApiStatusError] = useState<string | null>(null);
+  const apiStatusRequestId = useRef(0);
   const [activeScreen, setActiveScreen] = useState<ScreenName>("home");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [language, setLanguage] = useState<SupportedLanguage>(() => getInitialLanguage());
@@ -1600,6 +1642,12 @@ export default function App() {
   }, [copy]);
 
   useEffect(() => { loadServices(); }, [loadServices]);
+
+  useEffect(() => {
+    return () => {
+      apiStatusRequestId.current += 1;
+    };
+  }, []);
 
   const loadServicePackages = useCallback(async () => {
     const requestId = ++servicePackagesRequestId.current;
@@ -1785,11 +1833,42 @@ export default function App() {
     }
   }, [sortTeamMembers, teamCopy.alerts.loadTitle, listStaffMembers]);
 
+  const fetchApiStatuses = useCallback(async () => {
+    const requestId = ++apiStatusRequestId.current;
+    setApiStatusLoading(true);
+    setApiStatusError(null);
+    try {
+      const results = await checkApiStatuses();
+      if (apiStatusRequestId.current === requestId) {
+        setApiStatuses(results);
+      }
+    } catch (error: any) {
+      if (apiStatusRequestId.current === requestId) {
+        setApiStatuses([]);
+        setApiStatusError(error?.message ?? String(error));
+      }
+    } finally {
+      if (apiStatusRequestId.current === requestId) {
+        setApiStatusLoading(false);
+      }
+    }
+  }, []);
+
+  const handleRefreshApiStatuses = useCallback(() => {
+    void fetchApiStatuses();
+  }, [fetchApiStatuses]);
+
   useEffect(() => {
     if (activeScreen === "team") {
       void loadTeamMembers();
     }
   }, [activeScreen, loadTeamMembers]);
+
+  useEffect(() => {
+    if (activeScreen === "settings") {
+      void fetchApiStatuses();
+    }
+  }, [activeScreen, fetchApiStatuses]);
 
   const handleServiceFormClose = useCallback(() => {
     setServiceFormVisible(false);
@@ -5016,6 +5095,107 @@ export default function App() {
         </View>
 
         <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 16 }]}>
+          <View style={styles.statusHeader}>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={[styles.languageLabel, { color: colors.subtext }]}>
+                {copy.settingsPage.apiStatus.title}
+              </Text>
+              <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
+                {copy.settingsPage.apiStatus.description}
+              </Text>
+            </View>
+            <Pressable
+              onPress={handleRefreshApiStatuses}
+              disabled={apiStatusLoading}
+              style={[
+                styles.statusRefresh,
+                {
+                  borderColor: colors.border,
+                  backgroundColor: colors.surface,
+                  opacity: apiStatusLoading ? 0.5 : 1,
+                },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={
+                apiStatusLoading
+                  ? copy.settingsPage.apiStatus.refreshing
+                  : copy.settingsPage.apiStatus.refresh
+              }
+            >
+              <Ionicons name="refresh" size={16} color={colors.subtext} />
+              <Text style={[styles.statusRefreshText, { color: colors.subtext }]}>
+                {apiStatusLoading
+                  ? copy.settingsPage.apiStatus.refreshing
+                  : copy.settingsPage.apiStatus.refresh}
+              </Text>
+            </Pressable>
+          </View>
+
+          {apiStatusLoading ? (
+            <View style={styles.statusLoadingRow}>
+              <ActivityIndicator size="small" color={colors.subtext} />
+              <Text style={[styles.statusErrorText, { color: colors.subtext }]}>
+                {copy.settingsPage.apiStatus.loading}
+              </Text>
+            </View>
+          ) : apiStatusError ? (
+            <View style={{ gap: 6 }}>
+              <Text style={[styles.statusErrorText, { color: colors.danger }]}>
+                {copy.settingsPage.apiStatus.error}
+              </Text>
+              <Text style={[styles.statusErrorText, { color: colors.subtext }]}>
+                {apiStatusError}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.statusList}>
+              {API_STATUS_ORDER.map((service) => {
+                const status = apiStatuses.find((item) => item.service === service);
+                const state = status?.state ?? "unavailable";
+                const label = copy.settingsPage.apiStatus.labels[service];
+                const detail =
+                  (status?.message && status.message.trim()) ||
+                  copy.settingsPage.apiStatus.states[state];
+                const pillStyle = [
+                  styles.statusPill,
+                  state === "available"
+                    ? styles.statusPillAvailable
+                    : state === "unauthorized"
+                      ? styles.statusPillUnauthorized
+                      : styles.statusPillUnavailable,
+                ];
+                const pillColor =
+                  state === "available"
+                    ? colors.accent
+                    : state === "unauthorized"
+                      ? colors.subtext
+                      : colors.danger;
+                const iconName: React.ComponentProps<typeof Ionicons>["name"] =
+                  state === "available"
+                    ? "checkmark-circle"
+                    : state === "unauthorized"
+                      ? "lock-closed"
+                      : "alert-circle";
+                return (
+                  <View key={service} style={styles.statusRow}>
+                    <View style={styles.statusLabelGroup}>
+                      <Text style={[styles.statusLabel, { color: colors.text }]}>{label}</Text>
+                      <Text style={[styles.statusDescription, { color: colors.subtext }]}>{detail}</Text>
+                    </View>
+                    <View style={pillStyle}>
+                      <Ionicons name={iconName} size={16} color={pillColor} />
+                      <Text style={[styles.statusPillText, { color: pillColor }]}>
+                        {copy.settingsPage.apiStatus.states[state]}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </View>
+
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 16 }]}>
           <Text style={[styles.languageLabel, { color: colors.subtext }]}>{copy.languageLabel}</Text>
           <View style={styles.languageOptions}>
             {LANGUAGE_OPTIONS.map((option) => {
@@ -5864,6 +6044,57 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 12,
   },
   languageOptionText: { fontWeight: "700", fontSize: 12 },
+  statusHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  statusRefresh: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  statusRefreshText: { fontWeight: "700", fontSize: 12 },
+  statusLoadingRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  statusErrorText: { fontSize: 12, fontWeight: "600" },
+  statusList: { gap: 12 },
+  statusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  statusLabelGroup: { flex: 1, gap: 2 },
+  statusLabel: { fontSize: 13, fontWeight: "800" },
+  statusDescription: { fontSize: 12, fontWeight: "600" },
+  statusPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  statusPillAvailable: {
+    backgroundColor: applyAlpha(colors.accent, 0.15),
+    borderColor: applyAlpha(colors.accent, 0.4),
+  },
+  statusPillUnavailable: {
+    backgroundColor: applyAlpha(colors.danger, 0.12),
+    borderColor: applyAlpha(colors.danger, 0.35),
+  },
+  statusPillUnauthorized: {
+    backgroundColor: applyAlpha(colors.subtext, 0.12),
+    borderColor: applyAlpha(colors.subtext, 0.3),
+  },
+  statusPillText: { fontWeight: "800", fontSize: 12 },
   input: {
     paddingVertical: 10,
     paddingHorizontal: 12,
