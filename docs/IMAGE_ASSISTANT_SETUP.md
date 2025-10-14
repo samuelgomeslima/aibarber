@@ -24,11 +24,10 @@ npm install
 Create a file named `.env.local` in the project root and add the following values:
 
 ```bash
-EXPO_PUBLIC_OPENAI_API_KEY=sk-your-openai-api-key
 EXPO_PUBLIC_IMAGE_API_TOKEN=local-dev-token
 ```
 
-Expo automatically exposes variables prefixed with `EXPO_PUBLIC_` to the client at runtime. Restart the dev server whenever these values change.
+Expo automatically exposes variables prefixed with `EXPO_PUBLIC_` to the client at runtime. Restart the dev server whenever these values change. The OpenAI Chat API key is now stored exclusively on the Azure Functions backend and loaded from the `OPENAI_API_KEY` setting, so no chat-related secrets are required in the Expo environment.
 
 ### 3.2 Azure Function
 

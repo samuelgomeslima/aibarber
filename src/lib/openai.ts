@@ -1,5 +1,6 @@
-const API_URL = "https://api.openai.com/v1/chat/completions";
-const AUDIO_TRANSCRIPTION_URL = "https://api.openai.com/v1/audio/transcriptions";
+const CHAT_API_URL = process.env.EXPO_PUBLIC_OPENAI_PROXY_URL ?? "/api/chat";
+const AUDIO_TRANSCRIPTION_URL =
+  process.env.EXPO_PUBLIC_OPENAI_TRANSCRIBE_URL ?? "/api/transcribe";
 
 export type ChatCompletionToolCall = {
   id: string;
@@ -86,9 +87,8 @@ type TranscribeAudioInput =
   | { blob: BlobLike; fileName?: string; mimeType?: string };
 
 export type OpenAIClientConfig = {
-  apiKey: string;
   fetchImpl?: typeof fetch;
-  apiUrl?: string;
+  chatUrl?: string;
   transcriptionUrl?: string;
 };
 
@@ -100,14 +100,17 @@ export type OpenAIClient = {
 };
 
 export function createOpenAIClient(config: OpenAIClientConfig): OpenAIClient {
-  const apiUrl = config.apiUrl ?? API_URL;
+  const apiUrl = config.chatUrl ?? CHAT_API_URL;
   const transcriptionUrl = config.transcriptionUrl ?? AUDIO_TRANSCRIPTION_URL;
   const fetchImpl = config.fetchImpl ?? fetch;
-  const isConfigured = typeof config.apiKey === "string" && config.apiKey.length > 0;
+  const isConfigured =
+    typeof apiUrl === "string" && apiUrl.length > 0 && typeof transcriptionUrl === "string" && transcriptionUrl.length > 0;
 
   const ensureConfigured = () => {
     if (!isConfigured) {
-      throw new Error("OpenAI API key is not configured. Set EXPO_PUBLIC_OPENAI_API_KEY in your environment.");
+      throw new Error(
+        "OpenAI service is not configured. Ensure the backend has an OPENAI_API_KEY secret set.",
+      );
     }
   };
 
@@ -124,12 +127,16 @@ export function createOpenAIClient(config: OpenAIClientConfig): OpenAIClient {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${config.apiKey}`,
       },
       body: JSON.stringify(bodyPayload),
     });
 
-    const body: unknown = await response.json();
+    let body: unknown = null;
+    try {
+      body = await response.json();
+    } catch {
+      body = null;
+    }
     if (!response.ok) {
       throw new Error(buildErrorMessage(response.status, body));
     }
@@ -178,13 +185,15 @@ export function createOpenAIClient(config: OpenAIClientConfig): OpenAIClient {
 
     const response = await fetchImpl(transcriptionUrl, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-      },
       body: formData,
     });
 
-    const body: unknown = await response.json();
+    let body: unknown = null;
+    try {
+      body = await response.json();
+    } catch {
+      body = null;
+    }
     if (!response.ok) {
       throw new Error(buildErrorMessage(response.status, body));
     }
@@ -209,9 +218,7 @@ export function createOpenAIClient(config: OpenAIClientConfig): OpenAIClient {
   };
 }
 
-const defaultClient = createOpenAIClient({
-  apiKey: process.env.EXPO_PUBLIC_OPENAI_API_KEY ?? "",
-});
+const defaultClient = createOpenAIClient({});
 
 export const isOpenAiConfigured = defaultClient.isConfigured;
 export const callOpenAIChatCompletion = defaultClient.callChatCompletion;
