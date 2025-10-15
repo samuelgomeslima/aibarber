@@ -1,7 +1,7 @@
 # Security Review - AI Barber Application
 
 ## Summary
-- **Scope**: Azure Function `api/GenerateImage`, Expo front-end OpenAI integrations, deployment guidance.
+- **Scope**: Azure Function `api/image`, Expo front-end OpenAI integrations, deployment guidance.
 - **Date**: 2025-10-08 (UTC)
 - **Reviewer**: Automated security assessment by ChatGPT.
 
