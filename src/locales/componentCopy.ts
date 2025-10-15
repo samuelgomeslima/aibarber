@@ -103,6 +103,94 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
         meta: (size: string, quality: string) => `Size: ${size} • Quality: ${quality}`,
         generatedAt: (timestamp: string) => `Generated ${timestamp}`,
       },
+      upload: {
+        label: "Client photo",
+        button: "Upload photo",
+        changeButton: "Replace photo",
+        removeButton: "Remove",
+        helper: "Use a recent, well-lit portrait so the assistant can personalize recommendations.",
+        accessibility: "Upload client reference photo",
+        removeAccessibility: "Remove client reference photo",
+        unsupported:
+          "Photo upload is currently available in the web preview. Add a native image picker to support mobile uploads.",
+        previewLabel: "Selected photo",
+        fileNameLabel: "File",
+        fileSizeLabel: "Size",
+        unknownSize: "Unknown",
+        invalidType: "Please choose a PNG or JPG image.",
+        readError: "We couldn't read that file. Try another photo.",
+      },
+      recommendation: {
+        title: "Haircut recommendation",
+        helper: "We combine the prompt and client photo to highlight the most suitable look.",
+        empty: "Upload a client photo to unlock a tailored haircut suggestion.",
+        maintenanceTitle: "Maintenance game plan",
+        finishTitle: "Finishing touch",
+        options: {
+          default: {
+            style: "Low skin fade with textured top",
+            description: "Balances sharp sides with enough length on top to adapt to most hair densities.",
+            maintenance: [
+              "Schedule taper cleanups every 2-3 weeks to keep the fade sharp.",
+              "Blend with lightweight matte paste to preserve natural texture.",
+            ],
+            finish: "Detail the hairline and finish with a cold air blast for extra definition.",
+          },
+          curls: {
+            style: "Structured curl crop",
+            description: "Controls volume while keeping defined curls focused through the fringe.",
+            maintenance: [
+              "Diffuse on low heat with curl cream after every wash.",
+              "Refresh with hydrating spray between appointments to prevent frizz.",
+            ],
+            finish: "Scrunch in a curl-defining foam and allow to air dry for bounce.",
+          },
+          volume: {
+            style: "Textured pompadour",
+            description: "Builds vertical lift with soft edges, ideal for straight or wavy hair seeking volume.",
+            maintenance: [
+              "Blow-dry with a vent brush and volumizing tonic for lift.",
+              "Trim the neckline and perimeter every 4 weeks to maintain structure.",
+            ],
+            finish: "Lock in hold with a light mist of medium-firm hairspray.",
+          },
+          corporate: {
+            style: "Tapered side part",
+            description: "A polished profile that transitions seamlessly from office to evening events.",
+            maintenance: [
+              "Comb in a small amount of lightweight styling cream each morning.",
+              "Book maintenance cuts every 3-4 weeks to keep the parting clean.",
+            ],
+            finish: "Apply a touch of shine pomade to the part for a refined finish.",
+          },
+          feminine: {
+            style: "Soft long layers with face framing",
+            description: "Adds movement around the cheeks while preserving length for versatile styling.",
+            maintenance: [
+              "Dust the ends every 6-8 weeks to keep layers fluid.",
+              "Use heat protectant before styling to guard against dryness.",
+            ],
+            finish: "Polish with a smoothing serum through the mids and ends.",
+          },
+        },
+      },
+      guidelines: {
+        title: "Consultation playbook",
+        intro: "Follow these steps before executing the look:",
+        items: [
+          "Capture front, profile, and crown references in consistent lighting.",
+          "Clarify lifestyle, job requirements, and preferred styling time.",
+          "Discuss hair history, growth patterns, and any problem areas.",
+          "Offer at least two backup looks in case hair density or texture changes.",
+          "Document recommended products and share maintenance notes via message.",
+        ],
+      },
+      model: {
+        title: "Recommended AI model",
+        name: "gpt-4o mini vision",
+        description:
+          "Delivers quick vision-language reasoning for analyzing reference photos, generating haircut prompts, and staying cost-efficient for daily consultations.",
+      },
     },
     serviceForm: {
       createTitle: "Register a service",
@@ -464,6 +552,94 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
         revisedPrefix: "Prompt revisado:",
         meta: (size: string, quality: string) => `Tamanho: ${size} • Qualidade: ${quality}`,
         generatedAt: (timestamp: string) => `Gerado em ${timestamp}`,
+      },
+      upload: {
+        label: "Foto do cliente",
+        button: "Enviar foto",
+        changeButton: "Trocar foto",
+        removeButton: "Remover",
+        helper: "Use um retrato recente e bem iluminado para personalizar as recomendações.",
+        accessibility: "Enviar foto de referência do cliente",
+        removeAccessibility: "Remover foto de referência do cliente",
+        unsupported:
+          "O envio de fotos está disponível no preview web. Adicione um seletor de imagens nativo para habilitar nos apps.",
+        previewLabel: "Foto selecionada",
+        fileNameLabel: "Arquivo",
+        fileSizeLabel: "Tamanho",
+        unknownSize: "Desconhecido",
+        invalidType: "Escolha uma imagem PNG ou JPG.",
+        readError: "Não foi possível ler esse arquivo. Tente outra foto.",
+      },
+      recommendation: {
+        title: "Recomendação de corte",
+        helper: "Combinamos o prompt e a foto do cliente para sugerir o visual ideal.",
+        empty: "Envie a foto do cliente para liberar uma sugestão personalizada.",
+        maintenanceTitle: "Plano de manutenção",
+        finishTitle: "Finalização",
+        options: {
+          default: {
+            style: "Fade baixo com topo texturizado",
+            description: "Equilibra laterais marcadas com comprimento suficiente no topo para diferentes densidades.",
+            maintenance: [
+              "Agende retoques a cada 2-3 semanas para manter o fade alinhado.",
+              "Finalize com pomada fosca leve para preservar a textura natural.",
+            ],
+            finish: "Defina a linha do cabelo e finalize com jato de ar frio para mais definição.",
+          },
+          curls: {
+            style: "Crop estruturado para cachos",
+            description: "Controla o volume mantendo os cachos definidos na franja.",
+            maintenance: [
+              "Use difusor em baixa temperatura com creme para cachos após cada lavagem.",
+              "Reative com spray hidratante entre as visitas para evitar frizz.",
+            ],
+            finish: "Aplique espuma definidora e deixe secar ao natural para mais bounce.",
+          },
+          volume: {
+            style: "Pompadour texturizado",
+            description: "Constrói volume vertical com bordas suaves, ideal para cabelos lisos ou ondulados.",
+            maintenance: [
+              "Seque com escova vazada e tônico de volume para levantar a raiz.",
+              "Apare nuca e contornos a cada 4 semanas para manter a estrutura.",
+            ],
+            finish: "Fixe com leve névoa de spray de fixação média.",
+          },
+          corporate: {
+            style: "Side part com degradê clássico",
+            description: "Perfil polido que transita do escritório para eventos noturnos sem esforço.",
+            maintenance: [
+              "Penteie com pequena quantidade de creme leve todas as manhãs.",
+              "Agende manutenção a cada 3-4 semanas para manter a risca definida.",
+            ],
+            finish: "Aplique pomada com brilho apenas na risca para acabamento refinado.",
+          },
+          feminine: {
+            style: "Camadas longas suaves com contorno no rosto",
+            description: "Cria movimento nas laterais mantendo o comprimento para estilizar de várias formas.",
+            maintenance: [
+              "Faça corte bordado a cada 6-8 semanas para manter as camadas fluídas.",
+              "Use protetor térmico antes de modelar para evitar ressecamento.",
+            ],
+            finish: "Finalize com sérum de brilho do meio às pontas.",
+          },
+        },
+      },
+      guidelines: {
+        title: "Roteiro de consulta",
+        intro: "Siga estas etapas antes de executar o visual:",
+        items: [
+          "Capture fotos frontal, perfil e topo com iluminação consistente.",
+          "Entenda rotina, profissão e tempo disponível para estilizar.",
+          "Converse sobre histórico capilar, redemoinhos e pontos de atenção.",
+          "Apresente pelo menos duas opções reservas caso a densidade ou textura mudem.",
+          "Registre os produtos indicados e envie as instruções de manutenção.",
+        ],
+      },
+      model: {
+        title: "Modelo de IA recomendado",
+        name: "gpt-4o mini vision",
+        description:
+          "Oferece raciocínio visão-linguagem rápido para analisar referências, sugerir prompts de corte e manter custos baixos em consultas diárias.",
       },
     },
     serviceForm: {

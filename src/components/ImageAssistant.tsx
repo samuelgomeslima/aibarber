@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -8,6 +8,7 @@ import {
   Text,
   TextInput,
   View,
+  Platform,
 } from "react-native";
 
 import {
@@ -39,6 +40,12 @@ type HistoryEntry = {
   createdAt: number;
 };
 
+type ClientPhoto = {
+  uri: string;
+  name: string;
+  sizeKb?: number;
+};
+
 function toDataUri(image: GenerateImageResponse["data"]): string {
   if (image.b64_json) {
     return `data:image/png;base64,${image.b64_json}`;
@@ -57,6 +64,10 @@ export default function ImageAssistant({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [clientPhoto, setClientPhoto] = useState<ClientPhoto | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const sizeOptions = copy.sizeOptions;
   const qualityOptions = copy.qualityOptions;
@@ -66,6 +77,74 @@ export default function ImageAssistant({
   }, [prompt, pending]);
 
   const helperMessage = isImageApiConfigured ? null : copy.helperMessage;
+
+  const handleUploadPress = () => {
+    if (Platform.OS === "web") {
+      fileInputRef.current?.click();
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setClientPhoto(null);
+    setPhotoError(null);
+    if (Platform.OS === "web" && fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleWebFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setPhotoError(copy.upload.invalidType);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : null;
+      if (!result) {
+        setPhotoError(copy.upload.readError);
+        return;
+      }
+
+      setClientPhoto({
+        uri: result,
+        name: file.name,
+        sizeKb: Math.round(file.size / 102.4) / 10,
+      });
+      setPhotoError(null);
+    };
+    reader.onerror = () => {
+      setPhotoError(copy.upload.readError);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const haircutSuggestion = useMemo(() => {
+    if (!clientPhoto) return null;
+
+    const normalizedPrompt = prompt.toLowerCase();
+    const { options } = copy.recommendation;
+
+    if (/(female|woman|lady|girl|feminine)/i.test(normalizedPrompt)) {
+      return options.feminine;
+    }
+
+    if (/(curl|wave|coil|kink|texture|afro)/i.test(normalizedPrompt)) {
+      return options.curls;
+    }
+
+    if (/(volume|pompadour|quiff|lift|flow|layered)/i.test(normalizedPrompt)) {
+      return options.volume;
+    }
+
+    if (/(business|professional|corporate|office|executive|formal)/i.test(normalizedPrompt)) {
+      return options.corporate;
+    }
+
+    return options.default;
+  }, [clientPhoto, prompt, copy.recommendation]);
 
   const handleGenerate = async () => {
     if (!prompt.trim() || pending) return;
@@ -108,6 +187,62 @@ export default function ImageAssistant({
         ) : null}
 
         <View style={{ gap: 12 }}>
+          <View>
+            <Text style={[styles.label, { color: colors.subtext }]}>{copy.upload.label}</Text>
+            {Platform.OS === "web" ? (
+              <View style={{ gap: 10 }}>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  onChange={handleWebFileChange}
+                />
+                <Pressable
+                  onPress={handleUploadPress}
+                  style={[styles.optionChip, { borderColor: colors.border, backgroundColor: colors.bg }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={copy.upload.accessibility}
+                >
+                  <Text style={[styles.optionText, { color: colors.text }]}>
+                    {clientPhoto ? copy.upload.changeButton : copy.upload.button}
+                  </Text>
+                </Pressable>
+                <Text style={[styles.helperText, { color: colors.subtext }]}>{copy.upload.helper}</Text>
+                {clientPhoto ? (
+                  <View style={[styles.photoPreview, { borderColor: colors.border, backgroundColor: colors.bg }]}>
+                    <Text style={[styles.photoPreviewLabel, { color: colors.subtext }]}>{copy.upload.previewLabel}</Text>
+                    <Image
+                      source={{ uri: clientPhoto.uri }}
+                      style={styles.clientPhoto}
+                      resizeMode="cover"
+                      accessibilityLabel={copy.upload.previewLabel}
+                    />
+                    <View style={styles.photoMetaRow}>
+                      <Text style={[styles.photoMeta, { color: colors.subtext }]}>
+                        {copy.upload.fileNameLabel}: {clientPhoto.name}
+                      </Text>
+                      <Text style={[styles.photoMeta, { color: colors.subtext }]}>
+                        {copy.upload.fileSizeLabel}: {clientPhoto.sizeKb ? `${clientPhoto.sizeKb.toFixed(1)} KB` : copy.upload.unknownSize}
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={handleRemovePhoto}
+                      style={[styles.clearHistoryButton, { borderColor: colors.border }]}
+                      accessibilityRole="button"
+                      accessibilityLabel={copy.upload.removeAccessibility}
+                    >
+                      <Text style={[styles.clearHistoryText, { color: colors.subtext }]}>{copy.upload.removeButton}</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
+              </View>
+            ) : (
+              <Text style={[styles.helperText, { color: colors.subtext }]}>{copy.upload.unsupported}</Text>
+            )}
+            {photoError ? <Text style={[styles.errorText, { color: colors.danger }]}>{photoError}</Text> : null}
+          </View>
+
           <View>
             <Text style={[styles.label, { color: colors.subtext }]}>{copy.promptLabel}</Text>
             <TextInput
@@ -240,6 +375,53 @@ export default function ImageAssistant({
           })}
         </View>
       ) : null}
+
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Text style={[styles.title, { color: colors.text }]}>{copy.recommendation.title}</Text>
+        <Text style={[styles.helperText, { color: colors.subtext }]}>{copy.recommendation.helper}</Text>
+        {clientPhoto && haircutSuggestion ? (
+          <View style={{ gap: 12 }}>
+            <Text style={[styles.suggestionTitle, { color: colors.text }]}>{haircutSuggestion.style}</Text>
+            <Text style={[styles.suggestionDescription, { color: colors.subtext }]}>
+              {haircutSuggestion.description}
+            </Text>
+            <View style={{ gap: 6 }}>
+              <Text style={[styles.sectionSubtitle, { color: colors.text }]}>{copy.recommendation.maintenanceTitle}</Text>
+              {haircutSuggestion.maintenance.map((tip, index) => (
+                <View key={`${haircutSuggestion.style}-maintenance-${index}`} style={styles.bulletRow}>
+                  <Text style={[styles.bulletSymbol, { color: colors.accent }]}>•</Text>
+                  <Text style={[styles.bulletText, { color: colors.text }]}>{tip}</Text>
+                </View>
+              ))}
+            </View>
+            <View style={{ gap: 6 }}>
+              <Text style={[styles.sectionSubtitle, { color: colors.text }]}>{copy.recommendation.finishTitle}</Text>
+              <Text style={[styles.bulletText, { color: colors.text }]}>{haircutSuggestion.finish}</Text>
+            </View>
+          </View>
+        ) : (
+          <Text style={[styles.helperText, { color: colors.subtext }]}>{copy.recommendation.empty}</Text>
+        )}
+      </View>
+
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Text style={[styles.title, { color: colors.text }]}>{copy.guidelines.title}</Text>
+        <Text style={[styles.helperText, { color: colors.subtext }]}>{copy.guidelines.intro}</Text>
+        <View style={{ gap: 6 }}>
+          {copy.guidelines.items.map((item, index) => (
+            <View key={`guideline-${index}`} style={styles.bulletRow}>
+              <Text style={[styles.bulletSymbol, { color: colors.accent }]}>•</Text>
+              <Text style={[styles.bulletText, { color: colors.text }]}>{item}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Text style={[styles.title, { color: colors.text }]}>{copy.model.title}</Text>
+        <Text style={[styles.modelName, { color: colors.text }]}>{copy.model.name}</Text>
+        <Text style={[styles.helperText, { color: colors.subtext }]}>{copy.model.description}</Text>
+      </View>
     </ScrollView>
   );
 }
@@ -279,6 +461,11 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     textTransform: "uppercase",
     marginBottom: 6,
+  },
+  helperText: {
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 18,
   },
   promptInput: {
     minHeight: 120,
@@ -342,6 +529,33 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     textTransform: "uppercase",
   },
+  photoPreview: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    gap: 12,
+  },
+  photoPreviewLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  clientPhoto: {
+    width: "100%",
+    aspectRatio: 1,
+    borderRadius: 10,
+    backgroundColor: "rgba(0,0,0,0.1)",
+  },
+  photoMetaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  photoMeta: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
   historyMeta: {
     fontSize: 12,
     fontWeight: "700",
@@ -363,5 +577,37 @@ const styles = StyleSheet.create({
   historyTimestamp: {
     fontSize: 12,
     fontWeight: "600",
+  },
+  suggestionTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  suggestionDescription: {
+    fontSize: 14,
+    fontWeight: "600",
+    lineHeight: 20,
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  bulletRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  bulletSymbol: {
+    fontSize: 18,
+    lineHeight: 20,
+  },
+  bulletText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 18,
+  },
+  modelName: {
+    fontSize: 16,
+    fontWeight: "800",
   },
 });
