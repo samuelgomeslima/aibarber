@@ -187,6 +187,13 @@ export type ServicePackageFormCopy = {
   };
 };
 
+type RecommendationDetails = {
+  style: string;
+  description: string;
+  maintenance: string[];
+  finish: string;
+};
+
 export type ImageAssistantCopy = {
   title: string;
   subtitle: { before: string; highlight: string; after: string };
@@ -212,6 +219,46 @@ export type ImageAssistantCopy = {
     revisedPrefix: string;
     meta: (size: string, quality: string) => string;
     generatedAt: (timestamp: string) => string;
+  };
+  upload: {
+    label: string;
+    button: string;
+    changeButton: string;
+    removeButton: string;
+    helper: string;
+    accessibility: string;
+    removeAccessibility: string;
+    unsupported: string;
+    previewLabel: string;
+    fileNameLabel: string;
+    fileSizeLabel: string;
+    unknownSize: string;
+    invalidType: string;
+    readError: string;
+  };
+  recommendation: {
+    title: string;
+    helper: string;
+    empty: string;
+    maintenanceTitle: string;
+    finishTitle: string;
+    options: {
+      default: RecommendationDetails;
+      curls: RecommendationDetails;
+      volume: RecommendationDetails;
+      corporate: RecommendationDetails;
+      feminine: RecommendationDetails;
+    };
+  };
+  guidelines: {
+    title: string;
+    intro: string;
+    items: string[];
+  };
+  model: {
+    title: string;
+    name: string;
+    description: string;
   };
 };
 
