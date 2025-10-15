@@ -7,7 +7,7 @@ This guide walks through configuring the new Azure Functions backend under the `
 ```
 /
 ├─ api/                # Azure Functions app (Node.js)
-│  ├─ GenerateImage/   # HTTP trigger for OpenAI image generation
+│  ├─ image/           # HTTP trigger for OpenAI image generation
 │  ├─ host.json
 │  ├─ package.json
 │  └─ .gitignore

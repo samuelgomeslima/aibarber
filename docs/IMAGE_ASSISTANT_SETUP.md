@@ -1,6 +1,6 @@
 # Image Assistant Local Setup
 
-The image assistant screen consumes the Azure Functions endpoint under `api/GenerateImage`. Follow the steps below to configure everything locally.
+The image assistant screen consumes the Azure Functions endpoint under `api/image`. Follow the steps below to configure everything locally.
 
 ## 1. Install prerequisites
 

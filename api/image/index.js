@@ -1,12 +1,13 @@
-const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
+const OPENAI_URL = "https://api.openai.com/v1/images/generations";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_PROXY_TOKEN = process.env.OPENAI_PROXY_TOKEN;
+const LEGACY_IMAGE_TOKEN = process.env.IMAGE_API_TOKEN;
 
 const { jsonResponse, getProvidedToken, parseJsonBody } = require("../_shared/utils");
 
 module.exports = async function (context, req) {
   const method = (req?.method || "GET").toUpperCase();
-  const configuredToken = OPENAI_PROXY_TOKEN;
+  const configuredToken = OPENAI_PROXY_TOKEN || LEGACY_IMAGE_TOKEN;
   const providedToken = getProvidedToken(req);
 
   if (method === "GET") {
@@ -22,7 +23,7 @@ module.exports = async function (context, req) {
     }
 
     if (!configuredToken) {
-      context.log.error("Missing OPENAI_PROXY_TOKEN configuration.");
+      context.log.error("Missing OPENAI_PROXY_TOKEN (or IMAGE_API_TOKEN fallback).");
       context.res = jsonResponse(503, {
         ok: false,
         error: {
@@ -44,7 +45,7 @@ module.exports = async function (context, req) {
 
     context.res = jsonResponse(200, {
       ok: true,
-      message: "Chat completion proxy is ready.",
+      message: "Image generation proxy is ready.",
     });
     return;
   }
@@ -69,7 +70,7 @@ module.exports = async function (context, req) {
   }
 
   if (!configuredToken) {
-    context.log.error("Missing OPENAI_PROXY_TOKEN configuration.");
+    context.log.error("Missing OPENAI_PROXY_TOKEN (or IMAGE_API_TOKEN fallback).");
     context.res = jsonResponse(500, {
       error: {
         message: "Server misconfiguration: missing OpenAI proxy token.",
@@ -100,49 +101,69 @@ module.exports = async function (context, req) {
     return;
   }
 
-  const { messages, temperature = 0.6, tools, model = "gpt-4o-mini" } = body || {};
+  const {
+    prompt,
+    size = "1024x1024",
+    quality = "standard",
+    response_format = "b64_json",
+  } = body || {};
 
-  if (!Array.isArray(messages) || messages.length === 0) {
+  if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
     context.res = jsonResponse(400, {
       error: {
-        message: 'The request body must include a non-empty "messages" array.',
+        message: 'A non-empty "prompt" field is required in the request body.',
       },
     });
     return;
   }
 
-  const messagesAreValid = messages.every((message) => {
-    return message && typeof message === "object" && typeof message.role === "string";
-  });
-
-  if (!messagesAreValid) {
+  if (prompt.length > 1000) {
     context.res = jsonResponse(400, {
       error: {
-        message: "Each message must be an object that includes a role.",
+        message: "Prompt is too long. Limit to 1000 characters.",
       },
     });
     return;
   }
 
-  const safeTemperature =
-    typeof temperature === "number" && Number.isFinite(temperature)
-      ? Math.min(Math.max(temperature, 0), 2)
-      : 0.6;
+  const allowedSizes = new Set(["256x256", "512x512", "1024x1024"]);
+  if (!allowedSizes.has(size)) {
+    context.res = jsonResponse(400, {
+      error: {
+        message: 'Invalid "size" requested.',
+      },
+    });
+    return;
+  }
 
-  const payload = {
-    model: typeof model === "string" && model.trim().length > 0 ? model.trim() : "gpt-4o-mini",
-    messages,
-    temperature: safeTemperature,
-  };
+  const allowedQualities = new Set(["standard", "hd"]);
+  if (!allowedQualities.has(quality)) {
+    context.res = jsonResponse(400, {
+      error: {
+        message: 'Invalid "quality" requested.',
+      },
+    });
+    return;
+  }
 
-  if (Array.isArray(tools)) {
-    const sanitizedTools = tools.filter((tool) => tool && typeof tool === "object");
-    if (sanitizedTools.length > 0) {
-      payload.tools = sanitizedTools;
-    }
+  if (response_format !== "b64_json") {
+    context.res = jsonResponse(400, {
+      error: {
+        message: 'Unsupported "response_format" requested.',
+      },
+    });
+    return;
   }
 
   try {
+    const payload = {
+      model: "gpt-image-1",
+      prompt: prompt.trim(),
+      size,
+      quality,
+      response_format,
+    };
+
     const response = await fetch(OPENAI_URL, {
       method: "POST",
       headers: {
@@ -156,27 +177,44 @@ module.exports = async function (context, req) {
     try {
       data = await response.json();
     } catch (error) {
-      context.log.error("Chat completion API did not return JSON.", error);
+      context.log.error("Image API did not return JSON.", error);
       context.res = jsonResponse(502, {
         error: {
-          message: "Unexpected response from the OpenAI chat service.",
+          message: "Unexpected response from the OpenAI image service.",
         },
       });
       return;
     }
 
     if (!response.ok) {
-      context.log.warn("OpenAI API returned an error response.", data);
+      context.log.warn("OpenAI image generation failed.", data);
       context.res = jsonResponse(response.status, data);
       return;
     }
 
-    context.res = jsonResponse(200, data);
+    const image = Array.isArray(data?.data) ? data.data[0] : undefined;
+    if (!image) {
+      context.log.error("OpenAI response missing image payload.", data);
+      context.res = jsonResponse(502, {
+        error: {
+          message: "No image returned by OpenAI.",
+        },
+      });
+      return;
+    }
+
+    context.res = jsonResponse(200, {
+      prompt: payload.prompt,
+      size: payload.size,
+      quality: payload.quality,
+      response_format: payload.response_format,
+      data: image,
+    });
   } catch (error) {
-    context.log.error("Unexpected error calling OpenAI API.", error);
+    context.log.error("Failed to generate image via OpenAI.", error);
     context.res = jsonResponse(500, {
       error: {
-        message: "Unable to contact the AI service right now. Please try again later.",
+        message: "Unable to contact the image generation service right now.",
       },
     });
   }
