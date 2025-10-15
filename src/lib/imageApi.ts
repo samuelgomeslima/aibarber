@@ -6,7 +6,6 @@ export type GenerateImageOptions = {
   prompt: string;
   size?: "256x256" | "512x512" | "1024x1024";
   quality?: "standard" | "hd";
-  responseFormat?: "b64_json" | "url";
   signal?: AbortSignal;
 };
 
@@ -20,21 +19,59 @@ export type GenerateImageResponse = {
   prompt: string;
   size: string;
   quality: string;
-  response_format: string;
   data: GeneratedImagePayload;
 };
 
 export const isImageApiConfigured = typeof IMAGE_API_TOKEN === "string" && IMAGE_API_TOKEN.length > 0;
 
+function extractErrorMessage(body: unknown): string | null {
+  if (!body || typeof body !== "object") return null;
+
+  if ("error" in body) {
+    const errorValue = (body as any).error;
+
+    if (typeof errorValue === "string" && errorValue.trim().length > 0) {
+      return errorValue;
+    }
+
+    if (errorValue && typeof errorValue === "object") {
+      if ("message" in errorValue && typeof (errorValue as any).message === "string") {
+        const message = String((errorValue as any).message).trim();
+        if (message.length > 0) {
+          return message;
+        }
+      }
+
+      if ("error" in errorValue && typeof (errorValue as any).error === "string") {
+        const nestedError = String((errorValue as any).error).trim();
+        if (nestedError.length > 0) {
+          return nestedError;
+        }
+      }
+    }
+  }
+
+  if ("details" in body && typeof (body as any).details === "string") {
+    const details = String((body as any).details).trim();
+    if (details.length > 0) {
+      return details;
+    }
+  }
+
+  if ("message" in body && typeof (body as any).message === "string") {
+    const message = String((body as any).message).trim();
+    if (message.length > 0) {
+      return message;
+    }
+  }
+
+  return null;
+}
+
 function buildErrorMessage(status: number, body: any) {
-  if (body && typeof body === "object") {
-    if ("error" in body && typeof (body as any).error === "string") {
-      return String((body as any).error);
-    }
-    if ("details" in body) {
-      const details = (body as any).details;
-      if (typeof details === "string") return details;
-    }
+  const extractedMessage = extractErrorMessage(body);
+  if (extractedMessage) {
+    return extractedMessage;
   }
 
   if (status === 401) return "Unauthorized request to the image proxy.";
@@ -43,8 +80,10 @@ function buildErrorMessage(status: number, body: any) {
   return "Unexpected error contacting the image API.";
 }
 
+export const __internal = { extractErrorMessage };
+
 export async function generateImage(options: GenerateImageOptions): Promise<GenerateImageResponse> {
-  const { prompt, size = "1024x1024", quality = "standard", responseFormat = "b64_json", signal } = options;
+  const { prompt, size = "1024x1024", quality = "standard", signal } = options;
 
   if (!prompt || !prompt.trim()) {
     throw new Error("A prompt is required to generate an image.");
@@ -67,7 +106,6 @@ export async function generateImage(options: GenerateImageOptions): Promise<Gene
         prompt: prompt.trim(),
         size,
         quality,
-        response_format: responseFormat,
       }),
       signal,
     });
