@@ -101,12 +101,9 @@ module.exports = async function (context, req) {
     return;
   }
 
-  const {
-    prompt,
-    size = "1024x1024",
-    quality = "standard",
-    response_format = "b64_json",
-  } = body || {};
+  const { prompt, size = "1024x1024", quality = "standard" } = body || {};
+
+  const requestedResponseFormat = body?.response_format;
 
   if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
     context.res = jsonResponse(400, {
@@ -146,7 +143,7 @@ module.exports = async function (context, req) {
     return;
   }
 
-  if (response_format !== "b64_json") {
+  if (requestedResponseFormat && requestedResponseFormat !== "b64_json") {
     context.res = jsonResponse(400, {
       error: {
         message: 'Unsupported "response_format" requested.',
@@ -161,7 +158,6 @@ module.exports = async function (context, req) {
       prompt: prompt.trim(),
       size,
       quality,
-      response_format,
     };
 
     const response = await fetch(OPENAI_URL, {
@@ -207,7 +203,7 @@ module.exports = async function (context, req) {
       prompt: payload.prompt,
       size: payload.size,
       quality: payload.quality,
-      response_format: payload.response_format,
+      response_format: "b64_json",
       data: image,
     });
   } catch (error) {

@@ -6,7 +6,6 @@ export type GenerateImageOptions = {
   prompt: string;
   size?: "256x256" | "512x512" | "1024x1024";
   quality?: "standard" | "hd";
-  responseFormat?: "b64_json" | "url";
   signal?: AbortSignal;
 };
 
@@ -20,7 +19,6 @@ export type GenerateImageResponse = {
   prompt: string;
   size: string;
   quality: string;
-  response_format: string;
   data: GeneratedImagePayload;
 };
 
@@ -85,7 +83,7 @@ function buildErrorMessage(status: number, body: any) {
 export const __internal = { extractErrorMessage };
 
 export async function generateImage(options: GenerateImageOptions): Promise<GenerateImageResponse> {
-  const { prompt, size = "1024x1024", quality = "standard", responseFormat = "b64_json", signal } = options;
+  const { prompt, size = "1024x1024", quality = "standard", signal } = options;
 
   if (!prompt || !prompt.trim()) {
     throw new Error("A prompt is required to generate an image.");
@@ -108,7 +106,6 @@ export async function generateImage(options: GenerateImageOptions): Promise<Gene
         prompt: prompt.trim(),
         size,
         quality,
-        response_format: responseFormat,
       }),
       signal,
     });
