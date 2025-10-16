@@ -112,7 +112,7 @@ const AFTERNOON_END_MINUTES = 17 * 60;
 type SlotPeriod = "morning" | "afternoon" | "evening";
 const BOOKING_LIMIT_OPTIONS = [200, 500, 1000] as const;
 type BookingLimitOption = (typeof BOOKING_LIMIT_OPTIONS)[number];
-const API_STATUS_ORDER: ApiServiceName[] = ["chat", "transcribe", "image"];
+const API_STATUS_ORDER: ApiServiceName[] = ["chat", "transcribe"];
 
 const normalizeTimeInput = (input?: string | null): string | null => {
   if (!input) return null;
@@ -200,7 +200,6 @@ import RecurrenceModal from "./src/components/RecurrenceModal"; // recebe fixedD
 import OccurrencePreviewModal, { PreviewItem } from "./src/components/OccurrencePreviewModal";
 import BarberSelector, { Barber } from "./src/components/BarberSelector";
 import AssistantChat from "./src/components/AssistantChat";
-import ImageAssistant from "./src/components/ImageAssistant";
 import ServicePackageForm from "./src/components/ServicePackageForm";
 import ServiceForm from "./src/components/ServiceForm";
 import ProductForm from "./src/components/ProductForm";
@@ -316,7 +315,6 @@ const LANGUAGE_COPY = {
       products: "Products",
       cashRegister: "Cash register",
       assistant: "Assistant",
-      imageAssistant: "Image lab",
       team: "Team members",
       settings: "Settings",
     },
@@ -332,7 +330,7 @@ const LANGUAGE_COPY = {
       },
       apiStatus: {
         title: "AI services",
-        description: "Verify the availability of chat, transcription, and image integrations.",
+        description: "Verify the availability of chat and transcription integrations.",
         refresh: "Check again",
         refreshing: "Checking…",
         loading: "Checking services…",
@@ -340,7 +338,6 @@ const LANGUAGE_COPY = {
         labels: {
           chat: "Chat assistant",
           transcribe: "Voice transcription",
-          image: "Image generator",
         },
         states: {
           available: "Available",
@@ -592,7 +589,6 @@ const LANGUAGE_COPY = {
         ],
       },
     },
-    imageAssistant: COMPONENT_COPY.en.imageAssistant,
     userForm: COMPONENT_COPY.en.userForm,
     recurrenceModal: COMPONENT_COPY.en.recurrenceModal,
     occurrencePreview: COMPONENT_COPY.en.occurrencePreview,
@@ -850,7 +846,6 @@ const LANGUAGE_COPY = {
       products: "Produtos",
       cashRegister: "Caixa",
       assistant: "Assistente",
-      imageAssistant: "Laboratório de imagens",
       team: "Equipe",
       settings: "Configurações",
     },
@@ -866,7 +861,7 @@ const LANGUAGE_COPY = {
       },
       apiStatus: {
         title: "Serviços de IA",
-        description: "Verifique a disponibilidade dos recursos de chat, transcrição e imagens.",
+        description: "Verifique a disponibilidade dos recursos de chat e transcrição.",
         refresh: "Verificar novamente",
         refreshing: "Verificando…",
         loading: "Verificando serviços…",
@@ -874,7 +869,6 @@ const LANGUAGE_COPY = {
         labels: {
           chat: "Assistente de chat",
           transcribe: "Transcrição de voz",
-          image: "Gerador de imagens",
         },
         states: {
           available: "Disponível",
@@ -1128,7 +1122,6 @@ const LANGUAGE_COPY = {
         ],
       },
     },
-    imageAssistant: COMPONENT_COPY.pt.imageAssistant,
     userForm: COMPONENT_COPY.pt.userForm,
     recurrenceModal: COMPONENT_COPY.pt.recurrenceModal,
     occurrencePreview: COMPONENT_COPY.pt.occurrencePreview,
@@ -1457,7 +1450,6 @@ type ScreenName =
   | "products"
   | "cashRegister"
   | "assistant"
-  | "imageAssistant"
   | "team"
   | "settings";
 
@@ -1506,7 +1498,6 @@ export default function App() {
   const bookServiceCopy = copy.bookService;
   const bookingsCopy = copy.bookings;
   const assistantCopy = copy.assistant;
-  const imageAssistantCopy = copy.imageAssistant;
   const productsCopy = copy.productsPage;
   const packagesCopy = copy.packagesPage;
   const cashRegisterCopy = copy.cashRegisterPage;
@@ -3248,23 +3239,6 @@ export default function App() {
             </Text>
           </Pressable>
           <Pressable
-            onPress={() => handleNavigate("imageAssistant")}
-            style={[styles.sidebarItem, activeScreen === "imageAssistant" && styles.sidebarItemActive]}
-            accessibilityRole="button"
-            accessibilityLabel="Open the image assistant"
-          >
-            <Ionicons
-              name="image-outline"
-              size={20}
-              color={activeScreen === "imageAssistant" ? colors.accentFgOn : colors.subtext}
-            />
-            <Text
-              style={[styles.sidebarItemText, activeScreen === "imageAssistant" && styles.sidebarItemTextActive]}
-            >
-              {copy.navigation.imageAssistant}
-            </Text>
-          </Pressable>
-          <Pressable
             onPress={() => handleNavigate("team")}
             style={[styles.sidebarItem, activeScreen === "team" && styles.sidebarItemActive]}
             accessibilityRole="button"
@@ -4967,20 +4941,6 @@ export default function App() {
         onBookingsMutated={handleBookingsMutated}
         services={localizedServices}
         copy={assistantCopy.chat}
-      />
-    ) : activeScreen === "imageAssistant" ? (
-      <ImageAssistant
-        colors={{
-          text: colors.text,
-          subtext: colors.subtext,
-          surface: colors.surface,
-          border: colors.border,
-          accent: colors.accent,
-          accentFgOn: colors.accentFgOn,
-          danger: colors.danger,
-          bg: colors.bg,
-        }}
-        copy={imageAssistantCopy}
       />
     ) : activeScreen === "team" ? (
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}>

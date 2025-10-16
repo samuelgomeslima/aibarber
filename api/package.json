@@ -1,8 +1,8 @@
 {
   "name": "aibarber-api",
   "version": "1.0.0",
-  "description": "Azure Functions backend for AIBarber image generation and proxies",
-  "main": "image/index.js",
+  "description": "Azure Functions backend for AIBarber chat and transcription proxies",
+  "main": "chat/index.js",
   "license": "MIT",
   "type": "commonjs",
   "scripts": {

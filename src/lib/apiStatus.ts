@@ -1,11 +1,10 @@
-import { IMAGE_API_AUTH_TOKEN, IMAGE_API_ENDPOINT } from "./imageApi";
 import {
   OPENAI_CHAT_ENDPOINT,
   OPENAI_PROXY_AUTH_TOKEN,
   OPENAI_TRANSCRIPTION_ENDPOINT,
 } from "./openai";
 
-export type ApiServiceName = "chat" | "transcribe" | "image";
+export type ApiServiceName = "chat" | "transcribe";
 export type ApiStatusState = "available" | "unavailable" | "unauthorized";
 
 export type ApiServiceStatus = {
@@ -25,7 +24,6 @@ type ServiceConfig = {
 const SERVICE_CONFIGS: ServiceConfig[] = [
   { service: "chat", url: OPENAI_CHAT_ENDPOINT, token: OPENAI_PROXY_AUTH_TOKEN },
   { service: "transcribe", url: OPENAI_TRANSCRIPTION_ENDPOINT, token: OPENAI_PROXY_AUTH_TOKEN },
-  { service: "image", url: IMAGE_API_ENDPOINT, token: IMAGE_API_AUTH_TOKEN },
 ];
 
 function normalizeMessage(value: unknown): string | null {
