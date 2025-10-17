@@ -42,7 +42,8 @@ import { COMPONENT_COPY } from "./src/locales/componentCopy";
 import type { RecurrenceFrequency } from "./src/locales/types";
 import { AuthGate } from "./src/components/AuthGate";
 import { getEmailConfirmationRedirectUrl } from "./src/lib/auth";
-import { supabase } from "./src/lib/supabase";
+import { getBarbershopForOwner, updateBarbershop, type Barbershop } from "./src/lib/barbershops";
+import { supabase, isSupabaseConfigured } from "./src/lib/supabase";
 
 const getTodayDateKey = () => toDateKey(new Date());
 
@@ -364,6 +365,12 @@ const LANGUAGE_COPY = {
           unauthorized: "Unauthorized",
         },
       },
+      barbershop: {
+        title: "Barbershop profile",
+        description: "Update your workspace name, public slug, and timezone.",
+        cta: "Edit barbershop data",
+        ctaAccessibility: "Open barbershop profile settings",
+      },
     },
     teamPage: {
       title: "Team members",
@@ -409,6 +416,38 @@ const LANGUAGE_COPY = {
           savedTitle: "Team member saved",
           failedFallback: "Unable to save the team member.",
         },
+      },
+    },
+    barbershopPage: {
+      title: "Barbershop profile",
+      subtitle: "Update the details shared with staff and clients.",
+      empty: "No barbershop information is available yet.",
+      fields: {
+        nameLabel: "Barbershop name",
+        namePlaceholder: "AIBarber Studio",
+        slugLabel: "Public slug (optional)",
+        slugPlaceholder: "aibarber-studio",
+        slugHelper: "Use lowercase letters, numbers, and hyphens.",
+        timezoneLabel: "Timezone",
+        timezonePlaceholder: "America/Sao_Paulo",
+        timezoneHelper: "Used for booking availability and reminders.",
+      },
+      actions: {
+        save: "Save changes",
+        saving: "Saving…",
+        back: "Back to settings",
+        retry: "Try again",
+      },
+      feedback: {
+        saved: "Barbershop details updated.",
+      },
+      errors: {
+        loadFailed: "Unable to load barbershop data.",
+        saveFailed: "Unable to save barbershop data.",
+        notConfigured: "Configure Supabase credentials to manage barbershop details.",
+        notFound: "No barbershop is associated with your account.",
+        nameRequired: "Enter a barbershop name before saving.",
+        timezoneRequired: "Enter a timezone before saving.",
       },
     },
     servicesPage: {
@@ -910,6 +949,12 @@ const LANGUAGE_COPY = {
           unauthorized: "Não autorizado",
         },
       },
+      barbershop: {
+        title: "Perfil da barbearia",
+        description: "Atualize o nome do workspace, o slug público e o fuso horário.",
+        cta: "Editar dados da barbearia",
+        ctaAccessibility: "Abrir edição do perfil da barbearia",
+      },
     },
     teamPage: {
       title: "Equipe",
@@ -955,6 +1000,38 @@ const LANGUAGE_COPY = {
           savedTitle: "Membro salvo",
           failedFallback: "Não foi possível salvar o membro da equipe.",
         },
+      },
+    },
+    barbershopPage: {
+      title: "Perfil da barbearia",
+      subtitle: "Atualize as informações compartilhadas com equipe e clientes.",
+      empty: "Nenhuma informação de barbearia disponível.",
+      fields: {
+        nameLabel: "Nome da barbearia",
+        namePlaceholder: "Barbearia AIBarber",
+        slugLabel: "Slug público (opcional)",
+        slugPlaceholder: "barbearia-aibarber",
+        slugHelper: "Use letras minúsculas, números e hífens.",
+        timezoneLabel: "Fuso horário",
+        timezonePlaceholder: "America/Sao_Paulo",
+        timezoneHelper: "Usado para disponibilidade e lembretes.",
+      },
+      actions: {
+        save: "Salvar alterações",
+        saving: "Salvando…",
+        back: "Voltar para configurações",
+        retry: "Tentar novamente",
+      },
+      feedback: {
+        saved: "Dados da barbearia atualizados.",
+      },
+      errors: {
+        loadFailed: "Não foi possível carregar os dados da barbearia.",
+        saveFailed: "Não foi possível salvar os dados da barbearia.",
+        notConfigured: "Configure as credenciais do Supabase para gerenciar os dados da barbearia.",
+        notFound: "Nenhuma barbearia está associada à sua conta.",
+        nameRequired: "Informe um nome antes de salvar.",
+        timezoneRequired: "Informe um fuso horário antes de salvar.",
       },
     },
     servicesPage: {
@@ -1485,7 +1562,8 @@ type ScreenName =
   | "cashRegister"
   | "assistant"
   | "team"
-  | "settings";
+  | "settings"
+  | "barbershopSettings";
 
 function AuthenticatedApp() {
   const [services, setServices] = useState<Service[]>([]);
@@ -1544,6 +1622,8 @@ function AuthenticatedApp() {
   const cashRegisterCopy = copy.cashRegisterPage;
   const productFormCopy = copy.productForm;
   const teamCopy = copy.teamPage;
+  const settingsBarbershopCopy = copy.settingsPage.barbershop;
+  const barbershopPageCopy = copy.barbershopPage;
   const teamRoleLabelMap = useMemo(() => {
     const entries = teamCopy.roles.map((role) => [role.value, role.label]);
     return Object.fromEntries(entries) as Record<string, string>;
@@ -1554,6 +1634,16 @@ function AuthenticatedApp() {
   const colors = useMemo(() => THEMES[resolvedTheme], [resolvedTheme]);
   const styles = useMemo(() => createStyles(colors), [colors]);
   const emailConfirmationCopy = copy.settingsPage.emailConfirmation;
+  const [barbershop, setBarbershop] = useState<Barbershop | null>(null);
+  const [barbershopForm, setBarbershopForm] = useState<{ name: string; slug: string; timezone: string }>(() => ({
+    name: "",
+    slug: "",
+    timezone: "",
+  }));
+  const [barbershopLoading, setBarbershopLoading] = useState(false);
+  const [barbershopSaving, setBarbershopSaving] = useState(false);
+  const [barbershopError, setBarbershopError] = useState<string | null>(null);
+  const [barbershopSuccess, setBarbershopSuccess] = useState<string | null>(null);
   const emailConfirmed = Boolean(currentUser?.email_confirmed_at);
   const showEmailConfirmationReminder = !currentUserLoading && currentUser && !emailConfirmed;
 
@@ -1644,6 +1734,147 @@ function AuthenticatedApp() {
       setResendingConfirmation(false);
     }
   }, [currentUser?.email, resendingConfirmation, emailConfirmationCopy.error]);
+
+  const handleBarbershopFieldChange = useCallback(
+    (field: "name" | "slug" | "timezone", value: string) => {
+      setBarbershopForm((current) => {
+        let nextValue = value;
+        if (field === "slug") {
+          nextValue = value
+            .toLowerCase()
+            .replace(/[^a-z0-9-]/g, "-")
+            .replace(/-+/g, "-")
+            .replace(/^-+|-+$/g, "");
+        }
+        return { ...current, [field]: nextValue };
+      });
+      setBarbershopSuccess(null);
+    },
+    [],
+  );
+
+  const loadBarbershop = useCallback(async () => {
+    if (!currentUser?.id) {
+      setBarbershop(null);
+      setBarbershopForm({ name: "", slug: "", timezone: "" });
+      setBarbershopError(null);
+      setBarbershopSuccess(null);
+      return;
+    }
+
+    setBarbershopLoading(true);
+    setBarbershopError(null);
+    setBarbershopSuccess(null);
+
+    try {
+      if (!isSupabaseConfigured()) {
+        setBarbershop(null);
+        setBarbershopForm({ name: "", slug: "", timezone: "" });
+        setBarbershopError(barbershopPageCopy.errors.notConfigured);
+        return;
+      }
+
+      const result = await getBarbershopForOwner(currentUser.id);
+
+      if (!result) {
+        setBarbershop(null);
+        setBarbershopForm({ name: "", slug: "", timezone: "" });
+        setBarbershopError(barbershopPageCopy.errors.notFound);
+        return;
+      }
+
+      setBarbershop(result);
+      setBarbershopForm({
+        name: result.name ?? "",
+        slug: result.slug ?? "",
+        timezone: result.timezone ?? "UTC",
+      });
+    } catch (error) {
+      console.error("Failed to load barbershop", error);
+      const fallback = barbershopPageCopy.errors.loadFailed;
+      const message = error instanceof Error ? error.message || fallback : fallback;
+      setBarbershopError(message);
+      setBarbershop(null);
+      setBarbershopForm({ name: "", slug: "", timezone: "" });
+    } finally {
+      setBarbershopLoading(false);
+    }
+  }, [
+    currentUser?.id,
+    barbershopPageCopy.errors.loadFailed,
+    barbershopPageCopy.errors.notConfigured,
+    barbershopPageCopy.errors.notFound,
+  ]);
+
+  const handleSaveBarbershop = useCallback(async () => {
+    if (!barbershop?.id || barbershopSaving) {
+      return;
+    }
+
+    if (!isSupabaseConfigured()) {
+      setBarbershopError(barbershopPageCopy.errors.notConfigured);
+      return;
+    }
+
+    const trimmedName = barbershopForm.name.trim();
+    if (!trimmedName) {
+      setBarbershopError(barbershopPageCopy.errors.nameRequired);
+      return;
+    }
+
+    const trimmedTimezone = barbershopForm.timezone.trim();
+    if (!trimmedTimezone) {
+      setBarbershopError(barbershopPageCopy.errors.timezoneRequired);
+      return;
+    }
+
+    const slugInput = barbershopForm.slug.trim();
+    const normalizedSlug = slugInput
+      ? slugInput
+          .toLowerCase()
+          .replace(/[^a-z0-9-]/g, "-")
+          .replace(/-+/g, "-")
+          .replace(/^-+|-+$/g, "")
+      : null;
+
+    setBarbershopSaving(true);
+    setBarbershopError(null);
+    setBarbershopSuccess(null);
+
+    try {
+      const updated = await updateBarbershop(barbershop.id, {
+        name: trimmedName,
+        slug: normalizedSlug,
+        timezone: trimmedTimezone,
+      });
+
+      setBarbershop(updated);
+      setBarbershopForm({
+        name: updated.name ?? trimmedName,
+        slug: updated.slug ?? "",
+        timezone: updated.timezone ?? trimmedTimezone,
+      });
+      setBarbershopSuccess(barbershopPageCopy.feedback.saved);
+    } catch (error) {
+      console.error("Failed to update barbershop", error);
+      const fallback = barbershopPageCopy.errors.saveFailed;
+      const message = error instanceof Error ? error.message || fallback : fallback;
+      setBarbershopError(message);
+    } finally {
+      setBarbershopSaving(false);
+    }
+  }, [
+    barbershop?.id,
+    barbershopForm.name,
+    barbershopForm.slug,
+    barbershopForm.timezone,
+    barbershopPageCopy.errors.nameRequired,
+    barbershopPageCopy.errors.notConfigured,
+    barbershopPageCopy.errors.saveFailed,
+    barbershopPageCopy.errors.timezoneRequired,
+    barbershopPageCopy.feedback.saved,
+    barbershopSaving,
+  ]);
 
   // Cliente -> obrigatório antes do barbeiro
   const [clientModalOpen, setClientModalOpen] = useState(false);
@@ -1765,6 +1996,19 @@ function AuthenticatedApp() {
   }, [copy]);
 
   useEffect(() => { loadServices(); }, [loadServices]);
+
+  useEffect(() => {
+    if (activeScreen === "barbershopSettings") {
+      void loadBarbershop();
+    }
+  }, [activeScreen, loadBarbershop]);
+
+  useEffect(() => {
+    if (activeScreen !== "barbershopSettings") {
+      setBarbershopError(null);
+      setBarbershopSuccess(null);
+    }
+  }, [activeScreen]);
 
   useEffect(() => {
     return () => {
@@ -5243,6 +5487,151 @@ function AuthenticatedApp() {
           ) : null}
         </View>
       </ScrollView>
+    ) : activeScreen === "barbershopSettings" ? (
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}>
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}> 
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <MaterialCommunityIcons name="store-edit-outline" size={22} color={colors.accent} />
+            <Text style={[styles.title, { color: colors.text }]}>{barbershopPageCopy.title}</Text>
+          </View>
+          <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
+            {barbershopPageCopy.subtitle}
+          </Text>
+        </View>
+
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 16 }]}> 
+          {barbershopLoading ? (
+            <View style={{ alignItems: "center", paddingVertical: 12 }}>
+              <ActivityIndicator color={colors.accent} />
+            </View>
+          ) : barbershop ? (
+            <View style={{ gap: 16 }}>
+              <View style={{ gap: 6 }}>
+                <Text style={[styles.languageLabel, { color: colors.subtext }]}>
+                  {barbershopPageCopy.fields.nameLabel}
+                </Text>
+                <TextInput
+                  value={barbershopForm.name}
+                  onChangeText={(value) => handleBarbershopFieldChange("name", value)}
+                  placeholder={barbershopPageCopy.fields.namePlaceholder}
+                  placeholderTextColor={colors.subtext}
+                  style={styles.input}
+                  autoCapitalize="words"
+                  editable={!barbershopSaving}
+                  accessibilityLabel={barbershopPageCopy.fields.nameLabel}
+                />
+              </View>
+
+              <View style={{ gap: 6 }}>
+                <Text style={[styles.languageLabel, { color: colors.subtext }]}>
+                  {barbershopPageCopy.fields.slugLabel}
+                </Text>
+                <TextInput
+                  value={barbershopForm.slug}
+                  onChangeText={(value) => handleBarbershopFieldChange("slug", value)}
+                  placeholder={barbershopPageCopy.fields.slugPlaceholder}
+                  placeholderTextColor={colors.subtext}
+                  style={styles.input}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!barbershopSaving}
+                  accessibilityLabel={barbershopPageCopy.fields.slugLabel}
+                />
+                <Text style={{ color: colors.subtext, fontSize: 12, fontWeight: "600" }}>
+                  {barbershopPageCopy.fields.slugHelper}
+                </Text>
+              </View>
+
+              <View style={{ gap: 6 }}>
+                <Text style={[styles.languageLabel, { color: colors.subtext }]}>
+                  {barbershopPageCopy.fields.timezoneLabel}
+                </Text>
+                <TextInput
+                  value={barbershopForm.timezone}
+                  onChangeText={(value) => handleBarbershopFieldChange("timezone", value)}
+                  placeholder={barbershopPageCopy.fields.timezonePlaceholder}
+                  placeholderTextColor={colors.subtext}
+                  style={styles.input}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!barbershopSaving}
+                  accessibilityLabel={barbershopPageCopy.fields.timezoneLabel}
+                />
+                <Text style={{ color: colors.subtext, fontSize: 12, fontWeight: "600" }}>
+                  {barbershopPageCopy.fields.timezoneHelper}
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
+              {barbershopError ?? barbershopPageCopy.empty}
+            </Text>
+          )}
+
+          {barbershop && barbershopError ? (
+            <Text style={{ color: colors.danger, fontWeight: "700" }}>{barbershopError}</Text>
+          ) : null}
+          {barbershopSuccess ? (
+            <Text style={{ color: colors.accent, fontWeight: "700" }}>{barbershopSuccess}</Text>
+          ) : null}
+
+          <View
+            style={{
+              flexDirection: isCompactLayout ? "column" : "row",
+              alignItems: isCompactLayout ? "stretch" : "center",
+              justifyContent: isCompactLayout ? "flex-start" : "flex-end",
+              gap: 12,
+            }}
+          >
+            <Pressable
+              onPress={() => handleNavigate("settings")}
+              style={[styles.smallBtn, { borderColor: colors.border }]}
+              accessibilityRole="button"
+              accessibilityLabel={barbershopPageCopy.actions.back}
+            >
+              <Text style={{ color: colors.subtext, fontWeight: "800" }}>
+                {barbershopPageCopy.actions.back}
+              </Text>
+            </Pressable>
+
+            {barbershop ? (
+              <Pressable
+                onPress={handleSaveBarbershop}
+                disabled={barbershopSaving}
+                style={[
+                  styles.smallBtn,
+                  {
+                    borderColor: colors.accent,
+                    backgroundColor: colors.accent,
+                    opacity: barbershopSaving ? 0.7 : 1,
+                  },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={barbershopSaving ? barbershopPageCopy.actions.saving : barbershopPageCopy.actions.save}
+              >
+                <Text style={{ color: colors.accentFgOn, fontWeight: "900" }}>
+                  {barbershopSaving ? barbershopPageCopy.actions.saving : barbershopPageCopy.actions.save}
+                </Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                onPress={() => {
+                  setBarbershopError(null);
+                  void loadBarbershop();
+                }}
+                disabled={barbershopLoading}
+                style={[styles.smallBtn, { borderColor: colors.border }, barbershopLoading && styles.smallBtnDisabled]}
+                accessibilityRole="button"
+                accessibilityLabel={barbershopPageCopy.actions.retry}
+              >
+                <Text style={{ color: colors.subtext, fontWeight: "800" }}>
+                  {barbershopPageCopy.actions.retry}
+                </Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
+      </ScrollView>
     ) : activeScreen === "settings" ? (
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}>
         <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
@@ -5460,6 +5849,33 @@ function AuthenticatedApp() {
               );
             })}
           </View>
+        </View>
+
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <MaterialCommunityIcons name="store-edit-outline" size={22} color={colors.accent} />
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={[styles.languageLabel, { color: colors.subtext }]}>{settingsBarbershopCopy.title}</Text>
+              <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
+                {settingsBarbershopCopy.description}
+              </Text>
+            </View>
+          </View>
+          <Pressable
+            onPress={() => handleNavigate("barbershopSettings")}
+            style={[
+              styles.smallBtn,
+              {
+                alignSelf: "flex-start",
+                borderColor: colors.accent,
+                backgroundColor: colors.accent,
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={settingsBarbershopCopy.ctaAccessibility}
+          >
+            <Text style={{ color: colors.accentFgOn, fontWeight: "900" }}>{settingsBarbershopCopy.cta}</Text>
+          </Pressable>
         </View>
 
       </ScrollView>
