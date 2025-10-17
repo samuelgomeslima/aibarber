@@ -33,6 +33,41 @@ const STAFF_TABLE = "staff_members";
 
 const ADMIN_ROLE: StaffRole = "administrator";
 
+const EMAIL_REDIRECT_ENV_KEYS = [
+  "EXPO_PUBLIC_EMAIL_CONFIRMATION_REDIRECT_TO",
+  "EXPO_PUBLIC_SITE_URL",
+  "EXPO_PUBLIC_APP_URL",
+  "EXPO_PUBLIC_APP_BASE_URL",
+] as const;
+
+const DEFAULT_EMAIL_CONFIRMATION_REDIRECT = "https://localhost:3000";
+
+function normalizeUrl(candidate: string | undefined | null): string | null {
+  if (!candidate) return null;
+  const trimmed = candidate.trim();
+  if (!trimmed) return null;
+
+  const tryCreate = (value: string) => {
+    try {
+      return new URL(value).toString();
+    } catch (error) {
+      return null;
+    }
+  };
+
+  return tryCreate(trimmed) ?? tryCreate(`https://${trimmed}`);
+}
+
+export function getEmailConfirmationRedirectUrl(): string {
+  for (const key of EMAIL_REDIRECT_ENV_KEYS) {
+    const resolved = normalizeUrl(process.env[key]);
+    if (resolved) {
+      return resolved;
+    }
+  }
+  return DEFAULT_EMAIL_CONFIRMATION_REDIRECT;
+}
+
 export async function registerBarbershopAdministrator(
   payload: RegistrationPayload,
 ): Promise<RegistrationResult> {
@@ -70,6 +105,7 @@ export async function registerBarbershopAdministrator(
     email,
     password,
     options: {
+      emailRedirectTo: getEmailConfirmationRedirectUrl(),
       data: {
         first_name: firstName,
         last_name: lastName,
