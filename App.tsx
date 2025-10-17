@@ -1520,6 +1520,7 @@ function AuthenticatedApp() {
   const [adjustmentError, setAdjustmentError] = useState<string | null>(null);
   const [teamMembers, setTeamMembers] = useState<StaffMember[]>([]);
   const [teamLoading, setTeamLoading] = useState(false);
+  const [teamFormVisible, setTeamFormVisible] = useState(false);
   const [apiStatuses, setApiStatuses] = useState<ApiServiceStatus[]>([]);
   const [apiStatusLoading, setApiStatusLoading] = useState(false);
   const [apiStatusError, setApiStatusError] = useState<string | null>(null);
@@ -1954,6 +1955,14 @@ function AuthenticatedApp() {
       setTeamLoading(false);
     }
   }, [sortTeamMembers, teamCopy.alerts.loadTitle, listStaffMembers]);
+
+  const handleOpenTeamForm = useCallback(() => {
+    setTeamFormVisible(true);
+  }, []);
+
+  const handleCloseTeamForm = useCallback(() => {
+    setTeamFormVisible(false);
+  }, []);
 
   const fetchApiStatuses = useCallback(async () => {
     const requestId = ++apiStatusRequestId.current;
@@ -5182,34 +5191,56 @@ function AuthenticatedApp() {
             </View>
           </View>
 
-          <UserForm
-            table="staff_members"
-            availableRoles={teamCopy.roles}
-            colors={{
-              text: colors.text,
-              subtext: colors.subtext,
-              border: colors.border,
-              surface: colors.surface,
-              accent: colors.accent,
-              accentFgOn: colors.accentFgOn,
-              danger: colors.danger,
-            }}
-            copy={teamCopy.userForm}
-            onSaved={(row) => {
-              const memberRole = (row.role ?? teamCopy.roles[0]?.value ?? "professional") as StaffRole;
-              const member: StaffMember = {
-                id: row.id,
-                first_name: row.first_name,
-                last_name: row.last_name,
-                email: row.email ?? null,
-                phone: row.phone ?? null,
-                date_of_birth: row.date_of_birth ?? null,
-                role: memberRole,
-              };
-              setTeamMembers((prev) => sortTeamMembers([...prev.filter((m) => m.id !== member.id), member]));
-              void loadTeamMembers();
-            }}
-          />
+          <Pressable
+            onPress={teamFormVisible ? handleCloseTeamForm : handleOpenTeamForm}
+            style={[
+              styles.smallBtn,
+              {
+                alignSelf: "flex-start",
+                borderColor: teamFormVisible ? colors.border : colors.accent,
+                backgroundColor: teamFormVisible ? "transparent" : "rgba(37,99,235,0.12)",
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={teamFormVisible ? teamCopy.userForm.buttons.cancel : teamCopy.userForm.title}
+          >
+            <Text style={{ color: teamFormVisible ? colors.subtext : colors.accent, fontWeight: "800" }}>
+              {teamFormVisible ? teamCopy.userForm.buttons.cancel : teamCopy.userForm.title}
+            </Text>
+          </Pressable>
+
+          {teamFormVisible ? (
+            <UserForm
+              table="staff_members"
+              availableRoles={teamCopy.roles}
+              colors={{
+                text: colors.text,
+                subtext: colors.subtext,
+                border: colors.border,
+                surface: colors.surface,
+                accent: colors.accent,
+                accentFgOn: colors.accentFgOn,
+                danger: colors.danger,
+              }}
+              copy={teamCopy.userForm}
+              onSaved={(row) => {
+                const memberRole = (row.role ?? teamCopy.roles[0]?.value ?? "professional") as StaffRole;
+                const member: StaffMember = {
+                  id: row.id,
+                  first_name: row.first_name,
+                  last_name: row.last_name,
+                  email: row.email ?? null,
+                  phone: row.phone ?? null,
+                  date_of_birth: row.date_of_birth ?? null,
+                  role: memberRole,
+                };
+                setTeamMembers((prev) => sortTeamMembers([...prev.filter((m) => m.id !== member.id), member]));
+                setTeamFormVisible(false);
+                void loadTeamMembers();
+              }}
+              onCancel={handleCloseTeamForm}
+            />
+          ) : null}
         </View>
       </ScrollView>
     ) : activeScreen === "settings" ? (
