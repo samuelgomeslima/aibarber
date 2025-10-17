@@ -40,6 +40,7 @@ import { polyglotProductName, polyglotProducts, polyglotServices } from "./src/l
 import { COMPONENT_COPY } from "./src/locales/componentCopy";
 import type { RecurrenceFrequency } from "./src/locales/types";
 import { AuthGate } from "./src/components/AuthGate";
+import { supabase } from "./src/lib/supabase";
 
 const getTodayDateKey = () => toDateKey(new Date());
 
@@ -318,6 +319,10 @@ const LANGUAGE_COPY = {
       assistant: "Assistant",
       team: "Team members",
       settings: "Settings",
+      logout: "Sign out",
+      logoutAccessibility: "Sign out of AIBarber",
+      logoutErrorTitle: "Sign out failed",
+      logoutErrorMessage: "Unable to sign out. Please try again.",
     },
     settingsPage: {
       title: "Settings",
@@ -849,6 +854,10 @@ const LANGUAGE_COPY = {
       assistant: "Assistente",
       team: "Equipe",
       settings: "Configurações",
+      logout: "Sair",
+      logoutAccessibility: "Sair do AIBarber",
+      logoutErrorTitle: "Falha ao sair",
+      logoutErrorMessage: "Não foi possível encerrar a sessão. Tente novamente.",
     },
     settingsPage: {
       title: "Configurações",
@@ -1493,6 +1502,7 @@ function AuthenticatedApp() {
   const apiStatusRequestId = useRef(0);
   const [activeScreen, setActiveScreen] = useState<ScreenName>("home");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [language, setLanguage] = useState<SupportedLanguage>(() => getInitialLanguage());
   const copy = useMemo(() => LANGUAGE_COPY[language], [language]);
   const locale = language === "pt" ? "pt-BR" : "en-US";
@@ -3044,6 +3054,26 @@ function AuthenticatedApp() {
     [],
   );
 
+  const handleLogout = useCallback(async () => {
+    if (loggingOut) return;
+
+    setSidebarOpen(false);
+    setLoggingOut(true);
+
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      const fallback = copy.navigation.logoutErrorMessage;
+      const message = error instanceof Error ? error.message : fallback;
+      Alert.alert(copy.navigation.logoutErrorTitle, message || fallback);
+    } finally {
+      setLoggingOut(false);
+    }
+  }, [loggingOut, copy.navigation.logoutErrorMessage, copy.navigation.logoutErrorTitle]);
+
   const menuButtonTop = Platform.select({ ios: 52, android: 40, default: 24 });
 
   useEffect(() => {
@@ -3268,6 +3298,25 @@ function AuthenticatedApp() {
             <Text style={[styles.sidebarItemText, activeScreen === "settings" && styles.sidebarItemTextActive]}>
               {copy.navigation.settings}
             </Text>
+          </Pressable>
+        </View>
+        <View style={[styles.sidebarFooter, { borderTopColor: colors.border }]}>
+          <Pressable
+            onPress={handleLogout}
+            disabled={loggingOut}
+            style={({ pressed }) => [
+              styles.sidebarLogout,
+              {
+                borderColor: applyAlpha(colors.danger, 0.35),
+                backgroundColor: pressed || loggingOut ? applyAlpha(colors.danger, 0.12) : "transparent",
+                opacity: loggingOut ? 0.6 : 1,
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={copy.navigation.logoutAccessibility}
+          >
+            <Ionicons name="log-out-outline" size={20} color={colors.danger} />
+            <Text style={[styles.sidebarLogoutText, { color: colors.danger }]}>{copy.navigation.logout}</Text>
           </Pressable>
         </View>
       </View>
@@ -5934,6 +5983,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: 8,
     width: "100%",
   },
+  sidebarFooter: {
+    paddingTop: 12,
+    marginTop: 4,
+    borderTopWidth: 1,
+    width: "100%",
+  },
   sidebarItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -5948,6 +6003,16 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   sidebarItemActive: { backgroundColor: colors.accent, borderColor: colors.accent },
   sidebarItemText: { color: colors.subtext, fontWeight: "700" },
   sidebarItemTextActive: { color: colors.accentFgOn },
+  sidebarLogout: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  sidebarLogoutText: { fontWeight: "700" },
   mainArea: { flex: 1 },
 
   defaultScreen: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 16 },
