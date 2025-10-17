@@ -59,12 +59,19 @@ function normalizeUrl(candidate: string | undefined | null): string | null {
 }
 
 export function getEmailConfirmationRedirectUrl(): string {
-  for (const key of EMAIL_REDIRECT_ENV_KEYS) {
-    const resolved = normalizeUrl(process.env[key]);
-    if (resolved) {
-      return resolved;
+  const resolvedCandidates = [
+    normalizeUrl(process.env.EXPO_PUBLIC_EMAIL_CONFIRMATION_REDIRECT_TO),
+    normalizeUrl(process.env.EXPO_PUBLIC_SITE_URL),
+    normalizeUrl(process.env.EXPO_PUBLIC_APP_URL),
+    normalizeUrl(process.env.EXPO_PUBLIC_APP_BASE_URL),
+  ];
+
+  for (const candidate of resolvedCandidates) {
+    if (candidate) {
+      return candidate;
     }
   }
+
   return DEFAULT_EMAIL_CONFIRMATION_REDIRECT;
 }
 
