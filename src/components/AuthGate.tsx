@@ -65,11 +65,26 @@ export function AuthGate({ children }: AuthGateProps) {
   useEffect(() => {
     let isMounted = true;
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (!isMounted) return;
-      setSession(data.session);
+    if (!hasSupabaseCredentials) {
       setInitializing(false);
-    });
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!isMounted) return;
+        setSession(data.session);
+        setInitializing(false);
+      })
+      .catch((error) => {
+        console.error("Failed to get Supabase session", error);
+        if (isMounted) {
+          setInitializing(false);
+        }
+      });
 
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
@@ -82,7 +97,7 @@ export function AuthGate({ children }: AuthGateProps) {
   }, []);
 
   useEffect(() => {
-    if (!session) return;
+    if (!session || !hasSupabaseCredentials) return;
 
     completePendingBarbershopRegistration(session).catch((error) => {
       console.error("Failed to complete pending barbershop registration", error);
@@ -119,6 +134,12 @@ export function AuthGate({ children }: AuthGateProps) {
 
   const handleLoginSubmit = async () => {
     if (submitting) return;
+    if (!hasSupabaseCredentials) {
+      setErrorMessage(
+        "Supabase credentials are missing. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to enable authentication.",
+      );
+      return;
+    }
     setSubmitting(true);
     setErrorMessage(null);
     setInfoMessage(null);
@@ -141,6 +162,12 @@ export function AuthGate({ children }: AuthGateProps) {
 
   const handleRegistrationSubmit = async () => {
     if (submitting) return;
+    if (!hasSupabaseCredentials) {
+      setErrorMessage(
+        "Supabase credentials are missing. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to enable authentication.",
+      );
+      return;
+    }
 
     if (registrationForm.password !== registrationForm.confirmPassword) {
       setErrorMessage("Passwords do not match.");
