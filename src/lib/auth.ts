@@ -1,3 +1,5 @@
+import type { Session } from "@supabase/supabase-js";
+
 import { supabase } from "./supabase";
 import type { StaffRole } from "./users";
 
@@ -15,6 +17,15 @@ export type RegistrationResult = {
   requiresEmailConfirmation: boolean;
   barbershopId?: string;
   staffMemberId?: string;
+};
+
+type PendingBarbershopRegistration = {
+  barbershopName: string;
+  adminFirstName: string;
+  adminLastName: string;
+  email: string;
+  phone: string | null;
+  timezone: string;
 };
 
 const BARBERSHOPS_TABLE = "barbershops";
@@ -46,6 +57,15 @@ export async function registerBarbershopAdministrator(
     throw new Error("Password is required.");
   }
 
+  const pendingRegistrationMetadata: PendingBarbershopRegistration = {
+    barbershopName: name,
+    adminFirstName: firstName,
+    adminLastName: lastName,
+    email,
+    phone,
+    timezone,
+  };
+
   const signUpResult = await supabase.auth.signUp({
     email,
     password,
@@ -53,6 +73,7 @@ export async function registerBarbershopAdministrator(
       data: {
         first_name: firstName,
         last_name: lastName,
+        pending_barbershop_registration: pendingRegistrationMetadata,
       },
     },
   });
@@ -63,56 +84,171 @@ export async function registerBarbershopAdministrator(
 
   const requiresEmailConfirmation = !signUpResult.data.session;
 
-  if (!signUpResult.data.session?.user?.id) {
+  const registeredUserId = signUpResult.data.session?.user?.id;
+
+  if (!registeredUserId) {
     return { requiresEmailConfirmation };
   }
 
-  const registeredUserId = signUpResult.data.session.user.id;
+  const { barbershopId, staffMemberId } = await upsertBarbershopAndAdministrator({
+    userId: registeredUserId,
+    registration: pendingRegistrationMetadata,
+  });
 
-  const barbershopInsert = await supabase
-    .from(BARBERSHOPS_TABLE)
-    .insert({
-      name,
-      owner_id: registeredUserId,
-      timezone,
-    })
-    .select("id")
-    .single();
-
-  if (barbershopInsert.error) {
-    throw barbershopInsert.error;
-  }
-
-  const barbershopId = barbershopInsert.data?.id as string | undefined;
-
-  if (!barbershopId) {
-    throw new Error("Barbershop record could not be created.");
-  }
-
-  const staffInsert = await supabase
-    .from(STAFF_TABLE)
-    .insert({
-      first_name: firstName,
-      last_name: lastName,
-      email,
-      phone,
-      role: ADMIN_ROLE,
-      barbershop_id: barbershopId,
-      auth_user_id: registeredUserId,
-    })
-    .select("id")
-    .single();
-
-  if (staffInsert.error) {
-    await supabase.from(BARBERSHOPS_TABLE).delete().eq("id", barbershopId);
-    throw staffInsert.error;
-  }
-
-  const staffMemberId = staffInsert.data?.id as string | undefined;
+  await clearPendingRegistrationMetadata();
 
   return {
     requiresEmailConfirmation,
     barbershopId,
     staffMemberId,
   };
+}
+
+export async function completePendingBarbershopRegistration(
+  session: Session,
+): Promise<RegistrationResult | null> {
+  const pending = getPendingRegistrationFromMetadata(session);
+
+  if (!pending) {
+    return null;
+  }
+
+  const { barbershopId, staffMemberId } = await upsertBarbershopAndAdministrator({
+    userId: session.user.id,
+    registration: pending,
+  });
+
+  await clearPendingRegistrationMetadata();
+
+  return {
+    requiresEmailConfirmation: false,
+    barbershopId,
+    staffMemberId,
+  };
+}
+
+function getPendingRegistrationFromMetadata(session: Session): PendingBarbershopRegistration | null {
+  const metadata = session.user.user_metadata?.pending_barbershop_registration;
+
+  if (!metadata) {
+    return null;
+  }
+
+  const {
+    barbershopName,
+    adminFirstName,
+    adminLastName,
+    email,
+    phone = null,
+    timezone: storedTimezone,
+  } = metadata as Partial<PendingBarbershopRegistration>;
+
+  const timezone = storedTimezone || "UTC";
+
+  if (!barbershopName || !adminFirstName || !adminLastName || !email) {
+    return null;
+  }
+
+  return {
+    barbershopName,
+    adminFirstName,
+    adminLastName,
+    email,
+    phone,
+    timezone,
+  };
+}
+
+type UpsertBarbershopArgs = {
+  userId: string;
+  registration: PendingBarbershopRegistration;
+};
+
+async function upsertBarbershopAndAdministrator({
+  userId,
+  registration,
+}: UpsertBarbershopArgs): Promise<{ barbershopId: string; staffMemberId: string }> {
+  const existingBarbershop = await supabase
+    .from(BARBERSHOPS_TABLE)
+    .select("id")
+    .eq("owner_id", userId)
+    .maybeSingle();
+
+  if (existingBarbershop.error) {
+    throw existingBarbershop.error;
+  }
+
+  let barbershopId = existingBarbershop.data?.id as string | undefined;
+
+  if (!barbershopId) {
+    const insertResult = await supabase
+      .from(BARBERSHOPS_TABLE)
+      .insert({
+        name: registration.barbershopName,
+        owner_id: userId,
+        timezone: registration.timezone,
+      })
+      .select("id")
+      .single();
+
+    if (insertResult.error) {
+      throw insertResult.error;
+    }
+
+    barbershopId = insertResult.data?.id as string | undefined;
+
+    if (!barbershopId) {
+      throw new Error("Barbershop record could not be created.");
+    }
+  }
+
+  const existingStaffMember = await supabase
+    .from(STAFF_TABLE)
+    .select("id")
+    .eq("auth_user_id", userId)
+    .maybeSingle();
+
+  if (existingStaffMember.error) {
+    throw existingStaffMember.error;
+  }
+
+  let staffMemberId = existingStaffMember.data?.id as string | undefined;
+
+  if (!staffMemberId) {
+    const staffInsert = await supabase
+      .from(STAFF_TABLE)
+      .insert({
+        first_name: registration.adminFirstName,
+        last_name: registration.adminLastName,
+        email: registration.email,
+        phone: registration.phone,
+        role: ADMIN_ROLE,
+        barbershop_id: barbershopId,
+        auth_user_id: userId,
+      })
+      .select("id")
+      .single();
+
+    if (staffInsert.error) {
+      throw staffInsert.error;
+    }
+
+    staffMemberId = staffInsert.data?.id as string | undefined;
+  }
+
+  if (!staffMemberId) {
+    throw new Error("Staff member record could not be created.");
+  }
+
+  return { barbershopId, staffMemberId };
+}
+
+async function clearPendingRegistrationMetadata() {
+  const { error } = await supabase.auth.updateUser({
+    data: { pending_barbershop_registration: null },
+  });
+
+  if (error) {
+    throw error;
+  }
 }

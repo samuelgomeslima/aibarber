@@ -13,7 +13,10 @@ import {
 import * as Localization from "expo-localization";
 import type { Session } from "@supabase/supabase-js";
 
-import { registerBarbershopAdministrator } from "../lib/auth";
+import {
+  completePendingBarbershopRegistration,
+  registerBarbershopAdministrator,
+} from "../lib/auth";
 import { hasSupabaseCredentials, supabase } from "../lib/supabase";
 import { formCardColors, palette } from "../theme/colors";
 
@@ -77,6 +80,14 @@ export function AuthGate({ children }: AuthGateProps) {
       subscription?.subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!session) return;
+
+    completePendingBarbershopRegistration(session).catch((error) => {
+      console.error("Failed to complete pending barbershop registration", error);
+    });
+  }, [session]);
 
   const colors = useMemo(() => ({
     background: palette.backgroundDark,
