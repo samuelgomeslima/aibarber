@@ -17,6 +17,7 @@ jobs:
       EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
       EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
       EXPO_PUBLIC_OPENAI_PROXY_TOKEN: ${{ secrets.EXPO_PUBLIC_OPENAI_PROXY_TOKEN }}
+      EXPO_PUBLIC_EMAIL_CONFIRMATION_REDIRECT_TO: ${{ secrets.EXPO_PUBLIC_EMAIL_CONFIRMATION_REDIRECT_TO }}
     name: Build and Deploy Job
     steps:
       - uses: actions/checkout@v5
@@ -49,5 +50,6 @@ jobs:
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_LIVELY_PLANT_0BE70001E }}
           action: "close"
+
 
 
