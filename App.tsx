@@ -39,6 +39,7 @@ import {
 import { polyglotProductName, polyglotProducts, polyglotServices } from "./src/lib/polyglot";
 import { COMPONENT_COPY } from "./src/locales/componentCopy";
 import type { RecurrenceFrequency } from "./src/locales/types";
+import { AuthGate } from "./src/components/AuthGate";
 
 const getTodayDateKey = () => toDateKey(new Date());
 
@@ -1453,7 +1454,7 @@ type ScreenName =
   | "team"
   | "settings";
 
-export default function App() {
+function AuthenticatedApp() {
   const [services, setServices] = useState<Service[]>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
@@ -6690,3 +6691,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   teamListInfo: { flex: 1, gap: 6 },
   teamRoleBadge: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
 });
+
+export default function App() {
+  return (
+    <AuthGate>
+      <AuthenticatedApp />
+    </AuthGate>
+  );
+}

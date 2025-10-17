@@ -20,6 +20,8 @@ create table if not exists public.staff_members (
   email text,
   phone text,
   date_of_birth date,
+  barbershop_id uuid references public.barbershops(id) on delete set null,
+  auth_user_id uuid references auth.users(id) on delete set null,
   role text not null default 'professional' check (
     role in ('administrator', 'manager', 'professional', 'assistant')
   ),
@@ -32,8 +34,10 @@ create table if not exists public.staff_members (
 
 create index if not exists staff_members_name_idx on public.staff_members (last_name, first_name);
 create index if not exists staff_members_role_idx on public.staff_members (role);
+create index if not exists staff_members_barbershop_idx on public.staff_members (barbershop_id);
 create unique index if not exists staff_members_email_key on public.staff_members (lower(email)) where email is not null;
 create unique index if not exists staff_members_phone_key on public.staff_members (phone) where phone is not null;
+create unique index if not exists staff_members_auth_user_key on public.staff_members (auth_user_id) where auth_user_id is not null;
 
 create trigger on_staff_members_updated
 before update on public.staff_members
