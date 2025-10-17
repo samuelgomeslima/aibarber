@@ -12,12 +12,60 @@ export type DisplayMessage = {
 };
 
 
+export type AgentRunnerArgs = {
+  systemPrompt: string;
+  contextSummary: string;
+  conversation: DisplayMessage[];
+  onBookingsMutated?: () => Promise<void> | void;
+  services: Service[];
+};
+
+export type AgentRunner = (options: AgentRunnerArgs) => Promise<string>;
+
+export type QuickReplyFactory = (options: {
+  services: Service[];
+  copy: AssistantChatCopy;
+}) => string[];
+
+const defaultAgentRunner: AgentRunner = ({
+  systemPrompt,
+  contextSummary,
+  conversation,
+  onBookingsMutated,
+  services,
+}) =>
+  runBookingAgent({
+    systemPrompt,
+    contextSummary,
+    conversation,
+    onBookingsMutated,
+    services,
+  });
+
+const defaultQuickReplyFactory: QuickReplyFactory = ({ services, copy }) => {
+  const suggestions = new Set<string>();
+  suggestions.add(copy.quickReplies.existingBookings);
+  suggestions.add(copy.quickReplies.bookService);
+
+  services.slice(0, 2).forEach((service) => {
+    suggestions.add(copy.quickReplies.bookSpecificService(service.name));
+  });
+
+  BARBERS.slice(0, 2).forEach((barber) => {
+    suggestions.add(copy.quickReplies.barberAvailability(barber.name));
+  });
+
+  return Array.from(suggestions);
+};
+
 type UseAssistantChatOptions = {
   systemPrompt: string;
   contextSummary: string;
   services: Service[];
   copy: AssistantChatCopy;
   onBookingsMutated?: () => Promise<void> | void;
+  agentRunner?: AgentRunner;
+  quickReplyFactory?: QuickReplyFactory;
 };
 
 type UseAssistantChatResult = {
@@ -46,6 +94,8 @@ export function useAssistantChat({
   services,
   copy,
   onBookingsMutated,
+  agentRunner,
+  quickReplyFactory,
 }: UseAssistantChatOptions): UseAssistantChatResult {
   const [messages, setMessages] = useState<DisplayMessage[]>([
     { role: "assistant", content: copy.initialMessage },
@@ -82,18 +132,9 @@ export function useAssistantChat({
   }, [copy.initialMessage]);
 
   const quickReplies = useMemo(() => {
-    const replies = [copy.quickReplies.existingBookings, copy.quickReplies.bookService];
-
-    services.slice(0, 2).forEach((service) => {
-      replies.push(copy.quickReplies.bookSpecificService(service.name));
-    });
-
-    BARBERS.slice(0, 2).forEach((barber) => {
-      replies.push(copy.quickReplies.barberAvailability(barber.name));
-    });
-
-    return replies;
-  }, [copy.quickReplies, services]);
+    const factory = quickReplyFactory ?? defaultQuickReplyFactory;
+    return factory({ services, copy });
+  }, [copy, quickReplyFactory, services]);
 
   useEffect(() => {
     const trimmed = contextSummary.trim();
@@ -260,7 +301,8 @@ export function useAssistantChat({
       setError(null);
 
       try {
-        const reply = await runBookingAgent({
+        const runner = agentRunner ?? defaultAgentRunner;
+        const reply = await runner({
           systemPrompt,
           contextSummary,
           conversation: nextMessages,
@@ -275,7 +317,15 @@ export function useAssistantChat({
         setPending(false);
       }
     },
-    [contextSummary, copy.errors.generic, onBookingsMutated, pending, services, systemPrompt],
+    [
+      agentRunner,
+      contextSummary,
+      copy.errors.generic,
+      onBookingsMutated,
+      pending,
+      services,
+      systemPrompt,
+    ],
   );
 
   const handleSend = useCallback(() => {

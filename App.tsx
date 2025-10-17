@@ -44,6 +44,7 @@ import { AuthGate } from "./src/components/AuthGate";
 import { getEmailConfirmationRedirectUrl } from "./src/lib/auth";
 import { getBarbershopForOwner, updateBarbershop, type Barbershop } from "./src/lib/barbershops";
 import { supabase, isSupabaseConfigured } from "./src/lib/supabase";
+import { runSupportAgent } from "./src/lib/supportAgent";
 
 const getTodayDateKey = () => toDateKey(new Date());
 
@@ -320,6 +321,7 @@ const LANGUAGE_COPY = {
       products: "Products",
       cashRegister: "Cash register",
       assistant: "Assistant",
+      support: "Support",
       team: "Team members",
       settings: "Settings",
       logout: "Sign out",
@@ -647,6 +649,27 @@ const LANGUAGE_COPY = {
         ],
       },
     },
+    support: {
+      chat: COMPONENT_COPY.en.supportChat,
+      contextSummary: [
+        "Support channel for AIBarber administrators to share compliments, suggestions, and bug reports.",
+        "Collect enough detail so the product and engineering teams can follow up effectively.",
+        "Respond with a warm, appreciative tone and confirm their message will reach the right people.",
+      ],
+      systemPrompt: [
+        "You are the AIBarber support assistant helping barbershop managers who use the AIBarber dashboard.",
+        "Classify each message as a compliment, suggestion, or bug report and acknowledge it explicitly.",
+        "Ask concise follow-up questions when details are missing—especially device, browser, and reproduction steps for bugs.",
+        "Summarize key points back to the user and assure them that the team will review their feedback.",
+        "If the user needs urgent help or a human, explain how to reach the support team and offer to escalate.",
+      ],
+      quickReplies: [
+        "Share positive feedback",
+        "I have a suggestion",
+        "Report a bug I found",
+        "Check the status of a previous report",
+      ],
+    },
     userForm: COMPONENT_COPY.en.userForm,
     recurrenceModal: COMPONENT_COPY.en.recurrenceModal,
     occurrencePreview: COMPONENT_COPY.en.occurrencePreview,
@@ -904,6 +927,7 @@ const LANGUAGE_COPY = {
       products: "Produtos",
       cashRegister: "Caixa",
       assistant: "Assistente",
+      support: "Suporte",
       team: "Equipe",
       settings: "Configurações",
       logout: "Sair",
@@ -1233,6 +1257,27 @@ const LANGUAGE_COPY = {
         ],
       },
     },
+    support: {
+      chat: COMPONENT_COPY.pt.supportChat,
+      contextSummary: [
+        "Canal de suporte para administradores AIBarber enviarem elogios, sugestões e relatos de bugs.",
+        "Recolha detalhes suficientes para que produto e engenharia possam acompanhar cada caso.",
+        "Mantenha um tom acolhedor e agradeça pelo contato, garantindo que a mensagem chegará ao time certo.",
+      ],
+      systemPrompt: [
+        "Você é o assistente de suporte AIBarber que atende gestores do dashboard.",
+        "Classifique cada mensagem como elogio, sugestão ou bug e reconheça explicitamente o tipo de feedback.",
+        "Quando faltarem informações, faça perguntas objetivas — para bugs, peça dispositivo, navegador e passos para reproduzir.",
+        "Resuma os pontos principais e avise que o time humano analisará o relato.",
+        "Se houver urgência ou pedido de contato humano, explique como falar com o suporte e ofereça encaminhamento.",
+      ],
+      quickReplies: [
+        "Compartilhar um elogio",
+        "Tenho uma sugestão",
+        "Reportar um bug",
+        "Acompanhar um relato anterior",
+      ],
+    },
     userForm: COMPONENT_COPY.pt.userForm,
     recurrenceModal: COMPONENT_COPY.pt.recurrenceModal,
     occurrencePreview: COMPONENT_COPY.pt.occurrencePreview,
@@ -1561,6 +1606,7 @@ type ScreenName =
   | "products"
   | "cashRegister"
   | "assistant"
+  | "support"
   | "team"
   | "settings"
   | "barbershopSettings";
@@ -1617,6 +1663,7 @@ function AuthenticatedApp() {
   const bookServiceCopy = copy.bookService;
   const bookingsCopy = copy.bookings;
   const assistantCopy = copy.assistant;
+  const supportCopy = copy.support;
   const productsCopy = copy.productsPage;
   const packagesCopy = copy.packagesPage;
   const cashRegisterCopy = copy.cashRegisterPage;
@@ -3135,6 +3182,21 @@ function AuthenticatedApp() {
     ].join("\n");
   }, [assistantCopy.systemPrompt, bookings, locale, localizedServiceMap, localizedServices]);
 
+  const supportContextSummary = useMemo(
+    () => supportCopy.contextSummary.join("\n"),
+    [supportCopy.contextSummary],
+  );
+
+  const supportSystemPrompt = useMemo(
+    () => supportCopy.systemPrompt.join("\n"),
+    [supportCopy.systemPrompt],
+  );
+
+  const supportQuickReplyFactory = useCallback(
+    () => [...supportCopy.quickReplies],
+    [supportCopy.quickReplies],
+  );
+
   const filteredBookingsList = useMemo(() => {
     const barber = bookingFilterBarber?.trim();
     const service = bookingFilterService?.trim();
@@ -3640,6 +3702,21 @@ function AuthenticatedApp() {
             />
             <Text style={[styles.sidebarItemText, activeScreen === "assistant" && styles.sidebarItemTextActive]}>
               {copy.navigation.assistant}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => handleNavigate("support")}
+            style={[styles.sidebarItem, activeScreen === "support" && styles.sidebarItemActive]}
+            accessibilityRole="button"
+            accessibilityLabel="Open the support assistant"
+          >
+            <Ionicons
+              name="chatbubble-ellipses-outline"
+              size={20}
+              color={activeScreen === "support" ? colors.accentFgOn : colors.subtext}
+            />
+            <Text style={[styles.sidebarItemText, activeScreen === "support" && styles.sidebarItemTextActive]}>
+              {copy.navigation.support}
             </Text>
           </Pressable>
           <Pressable
@@ -5364,6 +5441,27 @@ function AuthenticatedApp() {
         onBookingsMutated={handleBookingsMutated}
         services={localizedServices}
         copy={assistantCopy.chat}
+      />
+    ) : activeScreen === "support" ? (
+      <AssistantChat
+        colors={{
+          text: colors.text,
+          subtext: colors.subtext,
+          surface: colors.surface,
+          border: colors.border,
+          accent: colors.accent,
+          accentFgOn: colors.accentFgOn,
+          danger: colors.danger,
+          bg: colors.bg,
+        }}
+        systemPrompt={supportSystemPrompt}
+        contextSummary={supportContextSummary}
+        services={[]}
+        copy={supportCopy.chat}
+        agentRunner={({ systemPrompt, contextSummary, conversation }) =>
+          runSupportAgent({ systemPrompt, contextSummary, conversation })
+        }
+        quickReplyFactory={supportQuickReplyFactory}
       />
     ) : activeScreen === "team" ? (
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}>

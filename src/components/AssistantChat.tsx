@@ -13,7 +13,11 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 
 import type { Service } from "../lib/domain";
-import { useAssistantChat } from "../hooks/useAssistantChat";
+import {
+  useAssistantChat,
+  type AgentRunner,
+  type QuickReplyFactory,
+} from "../hooks/useAssistantChat";
 import { defaultComponentCopy } from "../locales/componentCopy";
 import type { AssistantChatCopy } from "../locales/types";
 
@@ -33,6 +37,8 @@ type AssistantChatProps = {
   onBookingsMutated?: () => Promise<void> | void;
   services: Service[];
   copy?: AssistantChatCopy;
+  agentRunner?: AgentRunner;
+  quickReplyFactory?: QuickReplyFactory;
 };
 
 export default function AssistantChat({
@@ -42,6 +48,8 @@ export default function AssistantChat({
   onBookingsMutated,
   services,
   copy = defaultComponentCopy.assistantChat,
+  agentRunner,
+  quickReplyFactory,
 }: AssistantChatProps) {
   const scrollRef = useRef<ScrollView>(null);
 
@@ -69,6 +77,8 @@ export default function AssistantChat({
     services,
     copy,
     onBookingsMutated,
+    agentRunner,
+    quickReplyFactory,
   });
 
   useEffect(() => {
