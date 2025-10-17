@@ -18,6 +18,7 @@ import {
 import Svg, { Circle, G } from "react-native-svg";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import * as Localization from "expo-localization";
+import type { User } from "@supabase/supabase-js";
 
 import {
   BARBERS,
@@ -40,6 +41,7 @@ import { polyglotProductName, polyglotProducts, polyglotServices } from "./src/l
 import { COMPONENT_COPY } from "./src/locales/componentCopy";
 import type { RecurrenceFrequency } from "./src/locales/types";
 import { AuthGate } from "./src/components/AuthGate";
+import { getEmailConfirmationRedirectUrl } from "./src/lib/auth";
 import { supabase } from "./src/lib/supabase";
 
 const getTodayDateKey = () => toDateKey(new Date());
@@ -333,6 +335,17 @@ const LANGUAGE_COPY = {
         system: "System",
         light: "Light",
         dark: "Dark",
+      },
+      emailConfirmation: {
+        title: "Confirm your email",
+        description: (email: string) =>
+          email
+            ? `We haven't confirmed ${email} yet. Resend the confirmation email to finish setting up your workspace.`
+            : "We haven't confirmed your email yet. Resend the confirmation email to finish setting up your workspace.",
+        action: "Resend confirmation email",
+        sending: "Sending...",
+        success: "We sent a new confirmation email. Check your inbox.",
+        error: "We couldn't resend the confirmation email. Try again in a moment.",
       },
       apiStatus: {
         title: "AI services",
@@ -868,6 +881,17 @@ const LANGUAGE_COPY = {
         system: "Sistema",
         light: "Claro",
         dark: "Escuro",
+      },
+      emailConfirmation: {
+        title: "Confirme seu e-mail",
+        description: (email: string) =>
+          email
+            ? `O e-mail ${email} ainda não foi confirmado. Reenvie a confirmação para concluir a configuração do workspace.`
+            : "Seu e-mail ainda não foi confirmado. Reenvie a confirmação para concluir a configuração do workspace.",
+        action: "Reenviar e-mail de confirmação",
+        sending: "Enviando...",
+        success: "Enviamos um novo e-mail de confirmação. Confira sua caixa de entrada.",
+        error: "Não foi possível reenviar o e-mail de confirmação. Tente novamente em instantes.",
       },
       apiStatus: {
         title: "Serviços de IA",
@@ -1503,6 +1527,11 @@ function AuthenticatedApp() {
   const [activeScreen, setActiveScreen] = useState<ScreenName>("home");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUserLoading, setCurrentUserLoading] = useState(true);
+  const [resendingConfirmation, setResendingConfirmation] = useState(false);
+  const [resentConfirmation, setResentConfirmation] = useState(false);
+  const [resendConfirmationError, setResendConfirmationError] = useState<string | null>(null);
   const [language, setLanguage] = useState<SupportedLanguage>(() => getInitialLanguage());
   const copy = useMemo(() => LANGUAGE_COPY[language], [language]);
   const locale = language === "pt" ? "pt-BR" : "en-US";
@@ -1523,6 +1552,97 @@ function AuthenticatedApp() {
   const resolvedTheme = themePreference === "system" ? (colorScheme === "dark" ? "dark" : "light") : themePreference;
   const colors = useMemo(() => THEMES[resolvedTheme], [resolvedTheme]);
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const emailConfirmationCopy = copy.settingsPage.emailConfirmation;
+  const emailConfirmed = Boolean(currentUser?.email_confirmed_at);
+  const showEmailConfirmationReminder = !currentUserLoading && currentUser && !emailConfirmed;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadUser = async () => {
+      setCurrentUserLoading(true);
+      try {
+        const { data, error } = await supabase.auth.getUser();
+        if (!isMounted) {
+          return;
+        }
+        if (error) {
+          console.error("Failed to load authenticated user", error);
+          setCurrentUser(null);
+        } else {
+          setCurrentUser(data.user ?? null);
+        }
+      } catch (error) {
+        console.error("Failed to load authenticated user", error);
+        if (isMounted) {
+          setCurrentUser(null);
+        }
+      } finally {
+        if (isMounted) {
+          setCurrentUserLoading(false);
+        }
+      }
+    };
+
+    void loadUser();
+
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isMounted) {
+        return;
+      }
+      setCurrentUser(session?.user ?? null);
+      setCurrentUserLoading(false);
+    });
+
+    return () => {
+      isMounted = false;
+      subscription?.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (currentUser?.email_confirmed_at) {
+      setResentConfirmation(false);
+      setResendConfirmationError(null);
+    }
+  }, [currentUser?.email_confirmed_at]);
+
+  useEffect(() => {
+    if (resendConfirmationError) {
+      setResendConfirmationError(emailConfirmationCopy.error);
+    }
+  }, [emailConfirmationCopy.error, resendConfirmationError]);
+
+  const handleResendConfirmationEmail = useCallback(async () => {
+    if (!currentUser?.email || resendingConfirmation) {
+      return;
+    }
+
+    setResendingConfirmation(true);
+    setResentConfirmation(false);
+    setResendConfirmationError(null);
+
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: currentUser.email,
+        options: { emailRedirectTo: getEmailConfirmationRedirectUrl() },
+      });
+
+      if (error) {
+        console.error("Failed to resend confirmation email", error);
+        setResendConfirmationError(emailConfirmationCopy.error);
+        return;
+      }
+
+      setResentConfirmation(true);
+    } catch (error) {
+      console.error("Failed to resend confirmation email", error);
+      setResendConfirmationError(emailConfirmationCopy.error);
+    } finally {
+      setResendingConfirmation(false);
+    }
+  }, [currentUser?.email, resendingConfirmation, emailConfirmationCopy.error]);
 
   // Cliente -> obrigatório antes do barbeiro
   const [clientModalOpen, setClientModalOpen] = useState(false);
@@ -5103,6 +5223,47 @@ function AuthenticatedApp() {
             {copy.settingsPage.subtitle}
           </Text>
         </View>
+
+        {showEmailConfirmationReminder ? (
+          <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Ionicons name="mail-unread-outline" size={20} color={colors.accent} />
+              <Text style={[styles.languageLabel, { color: colors.accent }]}>
+                {emailConfirmationCopy.title}
+              </Text>
+            </View>
+            <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
+              {emailConfirmationCopy.description(currentUser?.email ?? "")}
+            </Text>
+            {resentConfirmation ? (
+              <Text style={{ color: colors.accent, fontWeight: "700" }}>
+                {emailConfirmationCopy.success}
+              </Text>
+            ) : null}
+            {resendConfirmationError ? (
+              <Text style={{ color: colors.danger, fontWeight: "700" }}>{resendConfirmationError}</Text>
+            ) : null}
+            <Pressable
+              onPress={handleResendConfirmationEmail}
+              disabled={resendingConfirmation}
+              style={[
+                styles.smallBtn,
+                {
+                  alignSelf: "flex-start",
+                  borderColor: colors.accent,
+                  backgroundColor: colors.accent,
+                  opacity: resendingConfirmation ? 0.7 : 1,
+                },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={emailConfirmationCopy.action}
+            >
+              <Text style={{ color: colors.accentFgOn, fontWeight: "900" }}>
+                {resendingConfirmation ? emailConfirmationCopy.sending : emailConfirmationCopy.action}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 16 }]}>
           <View style={styles.statusHeader}>
