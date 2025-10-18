@@ -47,45 +47,42 @@ execute function public.update_updated_at_column();
 alter table public.staff_members enable row level security;
 
 -- Allow authenticated users to view and manage team data
+create or replace function public.is_staff_member_of_barbershop(target_barbershop_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1
+    from public.staff_members s
+    where s.auth_user_id = auth.uid()
+      and s.barbershop_id = target_barbershop_id
+  );
+$$;
+
+grant execute on function public.is_staff_member_of_barbershop(uuid) to authenticated, service_role;
+
 create policy if not exists "Authenticated users can read staff" on public.staff_members
 for select using (
   auth.role() = 'authenticated'
-  and exists (
-    select 1
-    from public.staff_members staff
-    where staff.auth_user_id = auth.uid()
-      and staff.barbershop_id = public.staff_members.barbershop_id
-  )
+  and public.is_staff_member_of_barbershop(public.staff_members.barbershop_id)
 );
 
 create policy if not exists "Authenticated users can insert staff" on public.staff_members
 for insert with check (
   auth.role() = 'authenticated'
-  and exists (
-    select 1
-    from public.staff_members staff
-    where staff.auth_user_id = auth.uid()
-      and staff.barbershop_id = public.staff_members.barbershop_id
-  )
+  and public.is_staff_member_of_barbershop(public.staff_members.barbershop_id)
 );
 
 create policy if not exists "Authenticated users can update staff" on public.staff_members
 for update using (
   auth.role() = 'authenticated'
-  and exists (
-    select 1
-    from public.staff_members staff
-    where staff.auth_user_id = auth.uid()
-      and staff.barbershop_id = public.staff_members.barbershop_id
-  )
+  and public.is_staff_member_of_barbershop(public.staff_members.barbershop_id)
 ) with check (
   auth.role() = 'authenticated'
-  and exists (
-    select 1
-    from public.staff_members staff
-    where staff.auth_user_id = auth.uid()
-      and staff.barbershop_id = public.staff_members.barbershop_id
-  )
+  and public.is_staff_member_of_barbershop(public.staff_members.barbershop_id)
 );
 
 -- Allow service role full access for background jobs and edge functions
