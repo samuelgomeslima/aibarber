@@ -84,6 +84,11 @@ begin
     raise exception using message = 'Product not found';
   end if;
 
+  if auth.role() <> 'service_role'
+     and not public.is_staff_member_of_barbershop(v_product.barbershop_id) then
+    raise exception using message = 'Not authorized to modify this product';
+  end if;
+
   v_delta := case when p_movement_type = 'sell' then -p_quantity else p_quantity end;
 
   if v_product.stock_quantity + v_delta < 0 then
