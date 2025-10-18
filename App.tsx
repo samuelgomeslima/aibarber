@@ -44,7 +44,6 @@ import { AuthGate } from "./src/components/AuthGate";
 import { getEmailConfirmationRedirectUrl } from "./src/lib/auth";
 import { getBarbershopForOwner, updateBarbershop, type Barbershop } from "./src/lib/barbershops";
 import { supabase, isSupabaseConfigured } from "./src/lib/supabase";
-import { runSupportAgent } from "./src/lib/supportAgent";
 
 const getTodayDateKey = () => toDateKey(new Date());
 
@@ -206,6 +205,7 @@ import RecurrenceModal from "./src/components/RecurrenceModal"; // recebe fixedD
 import OccurrencePreviewModal, { PreviewItem } from "./src/components/OccurrencePreviewModal";
 import BarberSelector, { Barber } from "./src/components/BarberSelector";
 import AssistantChat from "./src/components/AssistantChat";
+import SupportChat from "./src/components/SupportChat";
 import ServicePackageForm from "./src/components/ServicePackageForm";
 import ServiceForm from "./src/components/ServiceForm";
 import ProductForm from "./src/components/ProductForm";
@@ -3192,11 +3192,6 @@ function AuthenticatedApp() {
     [supportCopy.systemPrompt],
   );
 
-  const supportQuickReplyFactory = useCallback(
-    () => [...supportCopy.quickReplies],
-    [supportCopy.quickReplies],
-  );
-
   const filteredBookingsList = useMemo(() => {
     const barber = bookingFilterBarber?.trim();
     const service = bookingFilterService?.trim();
@@ -5443,7 +5438,7 @@ function AuthenticatedApp() {
         copy={assistantCopy.chat}
       />
     ) : activeScreen === "support" ? (
-      <AssistantChat
+      <SupportChat
         colors={{
           text: colors.text,
           subtext: colors.subtext,
@@ -5456,12 +5451,10 @@ function AuthenticatedApp() {
         }}
         systemPrompt={supportSystemPrompt}
         contextSummary={supportContextSummary}
-        services={[]}
+        title={copy.navigation.support}
+        subtitle={supportCopy.chat.inputPlaceholder}
         copy={supportCopy.chat}
-        agentRunner={({ systemPrompt, contextSummary, conversation }) =>
-          runSupportAgent({ systemPrompt, contextSummary, conversation })
-        }
-        quickReplyFactory={supportQuickReplyFactory}
+        quickReplies={supportCopy.quickReplies}
       />
     ) : activeScreen === "team" ? (
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}>
