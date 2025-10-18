@@ -3,6 +3,7 @@ import { hasSupabaseCredentials, supabase } from "./supabase";
 let cachedBarbershopId: string | null = null;
 let hasResolvedBarbershopId = false;
 let pendingRequest: Promise<string | null> | null = null;
+let pendingRequestToken: symbol | null = null;
 
 async function fetchCurrentBarbershopId(): Promise<string | null> {
   const { data, error } = await supabase.auth.getUser();
@@ -54,20 +55,31 @@ async function loadBarbershopId(refresh: boolean): Promise<string | null> {
   }
 
   if (!pendingRequest) {
-    pendingRequest = fetchCurrentBarbershopId()
+    const requestToken = Symbol("barbershop-request");
+    pendingRequestToken = requestToken;
+    const request = fetchCurrentBarbershopId()
       .then((id) => {
-        cachedBarbershopId = id;
-        hasResolvedBarbershopId = true;
-        return cachedBarbershopId;
+        if (pendingRequestToken === requestToken) {
+          cachedBarbershopId = id;
+          hasResolvedBarbershopId = true;
+        }
+        return id;
       })
       .catch((error) => {
-        hasResolvedBarbershopId = false;
-        cachedBarbershopId = null;
+        if (pendingRequestToken === requestToken) {
+          hasResolvedBarbershopId = false;
+          cachedBarbershopId = null;
+        }
         throw error;
       })
       .finally(() => {
-        pendingRequest = null;
+        if (pendingRequestToken === requestToken) {
+          pendingRequest = null;
+          pendingRequestToken = null;
+        }
       });
+
+    pendingRequest = request;
   }
 
   return pendingRequest;
@@ -94,4 +106,5 @@ export function clearCurrentBarbershopCache(): void {
   cachedBarbershopId = null;
   hasResolvedBarbershopId = false;
   pendingRequest = null;
+  pendingRequestToken = null;
 }
