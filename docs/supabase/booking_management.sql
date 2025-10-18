@@ -34,9 +34,9 @@ create table if not exists public.customers (
 
 drop index if exists public.customers_phone_key;
 drop index if exists public.customers_email_key;
-create unique index if not exists customers_phone_key on public.customers (barbershop_id, phone)
+create unique index if not exists customers_phone_key on public.customers (barbershop_id, id, phone)
   where phone is not null;
-create unique index if not exists customers_email_key on public.customers (barbershop_id, lower(email))
+create unique index if not exists customers_email_key on public.customers (barbershop_id, id, lower(email))
   where email is not null;
 create index if not exists customers_name_idx on public.customers (last_name, first_name);
 create index if not exists customers_barbershop_idx on public.customers (barbershop_id);
@@ -62,7 +62,7 @@ create table if not exists public.services (
 );
 
 drop index if exists public.services_name_key;
-create unique index if not exists services_name_key on public.services (barbershop_id, lower(name));
+create unique index if not exists services_name_key on public.services (barbershop_id, id, lower(name));
 create index if not exists services_price_idx on public.services (price_cents);
 create index if not exists services_barbershop_idx on public.services (barbershop_id);
 
