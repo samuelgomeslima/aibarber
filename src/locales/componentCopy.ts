@@ -12,6 +12,7 @@ type SupportedLanguage = "en" | "pt";
 
 type ComponentCopy = {
   assistantChat: AssistantChatCopy;
+  supportChat: AssistantChatCopy;
   serviceForm: ServiceFormCopy;
   productForm: ProductFormCopy;
   servicePackageForm: ServicePackageFormCopy;
@@ -40,6 +41,42 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
         barberAvailability: (barberName: string) => `Available hours for ${barberName}`,
       },
       inputPlaceholder: "Ask about bookings...",
+      sendAccessibility: "Send message",
+      typingIndicator: "Typing…",
+      suggestionsAccessibility: {
+        show: "Show quick suggestions",
+        hide: "Hide quick suggestions",
+      },
+      voiceButtonAccessibility: {
+        start: "Start voice input",
+        stop: "Stop voice input",
+      },
+      errors: {
+        generic: "Something went wrong.",
+        missingApiKey: "Configure the backend OPENAI_API_KEY secret to enable voice input.",
+        voiceWebOnly: "Voice capture is currently supported on the web experience only.",
+        voiceUnsupported: "Voice capture is not supported in this browser.",
+        voiceStartFailed: "Unable to start voice recording.",
+        noAudio: "No audio captured. Try again.",
+        processFailed: "Failed to process voice message.",
+      },
+    },
+    supportChat: {
+      initialMessage:
+        "Hi! I'm your AIBarber support assistant. Share compliments, suggestions, or bug reports and I'll make sure they reach the team.",
+      apiKeyWarning: "Configure the backend OPENAI_API_KEY secret to enable the assistant.",
+      contextPrefix: "Support context:",
+      quickRepliesTitle: "Suggested prompts",
+      quickRepliesToggleShow: "Show suggestions",
+      quickRepliesToggleHide: "Hide quick suggestions",
+      quickReplyAccessibility: (suggestion: string) => `Send quick message: ${suggestion}`,
+      quickReplies: {
+        existingBookings: "Share positive feedback",
+        bookService: "I have a suggestion",
+        bookSpecificService: () => "Report a bug",
+        barberAvailability: () => "Follow up on my last report",
+      },
+      inputPlaceholder: "Tell us how we can help...",
       sendAccessibility: "Send message",
       typingIndicator: "Typing…",
       suggestionsAccessibility: {
@@ -360,6 +397,42 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
         barberAvailability: (barberName: string) => `Horários disponíveis para ${barberName}`,
       },
       inputPlaceholder: "Pergunte sobre os agendamentos...",
+      sendAccessibility: "Enviar mensagem",
+      typingIndicator: "Digitando…",
+      suggestionsAccessibility: {
+        show: "Mostrar sugestões rápidas",
+        hide: "Ocultar sugestões rápidas",
+      },
+      voiceButtonAccessibility: {
+        start: "Iniciar entrada por voz",
+        stop: "Parar entrada por voz",
+      },
+      errors: {
+        generic: "Algo deu errado.",
+        missingApiKey: "Configure a variável OPENAI_API_KEY no backend para habilitar a entrada por voz.",
+        voiceWebOnly: "A captura de voz está disponível apenas na experiência web no momento.",
+        voiceUnsupported: "A captura de voz não é suportada neste navegador.",
+        voiceStartFailed: "Não foi possível iniciar a gravação de voz.",
+        noAudio: "Nenhum áudio capturado. Tente novamente.",
+        processFailed: "Falha ao processar a mensagem de voz.",
+      },
+    },
+    supportChat: {
+      initialMessage:
+        "Olá! Sou o assistente de suporte AIBarber. Envie elogios, sugestões ou relatos de bugs que eu repasso para o nosso time.",
+      apiKeyWarning: "Configure a variável OPENAI_API_KEY no backend para habilitar o assistente.",
+      contextPrefix: "Contexto de suporte:",
+      quickRepliesTitle: "Prompts sugeridos",
+      quickRepliesToggleShow: "Mostrar sugestões",
+      quickRepliesToggleHide: "Ocultar sugestões rápidas",
+      quickReplyAccessibility: (suggestion: string) => `Enviar mensagem rápida: ${suggestion}`,
+      quickReplies: {
+        existingBookings: "Compartilhar um elogio",
+        bookService: "Tenho uma sugestão",
+        bookSpecificService: () => "Reportar um bug",
+        barberAvailability: () => "Acompanhar meu relatório anterior",
+      },
+      inputPlaceholder: "Conte como podemos ajudar...",
       sendAccessibility: "Enviar mensagem",
       typingIndicator: "Digitando…",
       suggestionsAccessibility: {
