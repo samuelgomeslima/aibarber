@@ -2,6 +2,7 @@ import type { PostgrestSingleResponse } from "@supabase/supabase-js";
 
 import type { Product } from "./domain";
 import { hasSupabaseCredentials, supabase } from "./supabase";
+import { requireCurrentBarbershopId } from "./activeBarbershop";
 
 export type ProductInput = {
   name: string;
@@ -232,10 +233,12 @@ type SupabaseProductMovementRow = {
 };
 
 async function listProductSalesTotalsFromSupabase(): Promise<Record<string, number>> {
+  const barbershopId = await requireCurrentBarbershopId();
   const { data, error } = await supabase
     .from("product_stock_movements")
     .select("product_id,quantity")
-    .eq("movement_type", "sell");
+    .eq("movement_type", "sell")
+    .eq("barbershop_id", barbershopId);
 
   if (error) {
     throw new Error(error.message ?? "Failed to load product sales totals");
@@ -253,7 +256,11 @@ async function listProductSalesTotalsFromSupabase(): Promise<Record<string, numb
 }
 
 async function listProductsFromSupabase(): Promise<Product[]> {
-  const { data, error } = await supabase.from("products").select(PRODUCT_COLUMNS);
+  const barbershopId = await requireCurrentBarbershopId();
+  const { data, error } = await supabase
+    .from("products")
+    .select(PRODUCT_COLUMNS)
+    .eq("barbershop_id", barbershopId);
   if (error) {
     throw new Error(error.message ?? "Failed to load products");
   }
@@ -261,9 +268,10 @@ async function listProductsFromSupabase(): Promise<Product[]> {
 }
 
 async function createProductInSupabase(input: NormalizedProductInput): Promise<Product> {
+  const barbershopId = await requireCurrentBarbershopId();
   const { data, error } = (await supabase
     .from("products")
-    .insert(input)
+    .insert({ ...input, barbershop_id: barbershopId })
     .select(PRODUCT_COLUMNS)
     .single()) as PostgrestSingleResponse<SupabaseProductRow>;
 
@@ -278,10 +286,12 @@ async function createProductInSupabase(input: NormalizedProductInput): Promise<P
 }
 
 async function updateProductInSupabase(id: string, input: NormalizedProductInput): Promise<Product> {
+  const barbershopId = await requireCurrentBarbershopId();
   const { data, error } = (await supabase
     .from("products")
     .update(input)
     .eq("id", id)
+    .eq("barbershop_id", barbershopId)
     .select(PRODUCT_COLUMNS)
     .single()) as PostgrestSingleResponse<SupabaseProductRow>;
 
@@ -296,7 +306,12 @@ async function updateProductInSupabase(id: string, input: NormalizedProductInput
 }
 
 async function deleteProductFromSupabase(id: string): Promise<void> {
-  const { error } = await supabase.from("products").delete().eq("id", id);
+  const barbershopId = await requireCurrentBarbershopId();
+  const { error } = await supabase
+    .from("products")
+    .delete()
+    .eq("id", id)
+    .eq("barbershop_id", barbershopId);
   if (error) {
     throw new Error(error.message ?? "Failed to delete product");
   }

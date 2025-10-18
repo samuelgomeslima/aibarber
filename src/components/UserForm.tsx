@@ -11,6 +11,7 @@ import {
   Alert,
 } from "react-native";
 import { supabase } from "../lib/supabase";
+import { requireCurrentBarbershopId } from "../lib/activeBarbershop";
 import { defaultComponentCopy } from "../locales/componentCopy";
 import type { UserFormCopy } from "../locales/types";
 import { subtleFormCardColors, type SubtleFormCardColors } from "../theme/colors";
@@ -114,6 +115,8 @@ export default function UserForm({
     if (!valid || saving) return;
     setSaving(true);
     try {
+      const barbershopId = await requireCurrentBarbershopId();
+
       const payload = {
         first_name:    firstName.trim(),
         last_name:     lastName.trim(),
@@ -121,6 +124,7 @@ export default function UserForm({
         email:         email.trim(),
         date_of_birth: dateOfBirth.toISOString().slice(0, 10), // YYYY-MM-DD
         ...(availableRoles?.length ? { role } : {}),
+        barbershop_id: barbershopId,
       };
 
       const selectColumns = ["id", "first_name", "last_name", "phone", "email", "date_of_birth"];

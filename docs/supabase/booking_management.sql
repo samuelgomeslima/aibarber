@@ -20,6 +20,7 @@ create table if not exists public.customers (
   phone text,
   email text,
   date_of_birth date,
+  barbershop_id uuid not null references public.barbershops(id) on delete cascade,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
   created_by uuid references auth.users(id),
@@ -33,11 +34,12 @@ create table if not exists public.customers (
 
 drop index if exists public.customers_phone_key;
 drop index if exists public.customers_email_key;
-create unique index if not exists customers_phone_key on public.customers (created_by, phone)
+create unique index if not exists customers_phone_key on public.customers (barbershop_id, id, phone)
   where phone is not null;
-create unique index if not exists customers_email_key on public.customers (created_by, lower(email))
+create unique index if not exists customers_email_key on public.customers (barbershop_id, id, lower(email))
   where email is not null;
 create index if not exists customers_name_idx on public.customers (last_name, first_name);
+create index if not exists customers_barbershop_idx on public.customers (barbershop_id);
 
 create trigger on_customers_updated
 before update on public.customers
@@ -53,14 +55,16 @@ create table if not exists public.services (
   estimated_minutes integer not null check (estimated_minutes > 0),
   price_cents integer not null check (price_cents >= 0),
   icon text not null default 'content-cut',
+  barbershop_id uuid not null references public.barbershops(id) on delete cascade,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
   created_by uuid references auth.users(id)
 );
 
 drop index if exists public.services_name_key;
-create unique index if not exists services_name_key on public.services (created_by, lower(name));
+create unique index if not exists services_name_key on public.services (barbershop_id, id, lower(name));
 create index if not exists services_price_idx on public.services (price_cents);
+create index if not exists services_barbershop_idx on public.services (barbershop_id);
 
 create trigger on_services_updated
 before update on public.services
@@ -79,6 +83,7 @@ create table if not exists public.bookings (
   barber uuid not null references public.staff_members(id) on delete restrict,
   customer_id uuid references public.customers(id) on delete set null,
   note text,
+  barbershop_id uuid not null references public.barbershops(id) on delete cascade,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
   created_by uuid references auth.users(id),
@@ -89,6 +94,7 @@ create table if not exists public.bookings (
 create index if not exists bookings_date_start_idx on public.bookings (date, start);
 create index if not exists bookings_customer_idx on public.bookings (customer_id);
 create index if not exists bookings_service_idx on public.bookings (service_id);
+create index if not exists bookings_barbershop_idx on public.bookings (barbershop_id);
 
 create trigger on_bookings_updated
 before update on public.bookings
@@ -106,6 +112,7 @@ create table if not exists public.staff_usage (
   start timestamptz not null default timezone('utc', now()),
   "end" timestamptz,
   notes text,
+  barbershop_id uuid not null references public.barbershops(id) on delete cascade,
   created_at timestamptz not null default timezone('utc', now()),
   created_by uuid references auth.users(id),
   constraint staff_usage_end_after_start check ("end" is null or "end" >= start),
@@ -114,6 +121,7 @@ create table if not exists public.staff_usage (
 
 create index if not exists staff_usage_staff_idx on public.staff_usage (staff_member_id, start desc);
 create index if not exists staff_usage_service_idx on public.staff_usage (service_id);
+create index if not exists staff_usage_barbershop_idx on public.staff_usage (barbershop_id);
 
 comment on table public.staff_usage is 'Logs how staff members spend their time per booking for later analytics.';
 
@@ -126,17 +134,32 @@ alter table public.staff_usage enable row level security;
 create policy if not exists "Authenticated users can read customers" on public.customers
 for select using (
   auth.role() = 'authenticated'
-  and created_by = auth.uid()
+  and exists (
+    select 1
+    from public.staff_members staff
+    where staff.auth_user_id = auth.uid()
+      and staff.barbershop_id = customers.barbershop_id
+  )
 );
 
 create policy if not exists "Authenticated users can manage customers" on public.customers
 for all using (
   auth.role() = 'authenticated'
-  and created_by = auth.uid()
+  and exists (
+    select 1
+    from public.staff_members staff
+    where staff.auth_user_id = auth.uid()
+      and staff.barbershop_id = customers.barbershop_id
+  )
 )
   with check (
     auth.role() = 'authenticated'
-    and created_by = auth.uid()
+    and exists (
+      select 1
+      from public.staff_members staff
+      where staff.auth_user_id = auth.uid()
+        and staff.barbershop_id = customers.barbershop_id
+    )
   );
 
 create policy if not exists "Service role can manage customers" on public.customers
@@ -146,17 +169,32 @@ for all using (auth.role() = 'service_role')
 create policy if not exists "Authenticated users can read services" on public.services
 for select using (
   auth.role() = 'authenticated'
-  and created_by = auth.uid()
+  and exists (
+    select 1
+    from public.staff_members staff
+    where staff.auth_user_id = auth.uid()
+      and staff.barbershop_id = services.barbershop_id
+  )
 );
 
 create policy if not exists "Authenticated users can manage services" on public.services
 for all using (
   auth.role() = 'authenticated'
-  and created_by = auth.uid()
+  and exists (
+    select 1
+    from public.staff_members staff
+    where staff.auth_user_id = auth.uid()
+      and staff.barbershop_id = services.barbershop_id
+  )
 )
   with check (
     auth.role() = 'authenticated'
-    and created_by = auth.uid()
+    and exists (
+      select 1
+      from public.staff_members staff
+      where staff.auth_user_id = auth.uid()
+        and staff.barbershop_id = services.barbershop_id
+    )
   );
 
 create policy if not exists "Service role can manage services" on public.services
@@ -166,17 +204,32 @@ for all using (auth.role() = 'service_role')
 create policy if not exists "Authenticated users can read bookings" on public.bookings
 for select using (
   auth.role() = 'authenticated'
-  and created_by = auth.uid()
+  and exists (
+    select 1
+    from public.staff_members staff
+    where staff.auth_user_id = auth.uid()
+      and staff.barbershop_id = bookings.barbershop_id
+  )
 );
 
 create policy if not exists "Authenticated users can modify bookings" on public.bookings
 for all using (
   auth.role() = 'authenticated'
-  and created_by = auth.uid()
+  and exists (
+    select 1
+    from public.staff_members staff
+    where staff.auth_user_id = auth.uid()
+      and staff.barbershop_id = bookings.barbershop_id
+  )
 )
   with check (
     auth.role() = 'authenticated'
-    and created_by = auth.uid()
+    and exists (
+      select 1
+      from public.staff_members staff
+      where staff.auth_user_id = auth.uid()
+        and staff.barbershop_id = bookings.barbershop_id
+    )
   );
 
 create policy if not exists "Service role can manage bookings" on public.bookings
@@ -186,17 +239,32 @@ for all using (auth.role() = 'service_role')
 create policy if not exists "Authenticated users can read staff usage" on public.staff_usage
 for select using (
   auth.role() = 'authenticated'
-  and created_by = auth.uid()
+  and exists (
+    select 1
+    from public.staff_members staff
+    where staff.auth_user_id = auth.uid()
+      and staff.barbershop_id = staff_usage.barbershop_id
+  )
 );
 
 create policy if not exists "Authenticated users can manage staff usage" on public.staff_usage
 for all using (
   auth.role() = 'authenticated'
-  and created_by = auth.uid()
+  and exists (
+    select 1
+    from public.staff_members staff
+    where staff.auth_user_id = auth.uid()
+      and staff.barbershop_id = staff_usage.barbershop_id
+  )
 )
   with check (
     auth.role() = 'authenticated'
-    and created_by = auth.uid()
+    and exists (
+      select 1
+      from public.staff_members staff
+      where staff.auth_user_id = auth.uid()
+        and staff.barbershop_id = staff_usage.barbershop_id
+    )
   );
 
 create policy if not exists "Service role can manage staff usage" on public.staff_usage

@@ -10,11 +10,13 @@ create table if not exists public.products (
   sku text unique,
   description text,
   cost_cents integer,
+  barbershop_id uuid not null references public.barbershops(id) on delete cascade,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
 );
 
 create index if not exists products_sku_idx on public.products (sku);
+create index if not exists products_barbershop_idx on public.products (barbershop_id);
 
 -- Supabase projects include this helper, but create it if missing.
 create or replace function public.update_updated_at_column()
@@ -38,12 +40,15 @@ create table if not exists public.product_stock_movements (
   quantity integer not null check (quantity > 0),
   delta integer not null,
   note text,
+  barbershop_id uuid not null references public.barbershops(id) on delete cascade,
   created_at timestamptz not null default timezone('utc', now()),
   created_by uuid references auth.users(id)
 );
 
 create index if not exists product_stock_movements_product_created_at_idx
   on public.product_stock_movements (product_id, created_at desc);
+create index if not exists product_stock_movements_barbershop_idx
+  on public.product_stock_movements (barbershop_id, created_at desc);
 
 -- RPC helper to atomically register a stock movement and keep totals in sync
 create or replace function public.record_product_movement(
@@ -79,6 +84,11 @@ begin
     raise exception using message = 'Product not found';
   end if;
 
+  if auth.role() <> 'service_role'
+     and not public.is_staff_member_of_barbershop(v_product.barbershop_id) then
+    raise exception using message = 'Not authorized to modify this product';
+  end if;
+
   v_delta := case when p_movement_type = 'sell' then -p_quantity else p_quantity end;
 
   if v_product.stock_quantity + v_delta < 0 then
@@ -97,14 +107,16 @@ begin
     quantity,
     delta,
     note,
-    created_by
+    created_by,
+    barbershop_id
   ) values (
     p_product_id,
     p_movement_type,
     p_quantity,
     v_delta,
     p_note,
-    auth.uid()
+    auth.uid(),
+    v_product.barbershop_id
   );
 
   return v_product;
@@ -118,22 +130,70 @@ alter table public.products enable row level security;
 alter table public.product_stock_movements enable row level security;
 
 create policy if not exists "Authenticated users can read products" on public.products
-for select using (auth.role() = 'authenticated');
+for select using (
+  auth.role() = 'authenticated'
+  and exists (
+    select 1
+    from public.staff_members staff
+    where staff.auth_user_id = auth.uid()
+      and staff.barbershop_id = products.barbershop_id
+  )
+);
 
 create policy if not exists "Authenticated users can manage products" on public.products
-for all using (auth.role() = 'authenticated')
-  with check (auth.role() = 'authenticated');
+for all using (
+  auth.role() = 'authenticated'
+  and exists (
+    select 1
+    from public.staff_members staff
+    where staff.auth_user_id = auth.uid()
+      and staff.barbershop_id = products.barbershop_id
+  )
+)
+  with check (
+    auth.role() = 'authenticated'
+    and exists (
+      select 1
+      from public.staff_members staff
+      where staff.auth_user_id = auth.uid()
+        and staff.barbershop_id = products.barbershop_id
+    )
+  );
 
 create policy if not exists "Service role can manage products" on public.products
 for all using (auth.role() = 'service_role')
   with check (auth.role() = 'service_role');
 
 create policy if not exists "Authenticated users can read stock movements" on public.product_stock_movements
-for select using (auth.role() = 'authenticated');
+for select using (
+  auth.role() = 'authenticated'
+  and exists (
+    select 1
+    from public.staff_members staff
+    where staff.auth_user_id = auth.uid()
+      and staff.barbershop_id = product_stock_movements.barbershop_id
+  )
+);
 
 create policy if not exists "Authenticated users can manage stock movements" on public.product_stock_movements
-for all using (auth.role() = 'authenticated')
-  with check (auth.role() = 'authenticated');
+for all using (
+  auth.role() = 'authenticated'
+  and exists (
+    select 1
+    from public.staff_members staff
+    where staff.auth_user_id = auth.uid()
+      and staff.barbershop_id = product_stock_movements.barbershop_id
+  )
+)
+  with check (
+    auth.role() = 'authenticated'
+    and exists (
+      select 1
+      from public.staff_members staff
+      where staff.auth_user_id = auth.uid()
+        and staff.barbershop_id = product_stock_movements.barbershop_id
+    )
+  );
 
 create policy if not exists "Service role can manage stock movements" on public.product_stock_movements
 for all using (auth.role() = 'service_role')

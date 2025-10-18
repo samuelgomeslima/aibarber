@@ -1,8 +1,11 @@
 /// <reference types="vitest" />
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createServicesRepository } from "../../../src/lib/services";
 import { supabaseMock } from "../testUtils/supabaseMock";
+import * as ActiveBarbershop from "../../../src/lib/activeBarbershop";
+
+vi.spyOn(ActiveBarbershop, "requireCurrentBarbershopId").mockResolvedValue("shop-test");
 
 describe("services repository", () => {
   it("throws a helpful message when a foreign key violation occurs", async () => {

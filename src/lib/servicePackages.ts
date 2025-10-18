@@ -2,6 +2,7 @@ import type { PostgrestSingleResponse } from "@supabase/supabase-js";
 
 import type { ServicePackage, ServicePackageItem } from "./domain";
 import { hasSupabaseCredentials, supabase } from "./supabase";
+import { requireCurrentBarbershopId } from "./activeBarbershop";
 
 export type ServicePackageInput = {
   name: string;
@@ -20,6 +21,7 @@ type ServicePackageRow = {
   created_at: string | null;
   updated_at: string | null;
   created_by: string | null;
+  barbershop_id: string | null;
 };
 
 type ServicePackageItemRow = {
@@ -29,6 +31,7 @@ type ServicePackageItemRow = {
   quantity: number;
   position: number | null;
   created_by: string | null;
+  barbershop_id: string | null;
 };
 
 type ServicePackageJoinRow = ServicePackageRow & {
@@ -165,12 +168,14 @@ function mapPackage(row: ServicePackageJoinRow): ServicePackage {
 }
 
 async function fetchPackageById(id: string): Promise<ServicePackage> {
+  const barbershopId = await requireCurrentBarbershopId();
   const { data, error } = await supabase
     .from<ServicePackageJoinRow>(TABLE_NAME)
     .select(
       "id,name,price_cents,regular_price_cents,description,created_at,updated_at,service_package_items(id,service_id,quantity,position)",
     )
     .eq("id", id)
+    .eq("barbershop_id", barbershopId)
     .single();
 
   if (error) {
@@ -242,11 +247,13 @@ export async function listServicePackages(): Promise<ServicePackage[]> {
     return listPackagesFromMemory();
   }
 
+  const barbershopId = await requireCurrentBarbershopId();
   const { data, error } = await supabase
     .from<ServicePackageJoinRow>(TABLE_NAME)
     .select(
       "id,name,price_cents,regular_price_cents,description,created_at,updated_at,service_package_items(id,service_id,quantity,position)",
     )
+    .eq("barbershop_id", barbershopId)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -263,6 +270,7 @@ export async function createServicePackage(payload: ServicePackageInput): Promis
   }
 
   const userId = await requireAuthUserId();
+  const barbershopId = await requireCurrentBarbershopId();
 
   const { data, error } = await supabase
     .from<ServicePackageRow>(TABLE_NAME)
@@ -272,6 +280,7 @@ export async function createServicePackage(payload: ServicePackageInput): Promis
       regular_price_cents: input.regular_price_cents,
       description: input.description,
       created_by: userId,
+      barbershop_id: barbershopId,
     })
     .select("id")
     .single();
@@ -290,6 +299,7 @@ export async function createServicePackage(payload: ServicePackageInput): Promis
     quantity: item.quantity,
     position: index,
     created_by: userId,
+    barbershop_id: barbershopId,
   }));
 
   const itemsResult: PostgrestSingleResponse<ServicePackageItemRow[]> = await supabase
@@ -301,7 +311,8 @@ export async function createServicePackage(payload: ServicePackageInput): Promis
     const cleanupResult = await supabase
       .from<ServicePackageRow>(TABLE_NAME)
       .delete()
-      .eq("id", packageId);
+      .eq("id", packageId)
+      .eq("barbershop_id", barbershopId);
 
     if (cleanupResult.error) {
       throw new Error(
@@ -328,6 +339,7 @@ export async function updateServicePackage(
   }
 
   const userId = await requireAuthUserId();
+  const barbershopId = await requireCurrentBarbershopId();
 
   const { error: updateError } = await supabase
     .from<ServicePackageRow>(TABLE_NAME)
@@ -337,7 +349,8 @@ export async function updateServicePackage(
       regular_price_cents: input.regular_price_cents,
       description: input.description,
     })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("barbershop_id", barbershopId);
 
   if (updateError) {
     throw updateError;
@@ -349,13 +362,18 @@ export async function updateServicePackage(
   } = await supabase
     .from<ServicePackageItemRow>(ITEMS_TABLE)
     .select("service_id,quantity,position,created_by")
-    .eq("package_id", id);
+    .eq("package_id", id)
+    .eq("barbershop_id", barbershopId);
 
   if (existingItemsError) {
     throw existingItemsError;
   }
 
-  const { error: deleteError } = await supabase.from<ServicePackageItemRow>(ITEMS_TABLE).delete().eq("package_id", id);
+  const { error: deleteError } = await supabase
+    .from<ServicePackageItemRow>(ITEMS_TABLE)
+    .delete()
+    .eq("package_id", id)
+    .eq("barbershop_id", barbershopId);
   if (deleteError) {
     throw deleteError;
   }
@@ -367,6 +385,7 @@ export async function updateServicePackage(
       quantity: item.quantity,
       position: index,
       created_by: userId,
+      barbershop_id: barbershopId,
     }));
     const insertResult: PostgrestSingleResponse<ServicePackageItemRow[]> = await supabase
       .from<ServicePackageItemRow>(ITEMS_TABLE)
@@ -380,6 +399,7 @@ export async function updateServicePackage(
           quantity: item.quantity,
           position: item.position ?? index,
           created_by: item.created_by ?? userId,
+          barbershop_id: barbershopId,
         }));
         const rollbackResult = await supabase.from<ServicePackageItemRow>(ITEMS_TABLE).insert(rollbackPayload);
         if (rollbackResult.error) {
@@ -404,7 +424,13 @@ export async function deleteServicePackage(id: string): Promise<void> {
     return deletePackageFromMemory(id);
   }
 
-  const { error } = await supabase.from<ServicePackageRow>(TABLE_NAME).delete().eq("id", id);
+  const barbershopId = await requireCurrentBarbershopId();
+
+  const { error } = await supabase
+    .from<ServicePackageRow>(TABLE_NAME)
+    .delete()
+    .eq("id", id)
+    .eq("barbershop_id", barbershopId);
   if (error) {
     throw error;
   }

@@ -47,14 +47,51 @@ execute function public.update_updated_at_column();
 alter table public.staff_members enable row level security;
 
 -- Allow authenticated users to view and manage team data
+create or replace function public.is_staff_member_of_barbershop(target_barbershop_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1
+    from public.staff_members s
+    where s.auth_user_id = auth.uid()
+      and s.barbershop_id = target_barbershop_id
+  );
+$$;
+
+grant execute on function public.is_staff_member_of_barbershop(uuid) to authenticated, service_role;
+
 create policy if not exists "Authenticated users can read staff" on public.staff_members
-for select using (auth.role() = 'authenticated');
+for select using (
+  auth.role() = 'authenticated'
+  and public.is_staff_member_of_barbershop(public.staff_members.barbershop_id)
+);
 
 create policy if not exists "Authenticated users can insert staff" on public.staff_members
-for insert with check (auth.role() = 'authenticated');
+for insert with check (
+  auth.role() = 'authenticated'
+  and (
+    public.is_staff_member_of_barbershop(public.staff_members.barbershop_id)
+    or exists (
+      select 1
+      from public.barbershops b
+      where b.id = public.staff_members.barbershop_id
+        and b.owner_id = auth.uid()
+    )
+  )
+);
 
 create policy if not exists "Authenticated users can update staff" on public.staff_members
-for update using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+for update using (
+  auth.role() = 'authenticated'
+  and public.is_staff_member_of_barbershop(public.staff_members.barbershop_id)
+) with check (
+  auth.role() = 'authenticated'
+  and public.is_staff_member_of_barbershop(public.staff_members.barbershop_id)
+);
 
 -- Allow service role full access for background jobs and edge functions
 create policy if not exists "Service role has full access to staff" on public.staff_members

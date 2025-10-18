@@ -1,5 +1,6 @@
 import type { SupabaseClientLike } from "./supabase";
 import { supabase } from "./supabase";
+import { requireCurrentBarbershopId } from "./activeBarbershop";
 import type { Service } from "./domain";
 
 export type DbService = {
@@ -16,9 +17,11 @@ export type ServicesRepository = ReturnType<typeof createServicesRepository>;
 export function createServicesRepository(client: SupabaseClientLike) {
   return {
     async listServices(): Promise<Service[]> {
+      const barbershopId = await requireCurrentBarbershopId();
       const { data, error } = await client
         .from("services")
         .select("id,name,estimated_minutes,price_cents,icon,created_at")
+        .eq("barbershop_id", barbershopId)
         .order("name");
       if (error) throw error;
       const rows = (data ?? []) as DbService[];
@@ -48,6 +51,7 @@ export function createServicesRepository(client: SupabaseClientLike) {
       price_cents: number;
       icon: Service["icon"];
     }): Promise<Service> {
+      const barbershopId = await requireCurrentBarbershopId();
       const cleanName = payload.name?.trim();
       const minutesInput = Number(payload.estimated_minutes);
       const priceInput = Number(payload.price_cents);
@@ -67,6 +71,7 @@ export function createServicesRepository(client: SupabaseClientLike) {
           estimated_minutes: Math.round(minutesInput),
           price_cents: Math.round(priceInput),
           icon: payload.icon,
+          barbershop_id: barbershopId,
         })
         .select("id,name,estimated_minutes,price_cents,icon,created_at")
         .single();
@@ -101,6 +106,7 @@ export function createServicesRepository(client: SupabaseClientLike) {
         icon: Service["icon"];
       },
     ): Promise<Service> {
+      const barbershopId = await requireCurrentBarbershopId();
       const cleanName = payload.name?.trim();
       const minutesInput = Number(payload.estimated_minutes);
       const priceInput = Number(payload.price_cents);
@@ -123,6 +129,7 @@ export function createServicesRepository(client: SupabaseClientLike) {
           icon: payload.icon,
         })
         .eq("id", id)
+        .eq("barbershop_id", barbershopId)
         .select("id,name,estimated_minutes,price_cents,icon,created_at")
         .single();
 
@@ -151,7 +158,12 @@ export function createServicesRepository(client: SupabaseClientLike) {
     async deleteService(id: string): Promise<void> {
       if (!id) throw new Error("Service ID is required");
 
-      const { error } = await client.from("services").delete().eq("id", id);
+      const barbershopId = await requireCurrentBarbershopId();
+      const { error } = await client
+        .from("services")
+        .delete()
+        .eq("id", id)
+        .eq("barbershop_id", barbershopId);
       if (error) {
         const errorCode =
           typeof error === "object" && error !== null && "code" in error

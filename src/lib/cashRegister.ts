@@ -1,4 +1,5 @@
 import { hasSupabaseCredentials, supabase } from "./supabase";
+import { requireCurrentBarbershopId } from "./activeBarbershop";
 
 export type CashEntryType = "service_sale" | "product_sale" | "adjustment";
 
@@ -135,6 +136,7 @@ const persistEntryInMemory = async (input: NormalizedEntryInput): Promise<CashEn
 };
 
 const persistEntryInSupabase = async (input: NormalizedEntryInput): Promise<CashEntry> => {
+  const barbershopId = await requireCurrentBarbershopId();
   const { data, error } = await supabase
     .from("cash_register_entries")
     .insert({
@@ -146,6 +148,7 @@ const persistEntryInSupabase = async (input: NormalizedEntryInput): Promise<Cash
       source_name: input.source_name,
       reference_id: input.reference_id,
       note: input.note,
+      barbershop_id: barbershopId,
     })
     .select(
       "id,entry_type,amount_cents,quantity,unit_amount_cents,source_id,source_name,reference_id,note,created_at",
@@ -235,11 +238,13 @@ export async function recordCashAdjustment(input: AdjustmentInput): Promise<Cash
 const listEntriesFromMemory = async (): Promise<CashEntry[]> => memoryEntries.map(cloneEntry);
 
 const listEntriesFromSupabase = async (): Promise<CashEntry[]> => {
+  const barbershopId = await requireCurrentBarbershopId();
   const { data, error } = await supabase
     .from("cash_register_entries")
     .select(
       "id,entry_type,amount_cents,quantity,unit_amount_cents,source_id,source_name,reference_id,note,created_at",
     )
+    .eq("barbershop_id", barbershopId)
     .order("created_at", { ascending: false });
 
   if (error) {
