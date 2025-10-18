@@ -1,6 +1,6 @@
 /// <reference types="vitest" />
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   createBooking,
   createCustomer,
@@ -8,6 +8,9 @@ import {
   listRecentBookings,
 } from "../../../src/lib/bookings";
 import { supabaseMock } from "../testUtils/supabaseMock";
+import * as ActiveBarbershop from "../../../src/lib/activeBarbershop";
+
+vi.spyOn(ActiveBarbershop, "requireCurrentBarbershopId").mockResolvedValue("shop-test");
 
 describe("booking service functional flow", () => {
   it("supports creating a customer, finding them, and retrieving their booking", async () => {
@@ -36,6 +39,7 @@ describe("booking service functional flow", () => {
         first_name: "Zoe",
         last_name: "Ray",
         phone: "12345678",
+        barbershop_id: "shop-test",
       });
       customersTable.returns({ data: customerRecord, error: null, status: 201 });
       return customersTable;
@@ -59,6 +63,7 @@ describe("booking service functional flow", () => {
         barber: bookingRecord.barber,
         customer_id: bookingRecord.customer_id,
         note: null,
+        barbershop_id: "shop-test",
       });
       bookingsTable.returns({ data: { id: bookingRecord.id }, error: null, status: 201 });
       return bookingsTable;
@@ -80,7 +85,8 @@ describe("booking service functional flow", () => {
     customersTable.returns({ data: customerRecord, error: null, status: 200 });
     const foundCustomer = await findCustomerByPhone("123-456-78");
     expect(foundCustomer).toEqual(customerRecord);
-    expect(customersTable.eq).toHaveBeenLastCalledWith("phone", "12345678");
+    expect(customersTable.eq).toHaveBeenCalledWith("phone", "12345678");
+    expect(customersTable.eq).toHaveBeenCalledWith("barbershop_id", "shop-test");
 
     const bookingId = await createBooking({
       date: bookingRecord.date,

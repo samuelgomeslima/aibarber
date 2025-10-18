@@ -48,13 +48,45 @@ alter table public.staff_members enable row level security;
 
 -- Allow authenticated users to view and manage team data
 create policy if not exists "Authenticated users can read staff" on public.staff_members
-for select using (auth.role() = 'authenticated');
+for select using (
+  auth.role() = 'authenticated'
+  and exists (
+    select 1
+    from public.staff_members staff
+    where staff.auth_user_id = auth.uid()
+      and staff.barbershop_id = public.staff_members.barbershop_id
+  )
+);
 
 create policy if not exists "Authenticated users can insert staff" on public.staff_members
-for insert with check (auth.role() = 'authenticated');
+for insert with check (
+  auth.role() = 'authenticated'
+  and exists (
+    select 1
+    from public.staff_members staff
+    where staff.auth_user_id = auth.uid()
+      and staff.barbershop_id = public.staff_members.barbershop_id
+  )
+);
 
 create policy if not exists "Authenticated users can update staff" on public.staff_members
-for update using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+for update using (
+  auth.role() = 'authenticated'
+  and exists (
+    select 1
+    from public.staff_members staff
+    where staff.auth_user_id = auth.uid()
+      and staff.barbershop_id = public.staff_members.barbershop_id
+  )
+) with check (
+  auth.role() = 'authenticated'
+  and exists (
+    select 1
+    from public.staff_members staff
+    where staff.auth_user_id = auth.uid()
+      and staff.barbershop_id = public.staff_members.barbershop_id
+  )
+);
 
 -- Allow service role full access for background jobs and edge functions
 create policy if not exists "Service role has full access to staff" on public.staff_members

@@ -1,8 +1,11 @@
 /// <reference types="vitest" />
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { getBookings } from "../../../src/lib/bookings";
 import { supabaseMock } from "../testUtils/supabaseMock";
+import * as ActiveBarbershop from "../../../src/lib/activeBarbershop";
+
+vi.spyOn(ActiveBarbershop, "requireCurrentBarbershopId").mockResolvedValue("shop-test");
 
 describe("booking service integration", () => {
   it("joins bookings with their customers", async () => {
@@ -52,8 +55,10 @@ describe("booking service integration", () => {
 
     expect(supabaseMock.from).toHaveBeenCalledWith("bookings");
     expect(bookingsTable.eq).toHaveBeenCalledWith("date", "2024-05-01");
+    expect(bookingsTable.eq).toHaveBeenCalledWith("barbershop_id", "shop-test");
     expect(bookingsTable.order).toHaveBeenCalledWith("start");
     expect(customersTable.select).toHaveBeenCalledWith("id,first_name,last_name,phone,email,date_of_birth");
+    expect(customersTable.eq).toHaveBeenCalledWith("barbershop_id", "shop-test");
     expect(customersTable.in).toHaveBeenCalledWith("id", ["c-1"]);
 
     expect(result).toHaveLength(2);

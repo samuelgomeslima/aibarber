@@ -1,12 +1,15 @@
 /// <reference types="vitest" />
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   findCustomerByPhone,
   getCustomerById,
   listCustomers,
 } from "../../../src/lib/bookings";
 import { supabaseMock } from "../testUtils/supabaseMock";
+import * as ActiveBarbershop from "../../../src/lib/activeBarbershop";
+
+vi.spyOn(ActiveBarbershop, "requireCurrentBarbershopId").mockResolvedValue("shop-test");
 
 describe("booking service customers", () => {
   it("lists customers in alphabetical order when no search query is provided", async () => {
@@ -24,6 +27,7 @@ describe("booking service customers", () => {
 
     expect(supabaseMock.from).toHaveBeenCalledWith("customers");
     expect(customersTable.select).toHaveBeenCalledWith("id,first_name,last_name,phone,email,date_of_birth");
+    expect(customersTable.eq).toHaveBeenCalledWith("barbershop_id", "shop-test");
     expect(customersTable.order).toHaveBeenCalledWith("first_name");
     expect(customersTable.limit).toHaveBeenCalledWith(20);
     expect(result).toEqual(customerRows);
@@ -50,6 +54,7 @@ describe("booking service customers", () => {
     expect(customersTable.or).toHaveBeenCalledWith(
       expect.stringContaining("%anN%"),
     );
+    expect(customersTable.eq).toHaveBeenCalledWith("barbershop_id", "shop-test");
     expect(customersTable.limit).toHaveBeenCalledWith(20);
     expect(result).toEqual([match]);
   });
@@ -73,6 +78,7 @@ describe("booking service customers", () => {
 
     expect(customersTable.select).toHaveBeenCalledWith("id,first_name,last_name,phone,email,date_of_birth");
     expect(customersTable.eq).toHaveBeenCalledWith("phone", "5551234");
+    expect(customersTable.eq).toHaveBeenCalledWith("barbershop_id", "shop-test");
     expect(result).toEqual(found);
   });
 
@@ -102,6 +108,7 @@ describe("booking service customers", () => {
 
     expect(supabaseMock.from).toHaveBeenCalledWith("customers");
     expect(customersTable.eq).toHaveBeenCalledWith("id", "c-5");
+    expect(customersTable.eq).toHaveBeenCalledWith("barbershop_id", "shop-test");
     expect(result).toEqual(entry);
   });
 });

@@ -1,5 +1,6 @@
 import type { SupabaseClientLike } from "./supabase";
 import { supabase } from "./supabase";
+import { requireCurrentBarbershopId } from "./activeBarbershop";
 
 export const STAFF_ROLES = ["administrator", "manager", "professional", "assistant"] as const;
 
@@ -31,9 +32,11 @@ type StaffUpdatePayload = Partial<Omit<StaffInsertPayload, "role">> & { role?: S
 export function createStaffRepository(client: SupabaseClientLike) {
   return {
     async listMembers(): Promise<StaffMember[]> {
+      const barbershopId = await requireCurrentBarbershopId();
       const { data, error } = await client
         .from(STAFF_TABLE)
         .select("id,first_name,last_name,email,phone,date_of_birth,role")
+        .eq("barbershop_id", barbershopId)
         .order("first_name");
 
       if (error) throw error;
@@ -41,9 +44,10 @@ export function createStaffRepository(client: SupabaseClientLike) {
     },
 
     async createMember(payload: StaffInsertPayload): Promise<StaffMember> {
+      const barbershopId = await requireCurrentBarbershopId();
       const { data, error } = await client
         .from(STAFF_TABLE)
-        .insert(payload)
+        .insert({ ...payload, barbershop_id: barbershopId })
         .select("id,first_name,last_name,email,phone,date_of_birth,role")
         .single();
 
@@ -54,11 +58,13 @@ export function createStaffRepository(client: SupabaseClientLike) {
 
     async updateMember(id: string, payload: StaffUpdatePayload): Promise<StaffMember> {
       if (!id?.trim()) throw new Error("Staff member id is required");
+      const barbershopId = await requireCurrentBarbershopId();
 
       const { data, error } = await client
         .from(STAFF_TABLE)
         .update(payload)
         .eq("id", id)
+        .eq("barbershop_id", barbershopId)
         .select("id,first_name,last_name,email,phone,date_of_birth,role")
         .single();
 

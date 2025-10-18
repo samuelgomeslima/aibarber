@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -18,6 +18,7 @@ import {
   registerBarbershopAdministrator,
 } from "../lib/auth";
 import { hasSupabaseCredentials, supabase } from "../lib/supabase";
+import { clearCurrentBarbershopCache } from "../lib/activeBarbershop";
 import { formCardColors, palette } from "../theme/colors";
 
 const LOGIN_MODE = "login" as const;
@@ -48,6 +49,7 @@ export function AuthGate({ children }: AuthGateProps) {
   const [mode, setMode] = useState<AuthMode>(LOGIN_MODE);
   const [initializing, setInitializing] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
+  const lastAuthUserIdRef = useRef<string | null>(null);
   const [loginForm, setLoginForm] = useState<LoginFormState>({ email: "", password: "" });
   const [registrationForm, setRegistrationForm] = useState<RegistrationFormState>({
     barbershopName: "",
@@ -77,6 +79,7 @@ export function AuthGate({ children }: AuthGateProps) {
       .then(({ data }) => {
         if (!isMounted) return;
         setSession(data.session);
+        lastAuthUserIdRef.current = data.session?.user?.id ?? null;
         setInitializing(false);
       })
       .catch((error) => {
@@ -87,6 +90,11 @@ export function AuthGate({ children }: AuthGateProps) {
       });
 
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      const nextUserId = newSession?.user?.id ?? null;
+      if (nextUserId !== lastAuthUserIdRef.current) {
+        clearCurrentBarbershopCache();
+        lastAuthUserIdRef.current = nextUserId;
+      }
       setSession(newSession);
     });
 
