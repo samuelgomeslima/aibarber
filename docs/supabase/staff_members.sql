@@ -73,7 +73,15 @@ for select using (
 create policy if not exists "Authenticated users can insert staff" on public.staff_members
 for insert with check (
   auth.role() = 'authenticated'
-  and public.is_staff_member_of_barbershop(public.staff_members.barbershop_id)
+  and (
+    public.is_staff_member_of_barbershop(public.staff_members.barbershop_id)
+    or exists (
+      select 1
+      from public.barbershops b
+      where b.id = public.staff_members.barbershop_id
+        and b.owner_id = auth.uid()
+    )
+  )
 );
 
 create policy if not exists "Authenticated users can update staff" on public.staff_members
