@@ -22,12 +22,12 @@ import { hasSupabaseCredentials, supabase } from "../lib/supabase";
 import { clearCurrentBarbershopCache } from "../lib/activeBarbershop";
 import { formCardColors, palette } from "../theme/colors";
 
-const OAUTH_REDIRECT_ENV_KEYS = [
-  "EXPO_PUBLIC_SUPABASE_OAUTH_REDIRECT_TO",
-  "EXPO_PUBLIC_SUPABASE_SITE_URL",
-  "EXPO_PUBLIC_SITE_URL",
-  "EXPO_PUBLIC_APP_URL",
-  "EXPO_PUBLIC_APP_BASE_URL",
+const OAUTH_REDIRECT_ENV_VALUES = [
+  process.env.EXPO_PUBLIC_SUPABASE_OAUTH_REDIRECT_TO,
+  process.env.EXPO_PUBLIC_SUPABASE_SITE_URL,
+  process.env.EXPO_PUBLIC_SITE_URL,
+  process.env.EXPO_PUBLIC_APP_URL,
+  process.env.EXPO_PUBLIC_APP_BASE_URL,
 ] as const;
 
 const DEFAULT_OAUTH_REDIRECT = "https://localhost:3000";
@@ -35,8 +35,7 @@ const DEFAULT_OAUTH_REDIRECT = "https://localhost:3000";
 type OAuthProvider = "google" | "azure";
 
 function resolveOAuthRedirectUrl(): string {
-  for (const key of OAUTH_REDIRECT_ENV_KEYS) {
-    const candidate = process.env[key];
+  for (const candidate of OAUTH_REDIRECT_ENV_VALUES) {
     if (!candidate) continue;
 
     try {
