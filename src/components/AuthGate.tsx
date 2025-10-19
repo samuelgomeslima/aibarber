@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -20,6 +21,36 @@ import {
 import { hasSupabaseCredentials, supabase } from "../lib/supabase";
 import { clearCurrentBarbershopCache } from "../lib/activeBarbershop";
 import { formCardColors, palette } from "../theme/colors";
+
+const OAUTH_REDIRECT_ENV_VALUES = [
+  process.env.EXPO_PUBLIC_SUPABASE_OAUTH_REDIRECT_TO,
+  process.env.EXPO_PUBLIC_SUPABASE_SITE_URL,
+  process.env.EXPO_PUBLIC_SITE_URL,
+  process.env.EXPO_PUBLIC_APP_URL,
+  process.env.EXPO_PUBLIC_APP_BASE_URL,
+] as const;
+
+const DEFAULT_OAUTH_REDIRECT = "https://localhost:3000";
+
+type OAuthProvider = "google" | "azure";
+
+function resolveOAuthRedirectUrl(): string {
+  for (const candidate of OAUTH_REDIRECT_ENV_VALUES) {
+    if (!candidate) continue;
+
+    try {
+      return new URL(candidate).toString();
+    } catch (error) {
+      try {
+        return new URL(`https://${candidate}`).toString();
+      } catch (_ignored) {
+        continue;
+      }
+    }
+  }
+
+  return DEFAULT_OAUTH_REDIRECT;
+}
 
 const LOGIN_MODE = "login" as const;
 const REGISTER_MODE = "register" as const;
@@ -63,6 +94,7 @@ export function AuthGate({ children }: AuthGateProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const oauthRedirectTo = useMemo(() => resolveOAuthRedirectUrl(), []);
 
   useEffect(() => {
     let isMounted = true;
@@ -138,6 +170,43 @@ export function AuthGate({ children }: AuthGateProps) {
 
   const handleRegistrationChange = (field: keyof RegistrationFormState, value: string) => {
     setRegistrationForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleOAuthSignIn = async (provider: OAuthProvider) => {
+    if (submitting) return;
+    if (!hasSupabaseCredentials) {
+      setErrorMessage(
+        "Supabase credentials are missing. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to enable authentication.",
+      );
+      return;
+    }
+
+    setSubmitting(true);
+    setErrorMessage(null);
+    setInfoMessage(null);
+
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: oauthRedirectTo,
+          queryParams: provider === "azure" ? { prompt: "select_account" } : undefined,
+          scopes: provider === "azure" ? "openid email profile offline_access" : undefined,
+        },
+      });
+
+      if (error) {
+        setErrorMessage(error.message);
+      } else if (data.url) {
+        await Linking.openURL(data.url);
+      } else {
+        setErrorMessage("Unable to start the sign in flow. Please try again.");
+      }
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to sign in. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleLoginSubmit = async () => {
@@ -245,8 +314,13 @@ export function AuthGate({ children }: AuthGateProps) {
     return <>{children}</>;
   }
 
+  const oauthProviders: { provider: OAuthProvider; label: string }[] = [
+    { provider: "google", label: "Continue with Google" },
+    { provider: "azure", label: "Continue with Microsoft" },
+  ];
+
   return (
-    <View style={[styles.fullscreen, { backgroundColor: colors.background }]}> 
+    <View style={[styles.fullscreen, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView
         behavior={Platform.select({ ios: "padding", android: undefined })}
         style={styles.keyboardAvoider}
@@ -318,6 +392,30 @@ export function AuthGate({ children }: AuthGateProps) {
                 >
                   <Text style={[styles.primaryButtonText, { color: colors.accentOn }]}>Sign in</Text>
                 </Pressable>
+                <View style={styles.dividerRow}>
+                  <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                  <Text style={[styles.dividerLabel, { color: colors.textSecondary }]}>or</Text>
+                  <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                </View>
+                <View style={styles.oauthButtons}>
+                  {oauthProviders.map(({ provider, label }) => (
+                    <Pressable
+                      key={provider}
+                      style={({ pressed }) => [
+                        styles.oauthButton,
+                        {
+                          borderColor: colors.border,
+                          backgroundColor: colors.surface,
+                          opacity: pressed || submitting ? 0.7 : 1,
+                        },
+                      ]}
+                      onPress={() => handleOAuthSignIn(provider)}
+                      disabled={submitting}
+                    >
+                      <Text style={[styles.oauthButtonText, { color: colors.textPrimary }]}>{label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
             ) : (
               <View style={styles.formSection}>
@@ -509,6 +607,35 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     fontSize: 16,
     fontWeight: "700",
+  },
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+  },
+  dividerLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 1.5,
+  },
+  oauthButtons: {
+    gap: 12,
+  },
+  oauthButton: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    alignItems: "center",
+  },
+  oauthButtonText: {
+    fontSize: 15,
+    fontWeight: "600",
   },
   row: {
     flexDirection: "row",
