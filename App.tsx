@@ -1,12 +1,6 @@
-import React from "react";
-
-import { AuthGate } from "./src/components/AuthGate";
-import AuthenticatedApp from "./src/app/AuthenticatedApp";
+import { ExpoRoot } from "expo-router";
 
 export default function App() {
-  return (
-    <AuthGate>
-      <AuthenticatedApp />
-    </AuthGate>
-  );
+  const context = require.context("./app");
+  return <ExpoRoot context={context} />;
 }
