@@ -19,6 +19,7 @@ import {
   registerBarbershopAdministrator,
 } from "../lib/auth";
 import { hasSupabaseCredentials, supabase } from "../lib/supabase";
+import { DEFAULT_TIMEZONE } from "../lib/timezone";
 import { clearCurrentBarbershopCache } from "../lib/activeBarbershop";
 import { formCardColors, palette } from "../theme/colors";
 
@@ -157,10 +158,14 @@ export function AuthGate({ children }: AuthGateProps) {
 
   const timezone = useMemo(() => {
     try {
-      return Localization.getCalendars()?.[0]?.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+      return (
+        Localization.getCalendars()?.[0]?.timeZone ??
+        Intl.DateTimeFormat().resolvedOptions().timeZone ??
+        DEFAULT_TIMEZONE
+      );
     } catch (error) {
       console.warn("Unable to detect timezone", error);
-      return "UTC";
+      return DEFAULT_TIMEZONE;
     }
   }, []);
 

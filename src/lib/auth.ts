@@ -1,6 +1,7 @@
 import type { Session } from "@supabase/supabase-js";
 
 import { supabase } from "./supabase";
+import { DEFAULT_TIMEZONE } from "./timezone";
 import type { StaffRole } from "./users";
 
 export type RegistrationPayload = {
@@ -84,7 +85,7 @@ export async function registerBarbershopAdministrator(
   const email = payload.email.trim().toLowerCase();
   const password = payload.password;
   const phone = payload.phone?.trim() || null;
-  const timezone = payload.timezone?.trim() || "UTC";
+  const timezone = payload.timezone?.trim() || DEFAULT_TIMEZONE;
 
   if (!name) {
     throw new Error("Barbershop name is required.");
@@ -186,7 +187,7 @@ function getPendingRegistrationFromMetadata(session: Session): PendingBarbershop
     timezone: storedTimezone,
   } = metadata as Partial<PendingBarbershopRegistration>;
 
-  const timezone = storedTimezone || "UTC";
+  const timezone = storedTimezone || DEFAULT_TIMEZONE;
 
   if (!barbershopName || !adminFirstName || !adminLastName || !email) {
     return null;

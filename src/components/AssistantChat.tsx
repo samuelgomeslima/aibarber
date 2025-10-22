@@ -33,6 +33,7 @@ type AssistantChatProps = {
   onBookingsMutated?: () => Promise<void> | void;
   services: Service[];
   copy?: AssistantChatCopy;
+  timeZone: string;
 };
 
 export default function AssistantChat({
@@ -42,6 +43,7 @@ export default function AssistantChat({
   onBookingsMutated,
   services,
   copy = defaultComponentCopy.assistantChat,
+  timeZone,
 }: AssistantChatProps) {
   const scrollRef = useRef<ScrollView>(null);
 
@@ -69,6 +71,7 @@ export default function AssistantChat({
     services,
     copy,
     onBookingsMutated,
+    timeZone,
   });
 
   useEffect(() => {

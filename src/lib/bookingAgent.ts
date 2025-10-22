@@ -20,6 +20,7 @@ import {
   type BookingWithCustomer,
 } from "./bookings";
 import { callOpenAIChatCompletion, isOpenAiConfigured, type ChatMessage } from "./openai";
+import { DEFAULT_TIMEZONE, getCurrentDateKey } from "./timezone";
 
 export type ConversationMessage = {
   role: "assistant" | "user";
@@ -32,6 +33,7 @@ export type AgentRunOptions = {
   conversation: ConversationMessage[];
   onBookingsMutated?: () => Promise<void> | void;
   services: Service[];
+  timezone?: string;
 };
 
 function buildToolDefinitions(services: Service[]) {
@@ -378,12 +380,18 @@ export async function runBookingAgent(options: AgentRunOptions): Promise<string>
     );
   }
 
-  const { systemPrompt, contextSummary, conversation, onBookingsMutated, services } = options;
+  const {
+    systemPrompt,
+    contextSummary,
+    conversation,
+    onBookingsMutated,
+    services,
+    timezone = DEFAULT_TIMEZONE,
+  } = options;
   const serviceMap = new Map(services.map((s) => [s.id, s]));
   const toolDefinitions = buildToolDefinitions(services);
 
-  const today = new Date();
-  const currentDate = today.toISOString().split("T")[0];
+  const currentDate = getCurrentDateKey(timezone);
   const messages: ChatMessage[] = [
     {
       role: "system",
@@ -392,6 +400,7 @@ export async function runBookingAgent(options: AgentRunOptions): Promise<string>
         "You have tool access to manage the booking agenda.",
         "Use the provided functions to check availability before confirming a booking.",
         `Today's date: ${currentDate}.`,
+        `Timezone: ${timezone}.`,
         `Opening hours: ${pad(openingHour)}:00-${pad(closingHour)}:00.`,
         "Context summary:",
         contextSummary,

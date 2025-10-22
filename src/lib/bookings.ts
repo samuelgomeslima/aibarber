@@ -1,6 +1,7 @@
 import { logger } from "./logger";
 import { getBookingGateway, PersistenceError } from "./gateways/bookingGateway";
 import type { Customer, DbBooking } from "./types/booking";
+import { DEFAULT_TIMEZONE, getCurrentZonedDate } from "./timezone";
 
 const stripSeconds = (time: string | null | undefined) =>
   typeof time === "string" && time.length >= 5 ? time.slice(0, 5) : time ?? "";
@@ -150,12 +151,17 @@ export async function cancelBooking(id: string) {
   }
 }
 
-export async function confirmBookingPerformed(id: string, performedAt = new Date().toISOString()) {
+export async function confirmBookingPerformed(
+  id: string,
+  performedAt?: string,
+  timeZone: string = DEFAULT_TIMEZONE,
+) {
+  const timestamp = performedAt ?? getCurrentZonedDate(timeZone).toISOString();
   const gateway = getBookingGateway();
   try {
-    const { data, status } = await gateway.markBookingPerformed(id, performedAt);
+    const { data, status } = await gateway.markBookingPerformed(id, timestamp);
     logger.info("bookings.confirmBookingPerformed succeeded", { id, status });
-    return data.performed_at ?? performedAt;
+    return data.performed_at ?? timestamp;
   } catch (error) {
     const status = error instanceof PersistenceError ? error.status : undefined;
     logger.error("bookings.confirmBookingPerformed failed", { id, status, error });

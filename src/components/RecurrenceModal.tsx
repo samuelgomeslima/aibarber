@@ -19,6 +19,7 @@ type Props = {
   fixedTime: string;   // horário selecionado na tela principal (HH:MM)
   fixedService: string; // serviço atual (ex.: "Cut")
   fixedBarber: string;  // barbeiro atual (ex.: "João")
+  timeZone: string;
   colors?: ModalColors;
   copy?: RecurrenceModalCopy;
 };
@@ -33,6 +34,7 @@ export default function RecurrenceModal({
   fixedTime,
   fixedService,
   fixedBarber,
+  timeZone,
   colors = modalColors,
   copy = defaultComponentCopy.recurrenceModal,
 }: Props) {
@@ -63,7 +65,12 @@ export default function RecurrenceModal({
   };
 
   const humanDate = (d: Date) =>
-    d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+    d.toLocaleDateString(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      timeZone,
+    });
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>

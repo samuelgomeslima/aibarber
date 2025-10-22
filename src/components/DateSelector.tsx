@@ -2,9 +2,21 @@
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import { View, Text, Pressable, ScrollView, StyleSheet, Modal, Platform } from "react-native";
 
+import {
+  DEFAULT_TIMEZONE,
+  addDaysToDateKey,
+  differenceInDays,
+  formatDateKey,
+  formatDateLabel,
+  getDateFromKey,
+  getWeekDateKeys,
+  getWeekStartDateKey,
+} from "../lib/timezone";
+
 type Props = {
-  value: Date;
-  onChange: (d: Date) => void;
+  value: string;
+  onChange: (dateKey: string) => void;
+  timeZone?: string;
   colors?: {
     text: string;
     subtext: string;
@@ -16,34 +28,13 @@ type Props = {
   locale?: string;
 };
 
-const pad = (n: number) => n.toString().padStart(2, "0");
-const toDateKey = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const humanDow = (d: Date, locale?: string) => d.toLocaleDateString(locale ?? undefined, { weekday: "short" });
-const humanDateKey = (dk: string, locale?: string) => {
-  const d = new Date(`${dk}T00:00:00`);
-  return d.toLocaleDateString(locale ?? undefined, { weekday: "short", month: "short", day: "numeric" });
-};
-const DAY_MS = 24 * 60 * 60 * 1000;
 const DAY_PILL_WIDTH = 72;
 const DAY_GAP = 10;
-
-const startOfWeek = (date: Date) => {
-  const copy = new Date(date);
-  copy.setHours(0, 0, 0, 0);
-  const weekday = copy.getDay();
-  const diff = (weekday + 6) % 7; // Monday as the first day of the week
-  copy.setDate(copy.getDate() - diff);
-  return copy;
-};
-const addDays = (date: Date, amount: number) => {
-  const copy = new Date(date);
-  copy.setDate(copy.getDate() + amount);
-  return copy;
-};
 
 export default function DateSelector({
   value,
   onChange,
+  timeZone = DEFAULT_TIMEZONE,
   colors = {
     text: "#e5e7eb",
     subtext: "#cbd5e1",
@@ -54,27 +45,29 @@ export default function DateSelector({
   },
   locale,
 }: Props) {
+  const resolvedTimeZone = timeZone || DEFAULT_TIMEZONE;
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(value));
+  const [weekStartKey, setWeekStartKey] = useState<string>(() =>
+    getWeekStartDateKey(value, resolvedTimeZone),
+  );
   const [stripWidth, setStripWidth] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
 
-  const dateKey = toDateKey(value);
+  useEffect(() => {
+    setWeekStartKey((prev) => {
+      const aligned = getWeekStartDateKey(value, resolvedTimeZone);
+      return prev === aligned ? prev : aligned;
+    });
+  }, [value, resolvedTimeZone]);
 
   useEffect(() => {
-    const aligned = startOfWeek(value);
-    setWeekStart((prev) => {
-      if (prev.getTime() === aligned.getTime()) return prev;
-      return aligned;
-    });
-  }, [value]);
+    setWeekStartKey((prev) => getWeekStartDateKey(prev, resolvedTimeZone));
+  }, [resolvedTimeZone]);
 
   const days = useMemo(() => {
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = addDays(weekStart, i);
-      return { d, key: toDateKey(d) };
-    });
-  }, [weekStart]);
+    const keys = getWeekDateKeys(weekStartKey, resolvedTimeZone);
+    return keys.map((key) => ({ key, date: getDateFromKey(key, resolvedTimeZone) }));
+  }, [weekStartKey, resolvedTimeZone]);
 
   const dayCount = days.length;
   const contentWidth = useMemo(() => {
@@ -84,7 +77,7 @@ export default function DateSelector({
 
   useEffect(() => {
     if (!scrollRef.current || !stripWidth) return;
-    const activeIndex = days.findIndex(({ key }) => key === dateKey);
+    const activeIndex = days.findIndex(({ key }) => key === value);
     if (activeIndex === -1) return;
 
     const baseOffset = activeIndex * (DAY_PILL_WIDTH + DAY_GAP);
@@ -93,21 +86,28 @@ export default function DateSelector({
     const clampedOffset = Math.max(0, Math.min(maxOffset, centeredOffset));
 
     scrollRef.current.scrollTo({ x: clampedOffset, animated: true });
-  }, [dateKey, days, stripWidth, contentWidth]);
+  }, [contentWidth, days, stripWidth, value]);
 
   const shiftWeek = (direction: 1 | -1) => {
-    setWeekStart((prev) => {
-      const next = addDays(prev, direction * 7);
-      const normalizedValue = new Date(value);
-      normalizedValue.setHours(0, 0, 0, 0);
-      const relativeIndex = Math.round((normalizedValue.getTime() - prev.getTime()) / DAY_MS);
+    setWeekStartKey((prev) => {
+      const next = addDaysToDateKey(prev, direction * 7);
+      const relativeIndex = differenceInDays(prev, value);
       const clampedIndex = Math.min(6, Math.max(0, relativeIndex));
-      const nextSelected = addDays(next, clampedIndex);
-      nextSelected.setHours(0, 0, 0, 0);
-      onChange(nextSelected);
+      const nextKeys = getWeekDateKeys(next, resolvedTimeZone);
+      const nextSelected = nextKeys[Math.min(nextKeys.length - 1, Math.max(0, clampedIndex))];
+      if (nextSelected) {
+        onChange(nextSelected);
+      }
       return next;
     });
   };
+
+  const currentLabel = formatDateLabel(
+    value,
+    { weekday: "short", month: "short", day: "numeric" },
+    locale,
+    resolvedTimeZone,
+  );
 
   return (
     <View>
@@ -120,7 +120,6 @@ export default function DateSelector({
           <Text style={[styles.arrowIcon, { color: colors.text }]}>←</Text>
         </Pressable>
 
-        {/* Tira horizontal de dias */}
         <ScrollView
           ref={scrollRef}
           horizontal
@@ -140,19 +139,27 @@ export default function DateSelector({
             setStripWidth((prev) => (prev === nextWidth ? prev : nextWidth));
           }}
         >
-          {days.map(({ d, key }) => {
-            const active = key === dateKey;
+          {days.map(({ date, key }) => {
+            const active = key === value;
+            const dayLabel = formatDateLabel(key, { weekday: "short" }, locale, resolvedTimeZone);
+            const dayNumber = date.getUTCDate();
+            const accessibility = formatDateLabel(
+              key,
+              { weekday: "long", month: "long", day: "numeric" },
+              locale,
+              resolvedTimeZone,
+            );
             return (
               <Pressable
                 key={key}
-                onPress={() => onChange(new Date(d))}
+                onPress={() => onChange(key)}
                 style={[
                   styles.dayPill,
                   { borderColor: colors.border, backgroundColor: colors.surface },
                   active && { backgroundColor: colors.accent, borderColor: colors.accent },
                 ]}
                 accessibilityRole="button"
-                accessibilityLabel={`Select ${d.toDateString()}`}
+                accessibilityLabel={`Select ${accessibility}`}
               >
                 <Text
                   style={[
@@ -161,7 +168,7 @@ export default function DateSelector({
                     active && { color: colors.accentFgOn ?? colors.text },
                   ]}
                 >
-                  {humanDow(d, locale)}
+                  {dayLabel}
                 </Text>
                 <Text
                   style={[
@@ -170,7 +177,7 @@ export default function DateSelector({
                     active && { color: colors.accentFgOn ?? colors.text },
                   ]}
                 >
-                  {d.getDate()}
+                  {dayNumber}
                 </Text>
               </Pressable>
             );
@@ -186,45 +193,42 @@ export default function DateSelector({
         </Pressable>
       </View>
 
-      {/* Modal do calendário (com buffer + Apply) */}
       <CalendarModal
         visible={calendarOpen}
         onClose={() => setCalendarOpen(false)}
         value={value}
-        onConfirm={(d) => {
-          onChange(d);
+        onConfirm={(nextKey) => {
+          onChange(nextKey);
           setCalendarOpen(false);
         }}
+        timeZone={resolvedTimeZone}
         colors={colors}
       />
 
-      {/* Rótulo com resumo da data atual */}
       <Pressable onPress={() => setCalendarOpen(true)} accessibilityLabel="Open calendar">
-        <Text style={[styles.currentLabel, { color: colors.subtext }]}>{humanDateKey(dateKey, locale)}</Text>
+        <Text style={[styles.currentLabel, { color: colors.subtext }]}>{currentLabel}</Text>
       </Pressable>
     </View>
   );
 }
 
-function CalendarModal({
-  visible,
-  onClose,
-  value,
-  onConfirm,
-  colors,
-}: {
+type CalendarModalProps = {
   visible: boolean;
   onClose: () => void;
-  value: Date;
-  onConfirm: (d: Date) => void;
+  value: string;
+  onConfirm: (dateKey: string) => void;
   colors: NonNullable<Props["colors"]>;
-}) {
-  const [temp, setTemp] = useState<Date>(value);
+  timeZone: string;
+};
 
-  // Sempre que abrir, sincroniza a data temporária com a atual
+function CalendarModal({ visible, onClose, value, onConfirm, colors, timeZone }: CalendarModalProps) {
+  const [temp, setTemp] = useState<Date>(() => getDateFromKey(value, timeZone));
+
   useEffect(() => {
-    if (visible) setTemp(new Date(value));
-  }, [visible, value]);
+    if (visible) {
+      setTemp(getDateFromKey(value, timeZone));
+    }
+  }, [visible, value, timeZone]);
 
   if (!visible) return null;
 
@@ -235,9 +239,9 @@ function CalendarModal({
           <Text style={[styles.sheetTitle, { color: colors.text }]}>Select a date</Text>
 
           {Platform.OS === "web" ? (
-            <WebDatePicker value={temp} onChange={setTemp} colors={colors} />
+            <WebDatePicker value={temp} onChange={setTemp} colors={colors} timeZone={timeZone} />
           ) : (
-            <NativeDatePicker value={temp} onChange={setTemp} colors={colors} />
+            <NativeDatePicker value={temp} onChange={setTemp} colors={colors} timeZone={timeZone} />
           )}
 
           <View style={styles.sheetActions}>
@@ -245,7 +249,7 @@ function CalendarModal({
               <Text style={{ color: colors.subtext, fontWeight: "700" }}>Cancel</Text>
             </Pressable>
             <Pressable
-              onPress={() => onConfirm(temp)}
+              onPress={() => onConfirm(formatDateKey(temp, timeZone))}
               style={[styles.sheetBtn, { borderColor: colors.accent, backgroundColor: colors.accent }]}
             >
               <Text style={{ color: "#071018", fontWeight: "800" }}>Apply</Text>
@@ -257,35 +261,32 @@ function CalendarModal({
   );
 }
 
-/** ---- Web: <input type="date"> (controlado; ignora clear) ---- */
-function WebDatePicker({
-  value,
-  onChange,
-  colors,
-}: {
+type DatePickerProps = {
   value: Date;
   onChange: (d: Date) => void;
   colors: NonNullable<Props["colors"]>;
-}) {
-  const toInputValue = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  timeZone: string;
+};
+
+function WebDatePicker({ value, onChange, colors, timeZone }: DatePickerProps) {
+  const toInputValue = (d: Date) => formatDateKey(d, timeZone);
   const fromInputValue = (s: string) => {
-    if (!s) return null; // ignora "Clear" (não propaga)
-    const [y, m, day] = s.split("-").map(Number);
-    const d = new Date();
-    d.setFullYear(y, m - 1, day);
-    d.setHours(0, 0, 0, 0);
-    return d;
+    if (!s) return null;
+    try {
+      return getDateFromKey(s, timeZone);
+    } catch (error) {
+      return null;
+    }
   };
 
   return (
     <View style={{ marginTop: 8 }}>
-      {}
       <input
         type="date"
-        value={toInputValue(value)} // CONTROLADO -> o "Clear" não apaga o valor
+        value={toInputValue(value)}
         onChange={(e: any) => {
           const next = fromInputValue(e.target.value);
-          if (next) onChange(next); // só atualiza se houver data válida
+          if (next) onChange(next);
         }}
         style={{
           padding: 10,
@@ -302,17 +303,7 @@ function WebDatePicker({
   );
 }
 
-/** ---- Native: @react-native-community/datetimepicker (buffer; não fecha) ---- */
-function NativeDatePicker({
-  value,
-  onChange,
-  colors,
-}: {
-  value: Date;
-  onChange: (d: Date) => void;
-  colors: NonNullable<Props["colors"]>;
-}) {
-  // Lazy require para não quebrar o bundle web se não estiver instalado
+function NativeDatePicker({ value, onChange, colors, timeZone }: DatePickerProps) {
   const RNDateTimePicker = require("@react-native-community/datetimepicker").default;
 
   return (
@@ -322,8 +313,10 @@ function NativeDatePicker({
         value={value}
         display={Platform.OS === "ios" ? "inline" : "calendar"}
         onChange={(_evt: unknown, d?: Date) => {
-          // Tipagem explícita para evitar implicit any; bufferiza seleção
-          if (d) onChange(d);
+          if (d) {
+            const normalized = getDateFromKey(formatDateKey(d, timeZone), timeZone);
+            onChange(normalized);
+          }
         }}
         themeVariant="dark"
         // @ts-ignore platform-specific prop (iOS)
@@ -357,7 +350,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   dayPill: {
-    width: 72,
+    width: DAY_PILL_WIDTH,
     paddingVertical: 10,
     borderRadius: 14,
     alignItems: "center",
@@ -368,7 +361,6 @@ const styles = StyleSheet.create({
 
   currentLabel: { marginTop: 6, fontSize: 12, fontWeight: "700" },
 
-  // Modal
   backdrop: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.45)", padding: 16 },
   sheet: { width: 420, maxWidth: "100%", borderRadius: 16, borderWidth: 1, padding: 16, gap: 12 },
   sheetTitle: { fontSize: 16, fontWeight: "800" },

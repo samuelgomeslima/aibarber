@@ -1,5 +1,7 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
+import { DEFAULT_TIMEZONE, formatDateKey, formatDateLabel } from "./timezone";
+
 export type ServiceId = string;
 export type Service = {
   id: ServiceId;
@@ -70,8 +72,8 @@ export function formatPrice(cents: number) {
   });
 }
 
-export function toDateKey(d: Date) {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+export function toDateKey(d: Date, timeZone: string = DEFAULT_TIMEZONE) {
+  return formatDateKey(d, timeZone);
 }
 
 export function minutesToTime(mins: number) {
@@ -97,11 +99,15 @@ export function overlap(aS: string, aE: string, bS: string, bE: string) {
   return Math.max(as, bs) < Math.min(ae, be);
 }
 
-export function humanDate(dk: string, locale?: string) {
-  const d = new Date(`${dk}T00:00:00`);
-  return d.toLocaleDateString(locale ?? undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
+export function humanDate(dk: string, locale?: string, timeZone: string = DEFAULT_TIMEZONE) {
+  return formatDateLabel(
+    dk,
+    {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    },
+    locale,
+    timeZone,
+  );
 }

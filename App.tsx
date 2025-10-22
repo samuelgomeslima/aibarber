@@ -29,7 +29,6 @@ import {
   openingHour,
   closingHour,
   pad,
-  toDateKey,
   minutesToTime,
   timeToMinutes,
   addMinutes,
@@ -44,13 +43,16 @@ import { AuthGate } from "./src/components/AuthGate";
 import { getEmailConfirmationRedirectUrl } from "./src/lib/auth";
 import { getBarbershopForOwner, updateBarbershop, type Barbershop } from "./src/lib/barbershops";
 import { supabase, isSupabaseConfigured } from "./src/lib/supabase";
-
-const getTodayDateKey = () => toDateKey(new Date());
-
-const getCurrentTimeString = () => {
-  const now = new Date();
-  return `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-};
+import {
+  DEFAULT_TIMEZONE,
+  getCurrentDateKey,
+  getDateFromKey,
+  addDaysToDateKey,
+  getWeekDateKeys,
+  makeZonedDateTime,
+  formatDateKey,
+  formatDateLabel,
+} from "./src/lib/timezone";
 
 const applyAlpha = (hexColor: string, alpha: number) => {
   const normalized = hexColor.replace("#", "");
@@ -136,14 +138,16 @@ const buildDateTime = (
   dateInput?: string | null,
   timeInput?: string | null,
   fallbackTime = "00:00",
+  timeZone: string = DEFAULT_TIMEZONE,
 ): Date | null => {
   const trimmedDate = dateInput?.trim();
   if (!trimmedDate) return null;
   const normalizedTime = normalizeTimeInput(timeInput) ?? normalizeTimeInput(fallbackTime) ?? "00:00";
-  const iso = `${trimmedDate}T${normalizedTime}:00`;
-  const value = new Date(iso);
-  if (Number.isNaN(value.getTime())) return null;
-  return value;
+  try {
+    return makeZonedDateTime(trimmedDate, normalizedTime, timeZone);
+  } catch (error) {
+    return null;
+  }
 };
 
 const sanitizeSignedCurrencyInput = (input: string) => {
@@ -1685,8 +1689,9 @@ function AuthenticatedApp() {
   const [barbershopForm, setBarbershopForm] = useState<{ name: string; slug: string; timezone: string }>(() => ({
     name: "",
     slug: "",
-    timezone: "",
+    timezone: DEFAULT_TIMEZONE,
   }));
+  const activeTimezone = barbershop?.timezone?.trim() || DEFAULT_TIMEZONE;
   const [barbershopLoading, setBarbershopLoading] = useState(false);
   const [barbershopSaving, setBarbershopSaving] = useState(false);
   const [barbershopError, setBarbershopError] = useState<string | null>(null);
@@ -1803,7 +1808,7 @@ function AuthenticatedApp() {
   const loadBarbershop = useCallback(async () => {
     if (!currentUser?.id) {
       setBarbershop(null);
-      setBarbershopForm({ name: "", slug: "", timezone: "" });
+      setBarbershopForm({ name: "", slug: "", timezone: DEFAULT_TIMEZONE });
       setBarbershopError(null);
       setBarbershopSuccess(null);
       return;
@@ -1816,7 +1821,7 @@ function AuthenticatedApp() {
     try {
       if (!isSupabaseConfigured()) {
         setBarbershop(null);
-        setBarbershopForm({ name: "", slug: "", timezone: "" });
+        setBarbershopForm({ name: "", slug: "", timezone: DEFAULT_TIMEZONE });
         setBarbershopError(barbershopPageCopy.errors.notConfigured);
         return;
       }
@@ -1825,7 +1830,7 @@ function AuthenticatedApp() {
 
       if (!result) {
         setBarbershop(null);
-        setBarbershopForm({ name: "", slug: "", timezone: "" });
+        setBarbershopForm({ name: "", slug: "", timezone: DEFAULT_TIMEZONE });
         setBarbershopError(barbershopPageCopy.errors.notFound);
         return;
       }
@@ -1834,7 +1839,7 @@ function AuthenticatedApp() {
       setBarbershopForm({
         name: result.name ?? "",
         slug: result.slug ?? "",
-        timezone: result.timezone ?? "UTC",
+        timezone: result.timezone ?? DEFAULT_TIMEZONE,
       });
     } catch (error) {
       console.error("Failed to load barbershop", error);
@@ -1842,7 +1847,7 @@ function AuthenticatedApp() {
       const message = error instanceof Error ? error.message || fallback : fallback;
       setBarbershopError(message);
       setBarbershop(null);
-      setBarbershopForm({ name: "", slug: "", timezone: "" });
+      setBarbershopForm({ name: "", slug: "", timezone: DEFAULT_TIMEZONE });
     } finally {
       setBarbershopLoading(false);
     }
@@ -1933,8 +1938,23 @@ function AuthenticatedApp() {
   // Barbeiro (desabilitado enquanto não houver cliente)
   const [selectedBarber, setSelectedBarber] = useState<Barber>(BARBERS[0]);
 
-  const [day, setDay] = useState<Date>(new Date());
-  const dateKey = toDateKey(day);
+  const [selectedDateKey, setSelectedDateKey] = useState<string>(() => getCurrentDateKey(DEFAULT_TIMEZONE));
+  const selectedDate = useMemo(
+    () => getDateFromKey(selectedDateKey, activeTimezone),
+    [selectedDateKey, activeTimezone],
+  );
+  const dateKey = selectedDateKey;
+
+  useEffect(() => {
+    setSelectedDateKey((prev) => {
+      const next = getCurrentDateKey(activeTimezone);
+      return prev === next ? prev : next;
+    });
+  }, [activeTimezone]);
+
+  useEffect(() => {
+    setBookingFilterStartDate(getCurrentDateKey(activeTimezone));
+  }, [activeTimezone]);
 
   const [bookings, setBookings] = useState<BookingWithCustomer[]>([]);
   const [loading, setLoading] = useState(false);
@@ -1948,7 +1968,7 @@ function AuthenticatedApp() {
   const [bookingFilterBarber, setBookingFilterBarber] = useState<string | null>(null);
   const [bookingFilterService, setBookingFilterService] = useState<string | null>(null);
   const [bookingFilterClient, setBookingFilterClient] = useState("");
-  const [bookingFilterStartDate, setBookingFilterStartDate] = useState<string>(() => getTodayDateKey());
+  const [bookingFilterStartDate, setBookingFilterStartDate] = useState<string>(() => getCurrentDateKey(DEFAULT_TIMEZONE));
   const [bookingFilterStartTime, setBookingFilterStartTime] = useState<string>("");
   const [bookingFilterEndDate, setBookingFilterEndDate] = useState("");
   const [bookingFilterEndTime, setBookingFilterEndTime] = useState("");
@@ -2633,16 +2653,12 @@ function AuthenticatedApp() {
   );
 
   const loadWeek = useCallback(async () => {
-    const now = new Date();
-    const start = startOfWeek(now);
-    const days = Array.from({ length: 7 }, (_, index) => {
-      const d = new Date(start);
-      d.setDate(start.getDate() + index);
-      return { date: d, key: toDateKey(d) };
-    });
+    const todayKey = getCurrentDateKey(activeTimezone);
+    const weekKeys = getWeekDateKeys(todayKey, activeTimezone);
+    const days = weekKeys.map((key) => ({ key, date: getDateFromKey(key, activeTimezone) }));
 
-    const startKey = days[0]?.key ?? toDateKey(start);
-    const endKey = days[days.length - 1]?.key ?? startKey;
+    const startKey = weekKeys[0] ?? todayKey;
+    const endKey = weekKeys[weekKeys.length - 1] ?? startKey;
 
     setWeekDays(days);
     setWeekLoading(true);
@@ -2656,7 +2672,7 @@ function AuthenticatedApp() {
     } finally {
       setWeekLoading(false);
     }
-  }, []);
+  }, [activeTimezone]);
 
   const load = useCallback(async () => {
     try {
@@ -2800,7 +2816,7 @@ function AuthenticatedApp() {
       const displayServiceName = selectedLocalizedService?.name ?? selectedService.name;
       Alert.alert(
         bookServiceCopy.alerts.bookingSuccessTitle,
-        `${displayServiceName} • ${selectedCustomer.first_name} • ${barberName} • ${start} • ${humanDate(dateKey, locale)}`,
+        `${displayServiceName} • ${selectedCustomer.first_name} • ${barberName} • ${start} • ${humanDate(dateKey, locale, activeTimezone)}`,
       );
     } catch (e: any) {
       console.error(e);
@@ -2838,7 +2854,7 @@ function AuthenticatedApp() {
 
       setConfirmingBookingId(booking.id);
       try {
-        const performedAt = await confirmBookingPerformed(booking.id);
+        const performedAt = await confirmBookingPerformed(booking.id, undefined, activeTimezone);
         updateBookingPerformed(booking.id, performedAt);
 
         let saleError: unknown = null;
@@ -2856,7 +2872,7 @@ function AuthenticatedApp() {
           console.error(error);
         }
 
-        const dateLabel = humanDate(booking.date, locale);
+        const dateLabel = humanDate(booking.date, locale, activeTimezone);
         const timeLabel = booking.start;
 
         if (saleError) {
@@ -2899,7 +2915,7 @@ function AuthenticatedApp() {
       if (!booking || booking.performed_at) return;
       const service = localizedServiceMap.get(booking.service_id) ?? serviceMap.get(booking.service_id);
       const serviceName = service?.name ?? booking.service_id;
-      const dateLabel = humanDate(booking.date, locale);
+      const dateLabel = humanDate(booking.date, locale, activeTimezone);
       const timeLabel = booking.start;
 
       if (Platform.OS === "web") {
@@ -2959,41 +2975,41 @@ function AuthenticatedApp() {
 
     const minutes = selectedService.estimated_minutes;
     const [hh, mm] = opts.time.split(":").map(Number);
-    const first = new Date(opts.startFrom);
-    first.setHours(hh, mm, 0, 0);
+    const start = `${pad(hh)}:${pad(mm)}`;
+    const end = addMinutes(start, minutes);
 
-    const addDays = (date: Date, days: number) => {
-      const next = new Date(date);
-      next.setDate(next.getDate() + days);
-      return next;
+    const startKey = formatDateKey(opts.startFrom, activeTimezone);
+
+    const monthFromKey = (key: string) => {
+      const [y, m, d] = key.split("-").map(Number);
+      return new Date(Date.UTC(y, (m ?? 1) - 1, d ?? 1)).getUTCMonth();
     };
 
-    const nextMonthlyOccurrence = (current: Date) => {
-      let candidate = addDays(current, 28);
-      while (candidate.getMonth() === current.getMonth()) {
-        candidate = addDays(candidate, 7);
+    const nextMonthlyOccurrenceKey = (currentKey: string) => {
+      let candidate = addDaysToDateKey(currentKey, 28);
+      const currentMonth = monthFromKey(currentKey);
+      while (monthFromKey(candidate) === currentMonth) {
+        candidate = addDaysToDateKey(candidate, 7);
       }
       return candidate;
     };
 
-    const start = `${pad(hh)}:${pad(mm)}`;
-    const end = addMinutes(start, minutes);
+    const occurrenceKeys: string[] = [];
+    let currentKey = startKey;
 
-    let occurrenceDate = new Date(first);
-
-    const raw = Array.from({ length: opts.count }, (_, index) => {
+    for (let index = 0; index < opts.count; index += 1) {
       if (index > 0) {
         if (opts.frequency === "monthly") {
-          occurrenceDate = nextMonthlyOccurrence(occurrenceDate);
+          currentKey = nextMonthlyOccurrenceKey(currentKey);
         } else {
           const step = opts.frequency === "every-15-days" ? 14 : 7;
-          occurrenceDate = addDays(occurrenceDate, step);
+          currentKey = addDaysToDateKey(currentKey, step);
         }
       }
+      occurrenceKeys.push(currentKey);
+    }
 
-      const date = toDateKey(occurrenceDate);
-      return { date, start, end };
-    });
+    const raw = occurrenceKeys.map((date) => ({ date, start, end }));
 
     if (raw.length === 0) {
       Alert.alert(recurrenceAlerts.noPreviewTitle, recurrenceAlerts.noPreviewMessage);
@@ -3104,19 +3120,6 @@ function AuthenticatedApp() {
     }
   }
 
-  /** Tira de 10 dias */
-  const days = useMemo(() => {
-    const out: { key: string; d: Date }[] = [];
-    const base = new Date(day);
-    base.setDate(base.getDate() - 3);
-    for (let i = 0; i < 10; i++) {
-      const n = new Date(base);
-      n.setDate(base.getDate() + i);
-      out.push({ d: n, key: toDateKey(n) });
-    }
-    return out;
-  }, [day]);
-
   const assistantContextSummary = useMemo(() => {
     const serviceList = localizedServices
       .map((s) => assistantCopy.contextSummary.serviceDetail(s.name, s.estimated_minutes))
@@ -3156,7 +3159,7 @@ function AuthenticatedApp() {
           ? `${b._customer.first_name}${b._customer.last_name ? ` ${b._customer.last_name}` : ""}`
           : null;
         return assistantCopy.systemPrompt.bookingLine({
-          date: humanDate(b.date, locale),
+          date: humanDate(b.date, locale, activeTimezone),
           start: b.start,
           end: b.end,
           serviceName,
@@ -3196,8 +3199,8 @@ function AuthenticatedApp() {
     const barber = bookingFilterBarber?.trim();
     const service = bookingFilterService?.trim();
     const client = bookingFilterClient.trim().toLowerCase();
-    const startDateTime = buildDateTime(bookingFilterStartDate, bookingFilterStartTime, "00:00");
-    const endDateTime = buildDateTime(bookingFilterEndDate, bookingFilterEndTime, "23:59");
+    const startDateTime = buildDateTime(bookingFilterStartDate, bookingFilterStartTime, "00:00", activeTimezone);
+    const endDateTime = buildDateTime(bookingFilterEndDate, bookingFilterEndTime, "23:59", activeTimezone);
     const rangeStartMs = startDateTime?.getTime() ?? null;
     const rangeEndMs = endDateTime?.getTime() ?? null;
 
@@ -3206,11 +3209,12 @@ function AuthenticatedApp() {
         if (barber && booking.barber !== barber) return false;
         if (service && booking.service_id !== service) return false;
 
-        const bookingStart = buildDateTime(booking.date, booking.start ?? null, "00:00");
+        const bookingStart = buildDateTime(booking.date, booking.start ?? null, "00:00", activeTimezone);
         const bookingEnd = buildDateTime(
           booking.date,
           booking.end ?? booking.start ?? null,
           booking.start ?? "23:59",
+          activeTimezone,
         );
         const bookingStartMs = bookingStart?.getTime() ?? bookingEnd?.getTime() ?? null;
         const bookingEndMs = bookingEnd?.getTime() ?? bookingStart?.getTime() ?? null;
@@ -3269,11 +3273,11 @@ function AuthenticatedApp() {
     setBookingFilterBarber(null);
     setBookingFilterService(null);
     setBookingFilterClient("");
-    setBookingFilterStartDate(getTodayDateKey());
+    setBookingFilterStartDate(getCurrentDateKey(activeTimezone));
     setBookingFilterStartTime("");
     setBookingFilterEndDate("");
     setBookingFilterEndTime("");
-  }, []);
+  }, [activeTimezone]);
 
   const handleBookingsMutated = useCallback(async () => {
     await load();
@@ -3323,10 +3327,22 @@ function AuthenticatedApp() {
 
   const weekRangeLabel = useMemo(() => {
     if (!weekDays.length) return "";
-    const start = weekDays[0].date;
-    const end = weekDays[weekDays.length - 1].date;
-    return `${formatRangeDate(start, locale)} – ${formatRangeDate(end, locale)}`;
-  }, [locale, weekDays]);
+    const startKey = weekDays[0].key;
+    const endKey = weekDays[weekDays.length - 1].key;
+    const startLabel = formatDateLabel(
+      startKey,
+      { month: "short", day: "numeric" },
+      locale,
+      activeTimezone,
+    );
+    const endLabel = formatDateLabel(
+      endKey,
+      { month: "short", day: "numeric" },
+      locale,
+      activeTimezone,
+    );
+    return `${startLabel} – ${endLabel}`;
+  }, [activeTimezone, locale, weekDays]);
 
   const topBarberEntry = useMemo(() => {
     const entries = Array.from(weekSummary.barberCounts.entries());
@@ -3388,10 +3404,15 @@ function AuthenticatedApp() {
         key,
         date,
         count: bookings.length,
-        label: formatWeekday(date, locale),
-        shortLabel: date.toLocaleDateString(locale, { weekday: "short" }),
+        label: formatDateLabel(
+          key,
+          { weekday: "short", month: "short", day: "numeric" },
+          locale,
+          activeTimezone,
+        ),
+        shortLabel: formatDateLabel(key, { weekday: "short" }, locale, activeTimezone),
       })),
-    [locale, weekDaySummaries],
+    [activeTimezone, locale, weekDaySummaries],
   );
 
   const busiestDay = useMemo(() => {
@@ -3860,8 +3881,9 @@ function AuthenticatedApp() {
               {/* Date selector */}
               <Text style={styles.sectionLabel}>{bookServiceCopy.dateSectionTitle}</Text>
               <DateSelector
-                value={day}
-                onChange={setDay}
+                value={selectedDateKey}
+                onChange={setSelectedDateKey}
+                timeZone={activeTimezone}
                 colors={{
                   text: colors.text,
                   subtext: colors.subtext,
@@ -3874,7 +3896,7 @@ function AuthenticatedApp() {
               />
 
               {/* Slots */}
-              <Text style={styles.sectionLabel}>{bookServiceCopy.slots.title(humanDate(dateKey, locale))}</Text>
+              <Text style={styles.sectionLabel}>{bookServiceCopy.slots.title(humanDate(dateKey, locale, activeTimezone))}</Text>
           <View style={styles.card}>
             {selectedService ? (
               <View style={{ gap: 12 }}>
@@ -3963,7 +3985,7 @@ function AuthenticatedApp() {
             {/* Resumo fixo */}
             {selectedSlot && selectedService && (
               <Text style={styles.summaryText}>
-                {(selectedLocalizedService?.name ?? selectedService.name)} • {BARBER_MAP[selectedBarber.id]?.name} • {selectedSlot} • {humanDate(dateKey, locale)}
+                {(selectedLocalizedService?.name ?? selectedService.name)} • {BARBER_MAP[selectedBarber.id]?.name} • {selectedSlot} • {humanDate(dateKey, locale, activeTimezone)}
                 {selectedCustomer ? ` • ${selectedCustomer.first_name}` : ""}
               </Text>
             )}
@@ -4116,10 +4138,11 @@ function AuthenticatedApp() {
           visible={recurrenceOpen}
           onClose={() => setRecurrenceOpen(false)}
           onSubmit={handleRecurrenceSubmit}
-          fixedDate={day}
+          fixedDate={selectedDate}
           fixedTime={selectedSlot || "00:00"}
           fixedService={selectedLocalizedService?.name ?? ""}
           fixedBarber={BARBER_MAP[selectedBarber.id]?.name || selectedBarber.id}
+          timeZone={activeTimezone}
           colors={{ text: colors.text, subtext: colors.subtext, surface: colors.surface, border: colors.border, accent: colors.accent, bg: colors.sidebarBg }}
           copy={recurrenceMode === "freeze" ? copy.freezeModal : copy.recurrenceModal}
         />
@@ -4439,7 +4462,7 @@ function AuthenticatedApp() {
             <Text style={styles.empty}>{bookingsCopy.results.empty}</Text>
           ) : (
             groupedBookings.map((group, groupIndex) => {
-              const dateLabel = humanDate(group.date, locale);
+              const dateLabel = humanDate(group.date, locale, activeTimezone);
               const countLabel = bookingsCopy.results.sectionCount(group.bookings.length);
               return (
                 <View
@@ -5436,6 +5459,7 @@ function AuthenticatedApp() {
         onBookingsMutated={handleBookingsMutated}
         services={localizedServices}
         copy={assistantCopy.chat}
+        timeZone={activeTimezone}
       />
     ) : activeScreen === "support" ? (
       <SupportChat
@@ -6459,23 +6483,6 @@ function AuthenticatedApp() {
       </View>
     </View>
   );
-}
-
-function startOfWeek(date: Date) {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = (day + 6) % 7;
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - diff);
-  return d;
-}
-
-function formatRangeDate(date: Date, locale: string) {
-  return date.toLocaleDateString(locale, { month: "short", day: "numeric" });
-}
-
-function formatWeekday(date: Date, locale: string) {
-  return date.toLocaleDateString(locale, { weekday: "short", month: "short", day: "numeric" });
 }
 
 /** ======== Modal de Cliente (lista + criar) ======== */

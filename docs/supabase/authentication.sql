@@ -17,7 +17,7 @@ create table if not exists public.barbershops (
   id uuid primary key default gen_random_uuid(),
   name text not null check (char_length(name) between 1 and 160),
   slug text,
-  timezone text not null default 'UTC',
+  timezone text not null default 'America/Sao_Paulo',
   owner_id uuid not null references auth.users(id) on delete cascade,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())

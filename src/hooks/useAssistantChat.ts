@@ -18,6 +18,7 @@ export type AgentRunnerArgs = {
   conversation: DisplayMessage[];
   onBookingsMutated?: () => Promise<void> | void;
   services: Service[];
+  timeZone: string;
 };
 
 export type AgentRunner = (options: AgentRunnerArgs) => Promise<string>;
@@ -33,6 +34,7 @@ const defaultAgentRunner: AgentRunner = ({
   conversation,
   onBookingsMutated,
   services,
+  timeZone,
 }) =>
   runBookingAgent({
     systemPrompt,
@@ -40,6 +42,7 @@ const defaultAgentRunner: AgentRunner = ({
     conversation,
     onBookingsMutated,
     services,
+    timezone: timeZone,
   });
 
 const defaultQuickReplyFactory: QuickReplyFactory = ({ services, copy }) => {
@@ -66,6 +69,7 @@ type UseAssistantChatOptions = {
   onBookingsMutated?: () => Promise<void> | void;
   agentRunner?: AgentRunner;
   quickReplyFactory?: QuickReplyFactory;
+  timeZone: string;
 };
 
 type UseAssistantChatResult = {
@@ -96,6 +100,7 @@ export function useAssistantChat({
   onBookingsMutated,
   agentRunner,
   quickReplyFactory,
+  timeZone,
 }: UseAssistantChatOptions): UseAssistantChatResult {
   const [messages, setMessages] = useState<DisplayMessage[]>([
     { role: "assistant", content: copy.initialMessage },
@@ -308,6 +313,7 @@ export function useAssistantChat({
           conversation: nextMessages,
           onBookingsMutated,
           services,
+          timeZone,
         });
         setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
       } catch (e: any) {
@@ -325,6 +331,7 @@ export function useAssistantChat({
       pending,
       services,
       systemPrompt,
+      timeZone,
     ],
   );
 

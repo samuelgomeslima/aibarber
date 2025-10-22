@@ -1,5 +1,6 @@
 import type { SupabaseClientLike } from "./supabase";
 import { supabase } from "./supabase";
+import { DEFAULT_TIMEZONE } from "./timezone";
 
 const BARBERSHOPS_TABLE = "barbershops";
 
@@ -32,7 +33,7 @@ function normalizeBarbershop(row: BarbershopRow): Barbershop {
     id: row.id,
     name: row.name,
     slug: row.slug ?? null,
-    timezone: row.timezone ?? "UTC",
+    timezone: row.timezone ?? DEFAULT_TIMEZONE,
     created_at: row.created_at ?? null,
     updated_at: row.updated_at ?? null,
   };
