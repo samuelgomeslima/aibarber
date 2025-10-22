@@ -17,6 +17,7 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import * as Localization from "expo-localization";
+import { usePathname, useRouter } from "expo-router";
 import type { User } from "@supabase/supabase-js";
 
 import {
@@ -86,6 +87,7 @@ import {
 } from "../lib/cashRegister";
 import { listStaffMembers, type StaffMember, type StaffRole } from "../lib/users";
 import { checkApiStatuses, type ApiServiceName, type ApiServiceStatus } from "../lib/apiStatus";
+import type { SettingsScreenProps } from "./settings/SettingsScreen";
 
 /* Components (mantidos) */
 import DateSelector from "../components/DateSelector";
@@ -1322,7 +1324,7 @@ const LANGUAGE_COPY = {
   },
 } as const;
 
-type SupportedLanguage = keyof typeof LANGUAGE_COPY;
+export type SupportedLanguage = keyof typeof LANGUAGE_COPY;
 
 const LANGUAGE_OPTIONS: { code: SupportedLanguage; label: string }[] = [
   { code: "en", label: "English (US)" },
@@ -1330,9 +1332,9 @@ const LANGUAGE_OPTIONS: { code: SupportedLanguage; label: string }[] = [
 ];
 
 type ThemeName = "dark" | "light";
-type ThemePreference = "system" | ThemeName;
+export type ThemePreference = "system" | ThemeName;
 
-type ThemeColors = {
+export type ThemeColors = {
   bg: string;
   surface: string;
   sidebarBg: string;
@@ -1406,7 +1408,11 @@ type ScreenName =
   | "settings"
   | "barbershopSettings";
 
-function AuthenticatedApp() {
+function AuthenticatedApp({ children }: { children?: React.ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const isSettingsRoute = pathname === "/settings";
+
   const [services, setServices] = useState<Service[]>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
@@ -1444,7 +1450,10 @@ function AuthenticatedApp() {
   const [apiStatusLoading, setApiStatusLoading] = useState(false);
   const [apiStatusError, setApiStatusError] = useState<string | null>(null);
   const apiStatusRequestId = useRef(0);
-  const [activeScreen, setActiveScreen] = useState<ScreenName>("home");
+  const [activeScreen, setActiveScreen] = useState<ScreenName>(() =>
+    isSettingsRoute ? "settings" : "home",
+  );
+  const lastNonSettingsScreenRef = useRef<ScreenName>("home");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -1545,6 +1554,20 @@ function AuthenticatedApp() {
       setResendConfirmationError(emailConfirmationCopy.error);
     }
   }, [emailConfirmationCopy.error, resendConfirmationError]);
+
+  useEffect(() => {
+    if (activeScreen !== "settings") {
+      lastNonSettingsScreenRef.current = activeScreen;
+    }
+  }, [activeScreen]);
+
+  useEffect(() => {
+    if (isSettingsRoute) {
+      setActiveScreen("settings");
+    } else {
+      setActiveScreen(lastNonSettingsScreenRef.current);
+    }
+  }, [isSettingsRoute]);
 
   const handleResendConfirmationEmail = useCallback(async () => {
     if (!currentUser?.email || resendingConfirmation) {
@@ -2082,10 +2105,10 @@ function AuthenticatedApp() {
   }, [activeScreen, loadTeamMembers]);
 
   useEffect(() => {
-    if (activeScreen === "settings") {
+    if (isSettingsRoute) {
       void fetchApiStatuses();
     }
-  }, [activeScreen, fetchApiStatuses]);
+  }, [isSettingsRoute, fetchApiStatuses]);
 
   const handleServiceFormClose = useCallback(() => {
     setServiceFormVisible(false);
@@ -3271,13 +3294,58 @@ function AuthenticatedApp() {
   ];
 
   const bookingsNavActive = activeScreen === "bookings" || activeScreen === "bookService";
+  const settingsNavActive = isSettingsRoute || activeScreen === "settings";
 
-  const handleNavigate = useCallback((screen: ScreenName) => {
+  const handleNavigate = useCallback(
+    (screen: ScreenName) => {
+      if (screen === "settings") {
+        if (!isSettingsRoute) {
+          router.push("/settings");
+        }
+        setActiveScreen("settings");
+        setSidebarOpen(false);
+        return;
+      }
+
+      if (isSettingsRoute) {
+        router.replace("/");
+      }
+
       setActiveScreen(screen);
       setSidebarOpen(false);
     },
-    [],
+    [isSettingsRoute, router],
   );
+
+  const settingsChild =
+    isSettingsRoute && React.isValidElement(children)
+      ? React.cloneElement(children as React.ReactElement<SettingsScreenProps>, {
+          settingsCopy: copy.settingsPage,
+          languageOptions: LANGUAGE_OPTIONS,
+          currentLanguage: language,
+          onChangeLanguage: setLanguage,
+          themeOptions: THEME_OPTIONS,
+          themePreference,
+          onChangeThemePreference: setThemePreference,
+          apiStatusOrder: API_STATUS_ORDER,
+          apiStatuses,
+          apiStatusLoading,
+          apiStatusError,
+          onRefreshApiStatuses: handleRefreshApiStatuses,
+          showEmailConfirmationReminder,
+          emailConfirmationCopy,
+          onResendConfirmationEmail: handleResendConfirmationEmail,
+          resendingConfirmation,
+          resentConfirmation,
+          resendConfirmationError,
+          currentUserEmail: currentUser?.email ?? null,
+          onOpenBarbershopSettings: () => handleNavigate("barbershopSettings"),
+          settingsBarbershopCopy,
+          colors,
+          styles,
+          isCompactLayout,
+        })
+      : null;
 
   const handleLogout = useCallback(async () => {
     if (loggingOut) return;
@@ -3526,16 +3594,16 @@ function AuthenticatedApp() {
           </Pressable>
           <Pressable
             onPress={() => handleNavigate("settings")}
-            style={[styles.sidebarItem, activeScreen === "settings" && styles.sidebarItemActive]}
+            style={[styles.sidebarItem, settingsNavActive && styles.sidebarItemActive]}
             accessibilityRole="button"
             accessibilityLabel="Configure app settings"
           >
             <Ionicons
               name="settings-outline"
               size={20}
-              color={activeScreen === "settings" ? colors.accentFgOn : colors.subtext}
+              color={settingsNavActive ? colors.accentFgOn : colors.subtext}
             />
-            <Text style={[styles.sidebarItemText, activeScreen === "settings" && styles.sidebarItemTextActive]}>
+            <Text style={[styles.sidebarItemText, settingsNavActive && styles.sidebarItemTextActive]}>
               {copy.navigation.settings}
             </Text>
           </Pressable>
@@ -5517,255 +5585,10 @@ function AuthenticatedApp() {
             )}
           </View>
         </View>
-      </ScrollView>
-    ) : activeScreen === "settings" ? (
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}>
-        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <Ionicons name="settings-outline" size={22} color={colors.accent} />
-            <Text style={[styles.title, { color: colors.text }]}>{copy.settingsPage.title}</Text>
-          </View>
-          <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
-            {copy.settingsPage.subtitle}
-          </Text>
-        </View>
-
-        {showEmailConfirmationReminder ? (
-          <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <Ionicons name="mail-unread-outline" size={20} color={colors.accent} />
-              <Text style={[styles.languageLabel, { color: colors.accent }]}>
-                {emailConfirmationCopy.title}
-              </Text>
-            </View>
-            <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
-              {emailConfirmationCopy.description(currentUser?.email ?? "")}
-            </Text>
-            {resentConfirmation ? (
-              <Text style={{ color: colors.accent, fontWeight: "700" }}>
-                {emailConfirmationCopy.success}
-              </Text>
-            ) : null}
-            {resendConfirmationError ? (
-              <Text style={{ color: colors.danger, fontWeight: "700" }}>{resendConfirmationError}</Text>
-            ) : null}
-            <Pressable
-              onPress={handleResendConfirmationEmail}
-              disabled={resendingConfirmation}
-              style={[
-                styles.smallBtn,
-                {
-                  alignSelf: "flex-start",
-                  borderColor: colors.accent,
-                  backgroundColor: colors.accent,
-                  opacity: resendingConfirmation ? 0.7 : 1,
-                },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel={emailConfirmationCopy.action}
-            >
-              <Text style={{ color: colors.accentFgOn, fontWeight: "900" }}>
-                {resendingConfirmation ? emailConfirmationCopy.sending : emailConfirmationCopy.action}
-              </Text>
-            </Pressable>
-          </View>
-        ) : null}
-
-        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 16 }]}>
-          <View style={styles.statusHeader}>
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text style={[styles.languageLabel, { color: colors.subtext }]}>
-                {copy.settingsPage.apiStatus.title}
-              </Text>
-              <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
-                {copy.settingsPage.apiStatus.description}
-              </Text>
-            </View>
-            <Pressable
-              onPress={handleRefreshApiStatuses}
-              disabled={apiStatusLoading}
-              style={[
-                styles.statusRefresh,
-                {
-                  borderColor: colors.border,
-                  backgroundColor: colors.surface,
-                  opacity: apiStatusLoading ? 0.5 : 1,
-                },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel={
-                apiStatusLoading
-                  ? copy.settingsPage.apiStatus.refreshing
-                  : copy.settingsPage.apiStatus.refresh
-              }
-            >
-              <Ionicons name="refresh" size={16} color={colors.subtext} />
-              <Text style={[styles.statusRefreshText, { color: colors.subtext }]}>
-                {apiStatusLoading
-                  ? copy.settingsPage.apiStatus.refreshing
-                  : copy.settingsPage.apiStatus.refresh}
-              </Text>
-            </Pressable>
-          </View>
-
-          {apiStatusLoading ? (
-            <View style={styles.statusLoadingRow}>
-              <ActivityIndicator size="small" color={colors.subtext} />
-              <Text style={[styles.statusErrorText, { color: colors.subtext }]}>
-                {copy.settingsPage.apiStatus.loading}
-              </Text>
-            </View>
-          ) : apiStatusError ? (
-            <View style={{ gap: 6 }}>
-              <Text style={[styles.statusErrorText, { color: colors.danger }]}>
-                {copy.settingsPage.apiStatus.error}
-              </Text>
-              <Text style={[styles.statusErrorText, { color: colors.subtext }]}>
-                {apiStatusError}
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.statusList}>
-              {API_STATUS_ORDER.map((service) => {
-                const status = apiStatuses.find((item) => item.service === service);
-                const state = status?.state ?? "unavailable";
-                const label = copy.settingsPage.apiStatus.labels[service];
-                const detail =
-                  (status?.message && status.message.trim()) ||
-                  copy.settingsPage.apiStatus.states[state];
-                const pillStyle = [
-                  styles.statusPill,
-                  state === "available"
-                    ? styles.statusPillAvailable
-                    : state === "unauthorized"
-                      ? styles.statusPillUnauthorized
-                      : styles.statusPillUnavailable,
-                ];
-                const pillColor =
-                  state === "available"
-                    ? colors.accent
-                    : state === "unauthorized"
-                      ? colors.subtext
-                      : colors.danger;
-                const iconName: React.ComponentProps<typeof Ionicons>["name"] =
-                  state === "available"
-                    ? "checkmark-circle"
-                    : state === "unauthorized"
-                      ? "lock-closed"
-                      : "alert-circle";
-                return (
-                  <View key={service} style={styles.statusRow}>
-                    <View style={styles.statusLabelGroup}>
-                      <Text style={[styles.statusLabel, { color: colors.text }]}>{label}</Text>
-                      <Text style={[styles.statusDescription, { color: colors.subtext }]}>{detail}</Text>
-                    </View>
-                    <View style={pillStyle}>
-                      <Ionicons name={iconName} size={16} color={pillColor} />
-                      <Text style={[styles.statusPillText, { color: pillColor }]}>
-                        {copy.settingsPage.apiStatus.states[state]}
-                      </Text>
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          )}
-        </View>
-
-        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 16 }]}>
-          <Text style={[styles.languageLabel, { color: colors.subtext }]}>{copy.languageLabel}</Text>
-          <View style={styles.languageOptions}>
-            {LANGUAGE_OPTIONS.map((option) => {
-              const isActive = option.code === language;
-              return (
-                <Pressable
-                  key={option.code}
-                  onPress={() => setLanguage(option.code)}
-                  style={[
-                    styles.languageOption,
-                    { borderColor: colors.border, backgroundColor: colors.surface },
-                    isActive && { backgroundColor: colors.accent, borderColor: colors.accent },
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${copy.switchLanguage} ${option.label}`}
-                >
-                  <Text
-                    style={[
-                      styles.languageOptionText,
-                      { color: isActive ? colors.accentFgOn : colors.subtext },
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
-          <Text style={[styles.languageLabel, { color: colors.subtext }]}>{copy.settingsPage.themeLabel}</Text>
-          <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
-            {copy.settingsPage.themeDescription}
-          </Text>
-          <View style={styles.languageOptions}>
-            {THEME_OPTIONS.map((option) => {
-              const isActive = option.value === themePreference;
-              return (
-                <Pressable
-                  key={option.value}
-                  onPress={() => setThemePreference(option.value)}
-                  style={[
-                    styles.languageOption,
-                    { borderColor: colors.border, backgroundColor: colors.surface },
-                    isActive && { backgroundColor: colors.accent, borderColor: colors.accent },
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${copy.settingsPage.themeLabel}: ${copy.settingsPage.themeOptions[option.value]}`}
-                >
-                  <Text
-                    style={[
-                      styles.languageOptionText,
-                      { color: isActive ? colors.accentFgOn : colors.subtext },
-                    ]}
-                  >
-                    {copy.settingsPage.themeOptions[option.value]}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <MaterialCommunityIcons name="store-edit-outline" size={22} color={colors.accent} />
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text style={[styles.languageLabel, { color: colors.subtext }]}>{settingsBarbershopCopy.title}</Text>
-              <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
-                {settingsBarbershopCopy.description}
-              </Text>
-            </View>
-          </View>
-          <Pressable
-            onPress={() => handleNavigate("barbershopSettings")}
-            style={[
-              styles.smallBtn,
-              {
-                alignSelf: "flex-start",
-                borderColor: colors.accent,
-                backgroundColor: colors.accent,
-              },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel={settingsBarbershopCopy.ctaAccessibility}
-          >
-            <Text style={{ color: colors.accentFgOn, fontWeight: "900" }}>{settingsBarbershopCopy.cta}</Text>
-          </Pressable>
-        </View>
-
-      </ScrollView>
-    ) : (
+        </ScrollView>
+      ) : isSettingsRoute ? (
+        settingsChild
+      ) : (
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}
@@ -7250,5 +7073,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   teamListInfo: { flex: 1, gap: 6 },
   teamRoleBadge: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
 });
+
+export type AppStyles = ReturnType<typeof createStyles>;
 
 export default AuthenticatedApp;
