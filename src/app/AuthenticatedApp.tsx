@@ -1392,7 +1392,7 @@ function getInitialLanguage(): SupportedLanguage {
 }
 
 /** ========== App ========== */
-type ScreenName =
+export type ScreenName =
   | "home"
   | "bookings"
   | "bookService"
@@ -1406,7 +1406,12 @@ type ScreenName =
   | "settings"
   | "barbershopSettings";
 
-function AuthenticatedApp() {
+type AuthenticatedAppProps = {
+  initialScreen?: ScreenName;
+  onNavigate?: (screen: ScreenName) => void;
+};
+
+function AuthenticatedApp({ initialScreen = "home", onNavigate }: AuthenticatedAppProps) {
   const [services, setServices] = useState<Service[]>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
@@ -1444,7 +1449,7 @@ function AuthenticatedApp() {
   const [apiStatusLoading, setApiStatusLoading] = useState(false);
   const [apiStatusError, setApiStatusError] = useState<string | null>(null);
   const apiStatusRequestId = useRef(0);
-  const [activeScreen, setActiveScreen] = useState<ScreenName>("home");
+  const [activeScreen, setActiveScreen] = useState<ScreenName>(initialScreen);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -1488,6 +1493,11 @@ function AuthenticatedApp() {
   const [barbershopSuccess, setBarbershopSuccess] = useState<string | null>(null);
   const emailConfirmed = Boolean(currentUser?.email_confirmed_at);
   const showEmailConfirmationReminder = !currentUserLoading && currentUser && !emailConfirmed;
+
+  useEffect(() => {
+    setActiveScreen(initialScreen);
+    setSidebarOpen(false);
+  }, [initialScreen]);
 
   useEffect(() => {
     let isMounted = true;
@@ -3272,11 +3282,13 @@ function AuthenticatedApp() {
 
   const bookingsNavActive = activeScreen === "bookings" || activeScreen === "bookService";
 
-  const handleNavigate = useCallback((screen: ScreenName) => {
+  const handleNavigate = useCallback(
+    (screen: ScreenName) => {
       setActiveScreen(screen);
       setSidebarOpen(false);
+      onNavigate?.(screen);
     },
-    [],
+    [onNavigate],
   );
 
   const handleLogout = useCallback(async () => {
@@ -3962,7 +3974,7 @@ function AuthenticatedApp() {
               </Text>
             </View>
             <Pressable
-              onPress={() => setActiveScreen("bookService")}
+              onPress={() => handleNavigate("bookService")}
               style={[styles.defaultCta, { marginTop: 0 }, isCompactLayout && styles.fullWidthButton]}
               accessibilityRole="button"
               accessibilityLabel={bookingsCopy.ctaAccessibility}
