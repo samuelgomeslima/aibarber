@@ -11,7 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@expo/metro-runtime": "~5.0.4",
+    "@expo/metro-runtime": "~6.1.2",
     "@supabase/supabase-js": "^2.76.0",
     "expo": "~54.0.13",
     "expo-status-bar": "~3.0.8",
