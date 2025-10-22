@@ -1,6 +1,15 @@
+import path from "node:path";
 import { defineConfig } from "vitest/config";
 
+const expoRouterAlias = path.resolve(__dirname, "src/router/expo-router");
+
 export default defineConfig({
+  resolve: {
+    alias: {
+      "expo-router": expoRouterAlias,
+      "expo-router/entry": path.resolve(expoRouterAlias, "entry"),
+    },
+  },
   test: {
     globals: true,
     include: ["tests/**/*.test.ts"],
