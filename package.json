@@ -1,7 +1,7 @@
 {
   "name": "aibarber",
   "version": "1.0.0",
-  "main": "index.ts",
+  "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
     "web-build": "expo export -p web",
@@ -16,6 +16,7 @@
     "expo": "~54.0.13",
     "expo-status-bar": "~3.0.8",
     "expo-localization": "~17.0.7",
+    "expo-router": "~4.0.12",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-native": "0.79.6",
