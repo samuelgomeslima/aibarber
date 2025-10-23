@@ -4,12 +4,12 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 const MENU_ITEMS = [
   {
-    href: "/barbershop-online-products",
+    href: "/(side-menu)/barbershop-online-products",
     label: "Barbershop online products",
     shortLabel: "Products",
   },
   {
-    href: "/barbershop-news",
+    href: "/(side-menu)/barbershop-news",
     label: "Barbershop news",
     shortLabel: "News",
   },
