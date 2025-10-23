@@ -1,5 +1,7 @@
 import React from "react";
 
+import { RouterProvider } from ".";
+
 type LayoutComponent = React.ComponentType | null;
 
 function loadRootLayout(): LayoutComponent {
@@ -20,5 +22,9 @@ export default function ExpoRouterEntry(): React.ReactElement | null {
     return null;
   }
 
-  return <LayoutComponent />;
+  return (
+    <RouterProvider>
+      <LayoutComponent />
+    </RouterProvider>
+  );
 }
