@@ -92,7 +92,6 @@ import DateSelector from "../components/DateSelector";
 import RecurrenceModal from "../components/RecurrenceModal"; // recebe fixedDate/fixedTime/fixedService/fixedBarber
 import OccurrencePreviewModal, { PreviewItem } from "../components/OccurrencePreviewModal";
 import BarberSelector, { Barber } from "../components/BarberSelector";
-import AssistantChat from "../components/AssistantChat";
 import SupportChat from "../components/SupportChat";
 import ServicePackageForm from "../components/ServicePackageForm";
 import FilterToggle from "../components/FilterToggle";
@@ -1435,6 +1434,40 @@ export type CashRegisterScreenRenderer = (
   props: CashRegisterScreenProps,
 ) => React.ReactElement | null;
 
+export type AssistantScreenProps = {
+  colors: ThemeColors;
+  assistantCopy: (typeof LANGUAGE_COPY)[SupportedLanguage]["assistant"];
+  assistantSystemPrompt: string;
+  assistantContextSummary: string;
+  handleBookingsMutated: () => Promise<void>;
+  localizedServices: Service[];
+};
+
+export type AssistantScreenRenderer = (
+  props: AssistantScreenProps,
+) => React.ReactElement | null;
+
+export type BarbershopSettingsScreenProps = {
+  isCompactLayout: boolean;
+  colors: ThemeColors;
+  styles: ReturnType<typeof createStyles>;
+  barbershopPageCopy: (typeof LANGUAGE_COPY)[SupportedLanguage]["barbershopPage"];
+  barbershopLoading: boolean;
+  barbershop: Barbershop | null;
+  barbershopForm: { name: string; slug: string; timezone: string };
+  barbershopSaving: boolean;
+  barbershopError: string | null;
+  barbershopSuccess: string | null;
+  handleBarbershopFieldChange: (field: "name" | "slug" | "timezone", value: string) => void;
+  handleSaveBarbershop: () => Promise<void>;
+  handleNavigateToSettings: () => void;
+  handleRetryBarbershop: () => Promise<void>;
+};
+
+export type BarbershopSettingsScreenRenderer = (
+  props: BarbershopSettingsScreenProps,
+) => React.ReactElement | null;
+
 export type ProductsScreenProps = {
   isCompactLayout: boolean;
   colors: ThemeColors;
@@ -1544,6 +1577,8 @@ type AuthenticatedAppProps = {
   initialScreen?: ScreenName;
   onNavigate?: (screen: ScreenName) => void;
   renderCashRegister?: CashRegisterScreenRenderer;
+  renderAssistant?: AssistantScreenRenderer;
+  renderBarbershopSettings?: BarbershopSettingsScreenRenderer;
   renderBookings?: BookingsScreenRenderer;
   renderProducts?: ProductsScreenRenderer;
   renderServices?: ServicesScreenRenderer;
@@ -1553,6 +1588,8 @@ function AuthenticatedApp({
   initialScreen = "home",
   onNavigate,
   renderCashRegister,
+  renderAssistant,
+  renderBarbershopSettings,
   renderBookings,
   renderProducts,
   renderServices,
@@ -1874,6 +1911,11 @@ function AuthenticatedApp({
     barbershopPageCopy.feedback.saved,
     barbershopSaving,
   ]);
+
+  const handleRetryBarbershop = useCallback(() => {
+    setBarbershopError(null);
+    return loadBarbershop();
+  }, [loadBarbershop]);
 
   // Cliente -> obrigatório antes do barbeiro
   const [clientModalOpen, setClientModalOpen] = useState(false);
@@ -4376,23 +4418,16 @@ function AuthenticatedApp({
           })
         : null
     ) : activeScreen === "assistant" ? (
-      <AssistantChat
-        colors={{
-          text: colors.text,
-          subtext: colors.subtext,
-          surface: colors.surface,
-          border: colors.border,
-          accent: colors.accent,
-          accentFgOn: colors.accentFgOn,
-          danger: colors.danger,
-          bg: colors.bg,
-        }}
-        systemPrompt={assistantSystemPrompt}
-        contextSummary={assistantContextSummary}
-        onBookingsMutated={handleBookingsMutated}
-        services={localizedServices}
-        copy={assistantCopy.chat}
-      />
+      renderAssistant
+        ? renderAssistant({
+            colors,
+            assistantCopy,
+            assistantSystemPrompt,
+            assistantContextSummary,
+            handleBookingsMutated,
+            localizedServices,
+          })
+        : null
     ) : activeScreen === "support" ? (
       <SupportChat
         colors={{
@@ -4535,150 +4570,24 @@ function AuthenticatedApp({
         </View>
       </ScrollView>
     ) : activeScreen === "barbershopSettings" ? (
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}>
-        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}> 
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <MaterialCommunityIcons name="store-edit-outline" size={22} color={colors.accent} />
-            <Text style={[styles.title, { color: colors.text }]}>{barbershopPageCopy.title}</Text>
-          </View>
-          <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
-            {barbershopPageCopy.subtitle}
-          </Text>
-        </View>
-
-        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 16 }]}> 
-          {barbershopLoading ? (
-            <View style={{ alignItems: "center", paddingVertical: 12 }}>
-              <ActivityIndicator color={colors.accent} />
-            </View>
-          ) : barbershop ? (
-            <View style={{ gap: 16 }}>
-              <View style={{ gap: 6 }}>
-                <Text style={[styles.languageLabel, { color: colors.subtext }]}>
-                  {barbershopPageCopy.fields.nameLabel}
-                </Text>
-                <TextInput
-                  value={barbershopForm.name}
-                  onChangeText={(value) => handleBarbershopFieldChange("name", value)}
-                  placeholder={barbershopPageCopy.fields.namePlaceholder}
-                  placeholderTextColor={colors.subtext}
-                  style={styles.input}
-                  autoCapitalize="words"
-                  editable={!barbershopSaving}
-                  accessibilityLabel={barbershopPageCopy.fields.nameLabel}
-                />
-              </View>
-
-              <View style={{ gap: 6 }}>
-                <Text style={[styles.languageLabel, { color: colors.subtext }]}>
-                  {barbershopPageCopy.fields.slugLabel}
-                </Text>
-                <TextInput
-                  value={barbershopForm.slug}
-                  onChangeText={(value) => handleBarbershopFieldChange("slug", value)}
-                  placeholder={barbershopPageCopy.fields.slugPlaceholder}
-                  placeholderTextColor={colors.subtext}
-                  style={styles.input}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  editable={!barbershopSaving}
-                  accessibilityLabel={barbershopPageCopy.fields.slugLabel}
-                />
-                <Text style={{ color: colors.subtext, fontSize: 12, fontWeight: "600" }}>
-                  {barbershopPageCopy.fields.slugHelper}
-                </Text>
-              </View>
-
-              <View style={{ gap: 6 }}>
-                <Text style={[styles.languageLabel, { color: colors.subtext }]}>
-                  {barbershopPageCopy.fields.timezoneLabel}
-                </Text>
-                <TextInput
-                  value={barbershopForm.timezone}
-                  onChangeText={(value) => handleBarbershopFieldChange("timezone", value)}
-                  placeholder={barbershopPageCopy.fields.timezonePlaceholder}
-                  placeholderTextColor={colors.subtext}
-                  style={styles.input}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  editable={!barbershopSaving}
-                  accessibilityLabel={barbershopPageCopy.fields.timezoneLabel}
-                />
-                <Text style={{ color: colors.subtext, fontSize: 12, fontWeight: "600" }}>
-                  {barbershopPageCopy.fields.timezoneHelper}
-                </Text>
-              </View>
-            </View>
-          ) : (
-            <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
-              {barbershopError ?? barbershopPageCopy.empty}
-            </Text>
-          )}
-
-          {barbershop && barbershopError ? (
-            <Text style={{ color: colors.danger, fontWeight: "700" }}>{barbershopError}</Text>
-          ) : null}
-          {barbershopSuccess ? (
-            <Text style={{ color: colors.accent, fontWeight: "700" }}>{barbershopSuccess}</Text>
-          ) : null}
-
-          <View
-            style={{
-              flexDirection: isCompactLayout ? "column" : "row",
-              alignItems: isCompactLayout ? "stretch" : "center",
-              justifyContent: isCompactLayout ? "flex-start" : "flex-end",
-              gap: 12,
-            }}
-          >
-            <Pressable
-              onPress={() => handleNavigate("settings")}
-              style={[styles.smallBtn, { borderColor: colors.border }]}
-              accessibilityRole="button"
-              accessibilityLabel={barbershopPageCopy.actions.back}
-            >
-              <Text style={{ color: colors.subtext, fontWeight: "800" }}>
-                {barbershopPageCopy.actions.back}
-              </Text>
-            </Pressable>
-
-            {barbershop ? (
-              <Pressable
-                onPress={handleSaveBarbershop}
-                disabled={barbershopSaving}
-                style={[
-                  styles.smallBtn,
-                  {
-                    borderColor: colors.accent,
-                    backgroundColor: colors.accent,
-                    opacity: barbershopSaving ? 0.7 : 1,
-                  },
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={barbershopSaving ? barbershopPageCopy.actions.saving : barbershopPageCopy.actions.save}
-              >
-                <Text style={{ color: colors.accentFgOn, fontWeight: "900" }}>
-                  {barbershopSaving ? barbershopPageCopy.actions.saving : barbershopPageCopy.actions.save}
-                </Text>
-              </Pressable>
-            ) : (
-              <Pressable
-                onPress={() => {
-                  setBarbershopError(null);
-                  void loadBarbershop();
-                }}
-                disabled={barbershopLoading}
-                style={[styles.smallBtn, { borderColor: colors.border }, barbershopLoading && styles.smallBtnDisabled]}
-                accessibilityRole="button"
-                accessibilityLabel={barbershopPageCopy.actions.retry}
-              >
-                <Text style={{ color: colors.subtext, fontWeight: "800" }}>
-                  {barbershopPageCopy.actions.retry}
-                </Text>
-              </Pressable>
-            )}
-          </View>
-        </View>
-      </ScrollView>
+      renderBarbershopSettings
+        ? renderBarbershopSettings({
+            isCompactLayout,
+            colors,
+            styles,
+            barbershopPageCopy,
+            barbershopLoading,
+            barbershop,
+            barbershopForm,
+            barbershopSaving,
+            barbershopError,
+            barbershopSuccess,
+            handleBarbershopFieldChange,
+            handleSaveBarbershop,
+            handleNavigateToSettings: () => handleNavigate("settings"),
+            handleRetryBarbershop,
+          })
+        : null
     ) : activeScreen === "settings" ? (
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}>
         <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
