@@ -1,11 +1,12 @@
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 
 const MENU_WIDTH = 248;
-const MENU_WIDTH_COLLAPSED = 68;
+const LEGACY_MENU_ICON_TOP = Platform.select<number>({ ios: 52, android: 40, default: 24 });
+const FLOATING_TOGGLE_TOP = LEGACY_MENU_ICON_TOP + 44 + 12;
 
 type MenuItem = {
   key: string;
@@ -53,61 +54,59 @@ export function TanstackNavigationLayout(): React.ReactElement {
 
   return (
     <View style={styles.root}>
-      <View
-        style={[
-          styles.sidebar,
-          { width: collapsed ? MENU_WIDTH_COLLAPSED : MENU_WIDTH },
-        ]}
-      >
-        <Pressable
-          onPress={() => setCollapsed((current) => !current)}
-          style={({ pressed }) => [
-            styles.toggle,
-            pressed && styles.togglePressed,
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel={collapsed ? "Expand tanstack navigation" : "Collapse tanstack navigation"}
-        >
-          <Ionicons
-            name={collapsed ? "chevron-forward" : "chevron-back"}
-            size={18}
-            color="#f8fafc"
-          />
-        </Pressable>
-        <View style={styles.menuContainer}>
-          {MENU_ITEMS.map((item) => {
-            const active = pathname === item.to;
-            return (
-              <Pressable
-                key={item.key}
-                onPress={() => handleNavigate(item)}
-                style={({ pressed }) => [
-                  styles.menuItem,
-                  active && styles.menuItemActive,
-                  pressed && !active && styles.menuItemPressed,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={item.label}
-              >
-                <Ionicons
-                  name={item.icon}
-                  size={20}
-                  color={active ? "#38bdf8" : "#cbd5f5"}
-                />
-                {!collapsed ? (
+      <View style={styles.content}>
+        <Outlet />
+      </View>
+      {!collapsed ? (
+        <View style={[styles.sidebar, { width: MENU_WIDTH }]}>
+          <Pressable
+            onPress={() => setCollapsed(true)}
+            style={({ pressed }) => [styles.toggle, pressed && styles.togglePressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Collapse tanstack navigation"
+          >
+            <Ionicons name="chevron-forward" size={18} color="#f8fafc" />
+          </Pressable>
+          <View style={styles.menuContainer}>
+            {MENU_ITEMS.map((item) => {
+              const active = pathname === item.to;
+              return (
+                <Pressable
+                  key={item.key}
+                  onPress={() => handleNavigate(item)}
+                  style={({ pressed }) => [
+                    styles.menuItem,
+                    active && styles.menuItemActive,
+                    pressed && !active && styles.menuItemPressed,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={item.label}
+                >
+                  <Ionicons
+                    name={item.icon}
+                    size={20}
+                    color={active ? "#38bdf8" : "#cbd5f5"}
+                  />
                   <View style={styles.menuCopy}>
                     <Text style={[styles.menuLabel, active && styles.menuLabelActive]}>{item.label}</Text>
                     <Text style={styles.menuDescription}>{item.description}</Text>
                   </View>
-                ) : null}
-              </Pressable>
-            );
-          })}
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
-      </View>
-      <View style={styles.content}>
-        <Outlet />
-      </View>
+      ) : null}
+      {collapsed ? (
+        <Pressable
+          onPress={() => setCollapsed(false)}
+          style={({ pressed }) => [styles.floatingToggle, pressed && styles.togglePressed]}
+          accessibilityRole="button"
+          accessibilityLabel="Expand tanstack navigation"
+        >
+          <Ionicons name="chevron-back" size={18} color="#f8fafc" />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -117,17 +116,18 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     backgroundColor: "#020817",
+    position: "relative",
   },
   sidebar: {
     backgroundColor: "#0b1120",
     paddingTop: 24,
     paddingBottom: 24,
-    borderRightWidth: 1,
-    borderRightColor: "#1e293b",
+    borderLeftWidth: 1,
+    borderLeftColor: "#1e293b",
   },
   toggle: {
-    alignSelf: "flex-end",
-    marginRight: 16,
+    alignSelf: "flex-start",
+    marginLeft: 16,
     marginBottom: 16,
     width: 36,
     height: 36,
@@ -138,6 +138,20 @@ const styles = StyleSheet.create({
   },
   togglePressed: {
     backgroundColor: "#1f2a48",
+  },
+  floatingToggle: {
+    position: "absolute",
+    top: FLOATING_TOGGLE_TOP,
+    right: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#1e293b",
+    borderWidth: 1,
+    borderColor: "#1e293b",
+    zIndex: 20,
   },
   menuContainer: {
     flex: 1,
