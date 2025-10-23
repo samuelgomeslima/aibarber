@@ -5,7 +5,9 @@
     "baseUrl": ".",
     "paths": {
       "expo-router": ["src/router/expo-router/index"],
-      "expo-router/*": ["src/router/expo-router/*"]
+      "expo-router/*": ["src/router/expo-router/*"],
+      "@tanstack/react-router": ["src/router/tanstack/index"],
+      "@tanstack/react-router/*": ["src/router/tanstack/*"]
     }
   }
 }
