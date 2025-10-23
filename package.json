@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@tanstack/react-router": "^1.77.4",
     "@expo/metro-runtime": "~5.0.4",
     "@supabase/supabase-js": "^2.75.0",
     "expo": "~54.0.13",

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef, useContext } from "react";
 import {
   View,
   Text,
@@ -16,6 +16,16 @@ import {
   Linking,
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
+import {
+  RouterProvider,
+  Outlet,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  useRouter,
+  useRouterState,
+} from "@tanstack/react-router";
+import { createMemoryHistory } from "@tanstack/react-router";
 import * as Localization from "expo-localization";
 import type { User } from "@supabase/supabase-js";
 
@@ -117,6 +127,13 @@ const LANGUAGE_COPY = {
       support: "Support",
       team: "Team members",
       settings: "Settings",
+      barbershopMenu: {
+        label: "Barbershop updates",
+        onlineProducts: "Barbershop online products",
+        news: "Barbershop news",
+        expand: "Expand barbershop updates menu",
+        collapse: "Collapse barbershop updates menu",
+      },
       logout: "Sign out",
       logoutAccessibility: "Sign out of AIBarber",
       logoutErrorTitle: "Sign out failed",
@@ -244,6 +261,26 @@ const LANGUAGE_COPY = {
         nameRequired: "Enter a barbershop name before saving.",
         timezoneRequired: "Enter a timezone before saving.",
       },
+    },
+    barbershopOnlineProductsPage: {
+      title: "Barbershop online products",
+      description: "Plan how your catalog appears in the online storefront.",
+      highlights: [
+        "Organize featured products tailored for digital shelves.",
+        "Keep online availability in sync with in-person inventory.",
+        "Preview the customer experience before publishing updates.",
+      ],
+      comingSoon: "Online catalog management tools are coming soon.",
+    },
+    barbershopNewsPage: {
+      title: "Barbershop news",
+      description: "Centralize announcements that keep your customers informed.",
+      highlights: [
+        "Draft campaigns for seasonal promotions and special events.",
+        "Schedule posts so updates reach clients at the right time.",
+        "Monitor engagement to learn what resonates with your audience.",
+      ],
+      comingSoon: "News publishing is under construction and will arrive soon.",
     },
     servicesPage: {
       title: "Services",
@@ -723,6 +760,13 @@ const LANGUAGE_COPY = {
       support: "Suporte",
       team: "Equipe",
       settings: "Configurações",
+      barbershopMenu: {
+        label: "Novidades da barbearia",
+        onlineProducts: "Produtos online da barbearia",
+        news: "Notícias da barbearia",
+        expand: "Expandir menu de novidades da barbearia",
+        collapse: "Recolher menu de novidades da barbearia",
+      },
       logout: "Sair",
       logoutAccessibility: "Sair do AIBarber",
       logoutErrorTitle: "Falha ao sair",
@@ -850,6 +894,26 @@ const LANGUAGE_COPY = {
         nameRequired: "Informe um nome antes de salvar.",
         timezoneRequired: "Informe um fuso horário antes de salvar.",
       },
+    },
+    barbershopOnlineProductsPage: {
+      title: "Produtos online da barbearia",
+      description: "Planeje como seu catálogo aparece na vitrine digital.",
+      highlights: [
+        "Organize produtos em destaque pensados para a vitrine online.",
+        "Mantenha a disponibilidade online alinhada às vendas presenciais.",
+        "Pré-visualize a experiência do cliente antes de publicar novidades.",
+      ],
+      comingSoon: "As ferramentas de catálogo online chegarão em breve.",
+    },
+    barbershopNewsPage: {
+      title: "Notícias da barbearia",
+      description: "Centralize comunicados para manter os clientes informados.",
+      highlights: [
+        "Crie campanhas para promoções sazonais e eventos especiais.",
+        "Agende publicações para avisar clientes no momento ideal.",
+        "Acompanhe o engajamento para entender o que gera mais interesse.",
+      ],
+      comingSoon: "A área de notícias está em construção e será lançada em breve.",
     },
     servicesPage: {
       title: "Serviços",
@@ -1775,7 +1839,27 @@ type AuthenticatedAppProps = {
   renderServices?: ServicesScreenRenderer;
 };
 
-function AuthenticatedApp({
+type AuthenticatedAppLayoutProps = AuthenticatedAppProps & {
+  children?: React.ReactNode;
+};
+
+type BarbershopContentContextValue = {
+  colors: ThemeColors;
+  styles: ReturnType<typeof createStyles>;
+  copy: (typeof LANGUAGE_COPY)[SupportedLanguage];
+};
+
+const BarbershopContentContext = React.createContext<BarbershopContentContextValue | null>(null);
+
+function useBarbershopContent(): BarbershopContentContextValue {
+  const context = useContext(BarbershopContentContext);
+  if (!context) {
+    throw new Error("Barbershop content is unavailable outside of the router context.");
+  }
+  return context;
+}
+
+function AuthenticatedAppLayout({
   initialScreen = "home",
   onNavigate,
   renderCashRegister,
@@ -1784,7 +1868,8 @@ function AuthenticatedApp({
   renderBookings,
   renderProducts,
   renderServices,
-}: AuthenticatedAppProps) {
+  children,
+}: AuthenticatedAppLayoutProps) {
   const [services, setServices] = useState<Service[]>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
@@ -1825,6 +1910,22 @@ function AuthenticatedApp({
   const [activeScreen, setActiveScreen] = useState<ScreenName>(initialScreen);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [barbershopMenuOpen, setBarbershopMenuOpen] = useState(false);
+  const router = useRouter();
+  const routerLocation = useRouterState({ select: (state) => state.location });
+  const rawPathname = routerLocation.pathname ?? "/";
+  const prefixedPathname = rawPathname.startsWith("/") ? rawPathname : `/${rawPathname}`;
+  const normalizedPathname =
+    prefixedPathname.length > 1 && prefixedPathname.endsWith("/")
+      ? prefixedPathname.slice(0, -1)
+      : prefixedPathname;
+  const barbershopRouteActive = normalizedPathname.startsWith("/barbershop");
+  const barbershopRouteSegment = barbershopRouteActive
+    ? normalizedPathname.split("/")[2] ?? ""
+    : "";
+  const barbershopOnlineProductsActive = barbershopRouteSegment === "online-products";
+  const barbershopNewsActive = barbershopRouteSegment === "news";
+  const legacyNavigationActive = !barbershopRouteActive;
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentUserLoading, setCurrentUserLoading] = useState(true);
   const [resendingConfirmation, setResendingConfirmation] = useState(false);
@@ -1873,6 +1974,12 @@ function AuthenticatedApp({
     setActiveScreen(initialScreen);
     setSidebarOpen(false);
   }, [initialScreen]);
+
+  useEffect(() => {
+    if (barbershopRouteActive) {
+      setBarbershopMenuOpen(true);
+    }
+  }, [barbershopRouteActive]);
 
   useEffect(() => {
     let isMounted = true;
@@ -3660,15 +3767,37 @@ function AuthenticatedApp({
     },
   ];
 
-  const bookingsNavActive = activeScreen === "bookings" || activeScreen === "bookService";
+  const bookingsNavActive =
+    legacyNavigationActive && (activeScreen === "bookings" || activeScreen === "bookService");
+  const overviewActive = legacyNavigationActive && activeScreen === "home";
+  const servicesNavActive = legacyNavigationActive && activeScreen === "services";
+  const packagesNavActive = legacyNavigationActive && activeScreen === "packages";
+  const productsNavActive = legacyNavigationActive && activeScreen === "products";
+  const cashRegisterNavActive = legacyNavigationActive && activeScreen === "cashRegister";
+  const assistantNavActive = legacyNavigationActive && activeScreen === "assistant";
+  const supportNavActive = legacyNavigationActive && activeScreen === "support";
+  const teamNavActive = legacyNavigationActive && activeScreen === "team";
+  const settingsNavActive = legacyNavigationActive && activeScreen === "settings";
 
   const handleNavigate = useCallback(
     (screen: ScreenName) => {
+      if (normalizedPathname !== "/") {
+        void router.navigate({ to: "/" });
+      }
       setActiveScreen(screen);
       setSidebarOpen(false);
       onNavigate?.(screen);
     },
-    [onNavigate],
+    [normalizedPathname, onNavigate, router],
+  );
+
+  const handleBarbershopNavigate = useCallback(
+    (target: "online-products" | "news") => {
+      setSidebarOpen(false);
+      setBarbershopMenuOpen(true);
+      void router.navigate({ to: `/barbershop/${target}` });
+    },
+    [router],
   );
 
   const handleLogout = useCallback(async () => {
@@ -3783,16 +3912,16 @@ function AuthenticatedApp({
         <View style={styles.sidebarItems}>
           <Pressable
             onPress={() => handleNavigate("home")}
-            style={[styles.sidebarItem, activeScreen === "home" && styles.sidebarItemActive]}
+            style={[styles.sidebarItem, overviewActive && styles.sidebarItemActive]}
             accessibilityRole="button"
             accessibilityLabel="Go to overview"
           >
             <MaterialCommunityIcons
               name="view-dashboard-outline"
               size={20}
-              color={activeScreen === "home" ? colors.accentFgOn : colors.subtext}
+              color={overviewActive ? colors.accentFgOn : colors.subtext}
             />
-            <Text style={[styles.sidebarItemText, activeScreen === "home" && styles.sidebarItemTextActive]}>
+            <Text style={[styles.sidebarItemText, overviewActive && styles.sidebarItemTextActive]}>
               {copy.navigation.overview}
             </Text>
           </Pressable>
@@ -3813,124 +3942,207 @@ function AuthenticatedApp({
           </Pressable>
           <Pressable
             onPress={() => handleNavigate("services")}
-            style={[styles.sidebarItem, activeScreen === "services" && styles.sidebarItemActive]}
+            style={[styles.sidebarItem, servicesNavActive && styles.sidebarItemActive]}
             accessibilityRole="button"
             accessibilityLabel="Manage services"
           >
             <MaterialCommunityIcons
               name="briefcase-outline"
               size={20}
-              color={activeScreen === "services" ? colors.accentFgOn : colors.subtext}
+              color={servicesNavActive ? colors.accentFgOn : colors.subtext}
             />
-            <Text style={[styles.sidebarItemText, activeScreen === "services" && styles.sidebarItemTextActive]}>
+            <Text style={[styles.sidebarItemText, servicesNavActive && styles.sidebarItemTextActive]}>
               {copy.navigation.services}
             </Text>
           </Pressable>
           <Pressable
             onPress={() => handleNavigate("packages")}
-            style={[styles.sidebarItem, activeScreen === "packages" && styles.sidebarItemActive]}
+            style={[styles.sidebarItem, packagesNavActive && styles.sidebarItemActive]}
             accessibilityRole="button"
             accessibilityLabel="Manage service packages"
           >
             <MaterialCommunityIcons
               name="package-variant"
               size={20}
-              color={activeScreen === "packages" ? colors.accentFgOn : colors.subtext}
+              color={packagesNavActive ? colors.accentFgOn : colors.subtext}
             />
-            <Text style={[styles.sidebarItemText, activeScreen === "packages" && styles.sidebarItemTextActive]}>
+            <Text style={[styles.sidebarItemText, packagesNavActive && styles.sidebarItemTextActive]}>
               {copy.navigation.packages}
             </Text>
           </Pressable>
           <Pressable
             onPress={() => handleNavigate("products")}
-            style={[styles.sidebarItem, activeScreen === "products" && styles.sidebarItemActive]}
+            style={[styles.sidebarItem, productsNavActive && styles.sidebarItemActive]}
             accessibilityRole="button"
             accessibilityLabel="Manage products"
           >
             <MaterialCommunityIcons
               name="store-outline"
               size={20}
-              color={activeScreen === "products" ? colors.accentFgOn : colors.subtext}
+              color={productsNavActive ? colors.accentFgOn : colors.subtext}
             />
-            <Text style={[styles.sidebarItemText, activeScreen === "products" && styles.sidebarItemTextActive]}>
+            <Text style={[styles.sidebarItemText, productsNavActive && styles.sidebarItemTextActive]}>
               {copy.navigation.products}
             </Text>
           </Pressable>
           <Pressable
             onPress={() => handleNavigate("cashRegister")}
-            style={[styles.sidebarItem, activeScreen === "cashRegister" && styles.sidebarItemActive]}
+            style={[styles.sidebarItem, cashRegisterNavActive && styles.sidebarItemActive]}
             accessibilityRole="button"
             accessibilityLabel="Open cash register"
           >
             <MaterialCommunityIcons
               name="cash-register"
               size={20}
-              color={activeScreen === "cashRegister" ? colors.accentFgOn : colors.subtext}
+              color={cashRegisterNavActive ? colors.accentFgOn : colors.subtext}
             />
-            <Text style={[styles.sidebarItemText, activeScreen === "cashRegister" && styles.sidebarItemTextActive]}>
+            <Text style={[styles.sidebarItemText, cashRegisterNavActive && styles.sidebarItemTextActive]}>
               {copy.navigation.cashRegister}
             </Text>
           </Pressable>
           <Pressable
             onPress={() => handleNavigate("assistant")}
-            style={[styles.sidebarItem, activeScreen === "assistant" && styles.sidebarItemActive]}
+            style={[styles.sidebarItem, assistantNavActive && styles.sidebarItemActive]}
             accessibilityRole="button"
             accessibilityLabel="Open the AI assistant"
           >
             <Ionicons
               name="sparkles-outline"
               size={20}
-              color={activeScreen === "assistant" ? colors.accentFgOn : colors.subtext}
+              color={assistantNavActive ? colors.accentFgOn : colors.subtext}
             />
-            <Text style={[styles.sidebarItemText, activeScreen === "assistant" && styles.sidebarItemTextActive]}>
+            <Text style={[styles.sidebarItemText, assistantNavActive && styles.sidebarItemTextActive]}>
               {copy.navigation.assistant}
             </Text>
           </Pressable>
           <Pressable
             onPress={() => handleNavigate("support")}
-            style={[styles.sidebarItem, activeScreen === "support" && styles.sidebarItemActive]}
+            style={[styles.sidebarItem, supportNavActive && styles.sidebarItemActive]}
             accessibilityRole="button"
             accessibilityLabel="Open the support assistant"
           >
             <Ionicons
               name="chatbubble-ellipses-outline"
               size={20}
-              color={activeScreen === "support" ? colors.accentFgOn : colors.subtext}
+              color={supportNavActive ? colors.accentFgOn : colors.subtext}
             />
-            <Text style={[styles.sidebarItemText, activeScreen === "support" && styles.sidebarItemTextActive]}>
+            <Text style={[styles.sidebarItemText, supportNavActive && styles.sidebarItemTextActive]}>
               {copy.navigation.support}
             </Text>
           </Pressable>
           <Pressable
             onPress={() => handleNavigate("team")}
-            style={[styles.sidebarItem, activeScreen === "team" && styles.sidebarItemActive]}
+            style={[styles.sidebarItem, teamNavActive && styles.sidebarItemActive]}
             accessibilityRole="button"
             accessibilityLabel="Manage team members"
           >
             <Ionicons
               name="people-outline"
               size={20}
-              color={activeScreen === "team" ? colors.accentFgOn : colors.subtext}
+              color={teamNavActive ? colors.accentFgOn : colors.subtext}
             />
-            <Text style={[styles.sidebarItemText, activeScreen === "team" && styles.sidebarItemTextActive]}>
+            <Text style={[styles.sidebarItemText, teamNavActive && styles.sidebarItemTextActive]}>
               {copy.navigation.team}
             </Text>
           </Pressable>
           <Pressable
             onPress={() => handleNavigate("settings")}
-            style={[styles.sidebarItem, activeScreen === "settings" && styles.sidebarItemActive]}
+            style={[styles.sidebarItem, settingsNavActive && styles.sidebarItemActive]}
             accessibilityRole="button"
             accessibilityLabel="Configure app settings"
           >
             <Ionicons
               name="settings-outline"
               size={20}
-              color={activeScreen === "settings" ? colors.accentFgOn : colors.subtext}
+              color={settingsNavActive ? colors.accentFgOn : colors.subtext}
             />
-            <Text style={[styles.sidebarItemText, activeScreen === "settings" && styles.sidebarItemTextActive]}>
+            <Text style={[styles.sidebarItemText, settingsNavActive && styles.sidebarItemTextActive]}>
               {copy.navigation.settings}
             </Text>
           </Pressable>
+          <View style={styles.sidebarSection}>
+            <Pressable
+              onPress={() => setBarbershopMenuOpen((current) => !current)}
+              style={[
+                styles.sidebarItem,
+                styles.sidebarSectionHeader,
+                barbershopRouteActive && styles.sidebarItemActive,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={
+                barbershopMenuOpen
+                  ? copy.navigation.barbershopMenu.collapse
+                  : copy.navigation.barbershopMenu.expand
+              }
+            >
+              <MaterialCommunityIcons
+                name="storefront-outline"
+                size={20}
+                color={barbershopRouteActive ? colors.accentFgOn : colors.subtext}
+              />
+              <Text
+                style={[styles.sidebarItemText, barbershopRouteActive && styles.sidebarItemTextActive]}
+              >
+                {copy.navigation.barbershopMenu.label}
+              </Text>
+              <Ionicons
+                name={barbershopMenuOpen ? "chevron-up" : "chevron-down"}
+                size={16}
+                color={barbershopRouteActive ? colors.accentFgOn : colors.subtext}
+                style={styles.sidebarCollapseIcon}
+              />
+            </Pressable>
+            {barbershopMenuOpen ? (
+              <View style={styles.sidebarSubmenu}>
+                <Pressable
+                  onPress={() => handleBarbershopNavigate("online-products")}
+                  style={[
+                    styles.sidebarSubmenuItem,
+                    barbershopOnlineProductsActive && styles.sidebarSubmenuItemActive,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={copy.navigation.barbershopMenu.onlineProducts}
+                >
+                  <MaterialCommunityIcons
+                    name="shopping-outline"
+                    size={18}
+                    color={barbershopOnlineProductsActive ? colors.accent : colors.subtext}
+                  />
+                  <Text
+                    style={[
+                      styles.sidebarSubmenuItemText,
+                      barbershopOnlineProductsActive && styles.sidebarSubmenuItemTextActive,
+                    ]}
+                  >
+                    {copy.navigation.barbershopMenu.onlineProducts}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => handleBarbershopNavigate("news")}
+                  style={[
+                    styles.sidebarSubmenuItem,
+                    barbershopNewsActive && styles.sidebarSubmenuItemActive,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={copy.navigation.barbershopMenu.news}
+                >
+                  <MaterialCommunityIcons
+                    name="newspaper-variant-outline"
+                    size={18}
+                    color={barbershopNewsActive ? colors.accent : colors.subtext}
+                  />
+                  <Text
+                    style={[
+                      styles.sidebarSubmenuItemText,
+                      barbershopNewsActive && styles.sidebarSubmenuItemTextActive,
+                    ]}
+                  >
+                    {copy.navigation.barbershopMenu.news}
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
+          </View>
         </View>
         <View style={[styles.sidebarFooter, { borderTopColor: colors.border }]}>
           <Pressable
@@ -3954,7 +4166,11 @@ function AuthenticatedApp({
       </View>
 
       <View style={styles.mainArea}>
-        {activeScreen === "bookService" ? (
+        {barbershopRouteActive ? (
+          <BarbershopContentContext.Provider value={{ colors, styles, copy }}>
+            {children}
+          </BarbershopContentContext.Provider>
+        ) : activeScreen === "bookService" ? (
           <>
             {/* Header */}
             <View style={styles.header}>
@@ -5667,6 +5883,121 @@ const SHADOW = Platform.select({
   default: {},
 });
 
+function BarbershopOnlineProductsScreen(): React.ReactElement {
+  const { colors, styles, copy } = useBarbershopContent();
+  const pageCopy = copy.barbershopOnlineProductsPage;
+
+  return (
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.tanstackPageContainer}>
+      <View style={[styles.card, { gap: 12 }]}>
+        <View style={styles.tanstackPageHeader}>
+          <Text style={[styles.title, { color: colors.text }]}>{pageCopy.title}</Text>
+          <Text style={styles.tanstackPageSubtitle}>{pageCopy.description}</Text>
+        </View>
+        <View style={styles.tanstackList}>
+          {pageCopy.highlights.map((highlight) => (
+            <View key={highlight} style={styles.tanstackListItem}>
+              <Text style={styles.tanstackListBullet}>•</Text>
+              <Text style={styles.tanstackListText}>{highlight}</Text>
+            </View>
+          ))}
+        </View>
+        <View style={styles.tanstackBadge}>
+          <Text style={styles.tanstackBadgeText}>{pageCopy.comingSoon}</Text>
+        </View>
+      </View>
+    </ScrollView>
+  );
+}
+
+function BarbershopNewsScreen(): React.ReactElement {
+  const { colors, styles, copy } = useBarbershopContent();
+  const pageCopy = copy.barbershopNewsPage;
+
+  return (
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.tanstackPageContainer}>
+      <View style={[styles.card, { gap: 12 }]}>
+        <View style={styles.tanstackPageHeader}>
+          <Text style={[styles.title, { color: colors.text }]}>{pageCopy.title}</Text>
+          <Text style={styles.tanstackPageSubtitle}>{pageCopy.description}</Text>
+        </View>
+        <View style={styles.tanstackList}>
+          {pageCopy.highlights.map((highlight) => (
+            <View key={highlight} style={styles.tanstackListItem}>
+              <Text style={styles.tanstackListBullet}>•</Text>
+              <Text style={styles.tanstackListText}>{highlight}</Text>
+            </View>
+          ))}
+        </View>
+        <View style={styles.tanstackBadge}>
+          <Text style={styles.tanstackBadgeText}>{pageCopy.comingSoon}</Text>
+        </View>
+      </View>
+    </ScrollView>
+  );
+}
+
+function BarbershopRouteContainer(): React.ReactElement {
+  return <Outlet />;
+}
+
+function createBarbershopRouter(props: AuthenticatedAppProps) {
+  const RootComponent = () => (
+    <AuthenticatedAppLayout {...props}>
+      <Outlet />
+    </AuthenticatedAppLayout>
+  );
+
+  const rootRoute = createRootRoute({
+    component: RootComponent,
+  });
+
+  const barbershopRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "barbershop",
+    component: BarbershopRouteContainer,
+  });
+
+  const onlineProductsRoute = createRoute({
+    getParentRoute: () => barbershopRoute,
+    path: "online-products",
+    component: BarbershopOnlineProductsScreen,
+  });
+
+  const newsRoute = createRoute({
+    getParentRoute: () => barbershopRoute,
+    path: "news",
+    component: BarbershopNewsScreen,
+  });
+
+  const routeTree = rootRoute.addChildren([
+    barbershopRoute.addChildren([onlineProductsRoute, newsRoute]),
+  ]);
+
+  return createRouter({
+    routeTree,
+    history: createMemoryHistory({ initialEntries: ["/"] }),
+  });
+}
+
+export default function AuthenticatedApp(props: AuthenticatedAppProps) {
+  const routerRef = useRef<ReturnType<typeof createBarbershopRouter>>();
+
+  if (!routerRef.current) {
+    routerRef.current = createBarbershopRouter(props);
+  }
+
+  const router = routerRef.current;
+
+  return <RouterProvider router={router} />;
+}
+
+declare module "@tanstack/react-router" {
+  interface Register {
+    router: ReturnType<typeof createBarbershopRouter>;
+  }
+}
+
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   appShell: { flex: 1 },
   menuFab: {
@@ -5734,6 +6065,27 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: 8,
     width: "100%",
   },
+  sidebarSection: { gap: 6 },
+  sidebarSectionHeader: { alignItems: "center" },
+  sidebarCollapseIcon: { marginLeft: "auto" },
+  sidebarSubmenu: { marginLeft: 16, gap: 4 },
+  sidebarSubmenuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "transparent",
+    backgroundColor: "transparent",
+  },
+  sidebarSubmenuItemActive: {
+    backgroundColor: applyAlpha(colors.accent, 0.12),
+    borderColor: applyAlpha(colors.accent, 0.4),
+  },
+  sidebarSubmenuItemText: { flex: 1, color: colors.subtext, fontWeight: "700" },
+  sidebarSubmenuItemTextActive: { color: colors.accent },
   sidebarFooter: {
     paddingTop: 12,
     marginTop: 4,
@@ -5804,6 +6156,24 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   containerCompact: { paddingHorizontal: 12, paddingVertical: 16, gap: 16 },
   sectionLabel: { color: colors.text, fontSize: 14, fontWeight: "700", letterSpacing: 0.3, marginTop: 8 },
   filterLabel: { color: colors.subtext, fontSize: 12, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.4 },
+
+  tanstackPageContainer: { paddingHorizontal: 20, paddingVertical: 24, gap: 16 },
+  tanstackPageHeader: { gap: 8 },
+  tanstackPageSubtitle: { color: colors.subtext, fontSize: 13, fontWeight: "600", lineHeight: 20 },
+  tanstackList: { gap: 10 },
+  tanstackListItem: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  tanstackListBullet: { color: colors.accent, fontSize: 18, fontWeight: "800", marginTop: -2 },
+  tanstackListText: { flex: 1, color: colors.subtext, fontSize: 13, fontWeight: "600", lineHeight: 20 },
+  tanstackBadge: {
+    alignSelf: "flex-start",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: applyAlpha(colors.accent, 0.35),
+    backgroundColor: applyAlpha(colors.accent, 0.12),
+  },
+  tanstackBadgeText: { color: colors.accent, fontWeight: "800", fontSize: 12 },
 
   card: { backgroundColor: colors.surface, borderRadius: 18, borderWidth: 1, borderColor: colors.border, padding: 12, ...(SHADOW as object) },
   languageControls: {
@@ -6508,4 +6878,3 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   teamRoleBadge: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
 });
 
-export default AuthenticatedApp;
