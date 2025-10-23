@@ -67,6 +67,181 @@ export function BookingsScreen({
     void loadAllBookings();
   }, [loadAllBookings]);
 
+  const renderedBookingGroups = groupedBookings.map((group, groupIndex) => {
+    const dateLabel = humanDate(group.date, locale);
+    const countLabel = bookingsCopy.results.sectionCount(group.bookings.length);
+
+    const bookingItems = group.bookings.map((booking) => {
+      const rawService = serviceMap.get(booking.service_id);
+      const displayService = localizedServiceMap.get(booking.service_id) ?? rawService;
+      const barber = BARBER_MAP[booking.barber];
+      const customerName = booking._customer
+        ? `${booking._customer.first_name}${booking._customer.last_name ? ` ${booking._customer.last_name}` : ""}`
+        : bookingsCopy.results.walkIn;
+      const reminderName = booking._customer?.first_name?.trim()
+        ? booking._customer.first_name.trim()
+        : customerName;
+      const reminderTime = booking.start;
+      const reminderMessage = bookingsCopy.results.whatsappMessage({
+        clientName: reminderName,
+        serviceName: displayService?.name ?? booking.service_id,
+        date: dateLabel,
+        time: reminderTime,
+      });
+      const phoneDigits = booking._customer?.phone?.replace(/\D/g, "");
+      const hasPhone = Boolean(phoneDigits);
+      const performedDate = booking.performed_at ? new Date(booking.performed_at) : null;
+      const performedLabel =
+        performedDate && !Number.isNaN(performedDate.getTime())
+          ? bookingsCopy.results.confirmedAt(
+              performedDate.toLocaleString(locale, {
+                dateStyle: "short",
+                timeStyle: "short",
+              }),
+            )
+          : bookingsCopy.results.confirmedBadge;
+      const isConfirming = confirmingBookingId === booking.id;
+      const openWhatsAppReminder = () => {
+        if (!phoneDigits) return;
+        const url = `https://wa.me/${phoneDigits}?text=${encodeURIComponent(reminderMessage)}`;
+        Linking.openURL(url).catch((error) => {
+          console.error(error);
+          Alert.alert(
+            bookingsCopy.results.whatsappErrorTitle,
+            bookingsCopy.results.whatsappErrorMessage,
+          );
+        });
+      };
+
+      return (
+        <View
+          key={booking.id}
+          style={[
+            styles.bookingListRow,
+            isUltraCompactLayout && styles.bookingListRowCompact,
+          ]}
+        >
+          <View
+            style={[
+              styles.bookingListTime,
+              isUltraCompactLayout && styles.bookingListTimeCompact,
+            ]}
+          >
+            <Text style={styles.bookingListClock}>
+              {booking.start} – {booking.end}
+            </Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.bookingListTitle}>{displayService?.name ?? booking.service_id}</Text>
+            <Text style={styles.bookingListMeta}>
+              {(barber?.name ?? booking.barber) + (customerName ? ` • ${customerName}` : "")}
+            </Text>
+            {booking.performed_at ? (
+              <View style={styles.bookingStatusRow}>
+                <MaterialCommunityIcons name="check-circle" size={14} color={colors.accent} />
+                <Text style={[styles.bookingStatusText, { color: colors.accent }]}>{performedLabel}</Text>
+              </View>
+            ) : null}
+          </View>
+          <View
+            style={[
+              styles.bookingListActions,
+              isUltraCompactLayout && styles.bookingListActionsCompact,
+            ]}
+          >
+            {!booking.performed_at && (
+              <Pressable
+                onPress={() => requestBookingConfirmation(booking)}
+                disabled={isConfirming}
+                style={[
+                  styles.smallBtn,
+                  styles.confirmBtn,
+                  {
+                    borderColor: colors.accent,
+                    backgroundColor: applyAlpha(colors.accent, 0.12),
+                  },
+                  isUltraCompactLayout && styles.fullWidthButton,
+                  isConfirming && styles.smallBtnDisabled,
+                ]}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: isConfirming }}
+                accessibilityLabel={bookingsCopy.results.confirmAccessibility({
+                  serviceName: displayService?.name ?? booking.service_id,
+                  time: booking.start,
+                })}
+              >
+                {isConfirming ? (
+                  <>
+                    <ActivityIndicator size="small" color={colors.accent} />
+                    <Text style={{ color: colors.accent, fontWeight: "800" }}>
+                      {bookingsCopy.results.confirming}
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <MaterialCommunityIcons name="check" size={16} color={colors.accent} />
+                    <Text style={{ color: colors.accent, fontWeight: "800" }}>
+                      {bookingsCopy.results.confirmCta}
+                    </Text>
+                  </>
+                )}
+              </Pressable>
+            )}
+            <Pressable
+              onPress={openWhatsAppReminder}
+              disabled={!hasPhone}
+              style={[
+                styles.smallBtn,
+                styles.whatsappBtn,
+                {
+                  borderColor: hasPhone ? WHATSAPP_BRAND_COLOR : colors.border,
+                  backgroundColor: hasPhone
+                    ? applyAlpha(WHATSAPP_BRAND_COLOR, 0.12)
+                    : colors.surface,
+                },
+                isUltraCompactLayout && styles.fullWidthButton,
+                !hasPhone && styles.smallBtnDisabled,
+              ]}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !hasPhone }}
+              accessibilityLabel={bookingsCopy.results.whatsappAccessibility(customerName)}
+            >
+              <MaterialCommunityIcons
+                name="whatsapp"
+                size={16}
+                color={hasPhone ? WHATSAPP_BRAND_COLOR : colors.subtext}
+              />
+              <Text
+                style={{
+                  color: hasPhone ? WHATSAPP_BRAND_COLOR : colors.subtext,
+                  fontWeight: "800",
+                }}
+              >
+                {bookingsCopy.results.whatsappCta}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      );
+    });
+
+    return (
+      <View
+        key={group.date}
+        style={[
+          styles.bookingListSection,
+          groupIndex === 0 && styles.bookingListSectionFirst,
+        ]}
+      >
+        <View style={styles.bookingListSectionHeader}>
+          <Text style={styles.bookingListSectionTitle}>{dateLabel}</Text>
+          <Text style={styles.bookingListSectionCount}>{countLabel}</Text>
+        </View>
+        {bookingItems}
+      </View>
+    );
+  });
+
   return (
     <ScrollView
       style={{ flex: 1 }}
@@ -356,177 +531,7 @@ export function BookingsScreen({
         ) : groupedBookings.length === 0 ? (
           <Text style={styles.empty}>{bookingsCopy.results.empty}</Text>
         ) : (
-          groupedBookings.map((group, groupIndex) => {
-            const dateLabel = humanDate(group.date, locale);
-            const countLabel = bookingsCopy.results.sectionCount(group.bookings.length);
-            return (
-              <View
-                key={group.date}
-                style={[
-                  styles.bookingListSection,
-                  groupIndex === 0 && styles.bookingListSectionFirst,
-                ]
-              >
-                <View style={styles.bookingListSectionHeader}>
-                  <Text style={styles.bookingListSectionTitle}>{dateLabel}</Text>
-                  <Text style={styles.bookingListSectionCount}>{countLabel}</Text>
-                </View>
-                {group.bookings.map((booking) => {
-                  const rawService = serviceMap.get(booking.service_id);
-                  const displayService = localizedServiceMap.get(booking.service_id) ?? rawService;
-                  const barber = BARBER_MAP[booking.barber];
-                  const customerName = booking._customer
-                    ? `${booking._customer.first_name}${booking._customer.last_name ? ` ${booking._customer.last_name}` : ""}`
-                    : bookingsCopy.results.walkIn;
-                  const reminderName = booking._customer?.first_name?.trim()
-                    ? booking._customer.first_name.trim()
-                    : customerName;
-                  const reminderTime = booking.start;
-                  const reminderMessage = bookingsCopy.results.whatsappMessage({
-                    clientName: reminderName,
-                    serviceName: displayService?.name ?? booking.service_id,
-                    date: dateLabel,
-                    time: reminderTime,
-                  });
-                  const phoneDigits = booking._customer?.phone?.replace(/\D/g, "");
-                  const hasPhone = Boolean(phoneDigits);
-                  const performedDate = booking.performed_at ? new Date(booking.performed_at) : null;
-                  const performedLabel =
-                    performedDate && !Number.isNaN(performedDate.getTime())
-                      ? bookingsCopy.results.confirmedAt(
-                          performedDate.toLocaleString(locale, {
-                            dateStyle: "short",
-                            timeStyle: "short",
-                          }),
-                        )
-                      : bookingsCopy.results.confirmedBadge;
-                  const isConfirming = confirmingBookingId === booking.id;
-                  const openWhatsAppReminder = () => {
-                    if (!phoneDigits) return;
-                    const url = `https://wa.me/${phoneDigits}?text=${encodeURIComponent(reminderMessage)}`;
-                    Linking.openURL(url).catch((error) => {
-                      console.error(error);
-                      Alert.alert(
-                        bookingsCopy.results.whatsappErrorTitle,
-                        bookingsCopy.results.whatsappErrorMessage,
-                      );
-                    });
-                  };
-
-                  return (
-                    <View
-                      key={booking.id}
-                      style={[
-                        styles.bookingListRow,
-                        isUltraCompactLayout && styles.bookingListRowCompact,
-                      ]
-                    >
-                      <View
-                        style={[
-                          styles.bookingListTime,
-                          isUltraCompactLayout && styles.bookingListTimeCompact,
-                        ]
-                      >
-                        <Text style={styles.bookingListClock}>
-                          {booking.start} – {booking.end}
-                        </Text>
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.bookingListTitle}>{displayService?.name ?? booking.service_id}</Text>
-                        <Text style={styles.bookingListMeta}>
-                          {(barber?.name ?? booking.barber) + (customerName ? ` • ${customerName}` : "")}
-                        </Text>
-                        {booking.performed_at ? (
-                          <View style={styles.bookingStatusRow}>
-                            <MaterialCommunityIcons name="check-circle" size={14} color={colors.accent} />
-                            <Text style={[styles.bookingStatusText, { color: colors.accent }]}>{performedLabel}</Text>
-                          </View>
-                        ) : null}
-                      </View>
-                      <View
-                        style={[
-                          styles.bookingListActions,
-                          isUltraCompactLayout && styles.bookingListActionsCompact,
-                        ]
-                      >
-                        {!booking.performed_at ? (
-                          <Pressable
-                            onPress={() => requestBookingConfirmation(booking)}
-                            disabled={isConfirming}
-                            style={[
-                              styles.smallBtn,
-                              styles.confirmBtn,
-                              {
-                                borderColor: colors.accent,
-                                backgroundColor: applyAlpha(colors.accent, 0.12),
-                              },
-                              isUltraCompactLayout && styles.fullWidthButton,
-                              isConfirming && styles.smallBtnDisabled,
-                            ]
-                            accessibilityRole="button"
-                            accessibilityState={{ disabled: isConfirming }}
-                            accessibilityLabel={bookingsCopy.results.confirmAccessibility({
-                              serviceName: displayService?.name ?? booking.service_id,
-                              time: booking.start,
-                            })}
-                          >
-                            {isConfirming ? (
-                              <>
-                                <ActivityIndicator size="small" color={colors.accent} />
-                                <Text style={{ color: colors.accent, fontWeight: "800" }}>
-                                  {bookingsCopy.results.confirming}
-                                </Text>
-                              </>
-                            ) : (
-                              <>
-                                <MaterialCommunityIcons name="check" size={16} color={colors.accent} />
-                                <Text style={{ color: colors.accent, fontWeight: "800" }}>
-                                  {bookingsCopy.results.confirmCta}
-                                </Text>
-                              </>
-                            )}
-                          </Pressable>
-                        ) : null}
-                        <Pressable
-                          onPress={openWhatsAppReminder}
-                          disabled={!hasPhone}
-                          style={[
-                            styles.smallBtn,
-                            styles.whatsappBtn,
-                            {
-                              borderColor: hasPhone ? WHATSAPP_BRAND_COLOR : colors.border,
-                              backgroundColor: hasPhone
-                                ? applyAlpha(WHATSAPP_BRAND_COLOR, 0.12)
-                                : colors.surface,
-                            },
-                            isUltraCompactLayout && styles.fullWidthButton,
-                            !hasPhone && styles.smallBtnDisabled,
-                          ]
-                          accessibilityRole="button"
-                          accessibilityState={{ disabled: !hasPhone }}
-                          accessibilityLabel={bookingsCopy.results.whatsappAccessibility(customerName)}
-                        >
-                          <MaterialCommunityIcons
-                            name="whatsapp"
-                            size={16}
-                            color={hasPhone ? WHATSAPP_BRAND_COLOR : colors.subtext}
-                          />
-                          <Text
-                            style={{
-                              color: hasPhone ? WHATSAPP_BRAND_COLOR : colors.subtext,
-                              fontWeight: "800",
-                            }}
-                          >
-                            {bookingsCopy.results.whatsappCta}
-                          </Text>
-                        </Pressable>
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            );
-          })
+          renderedBookingGroups
         )}
       </View>
     </ScrollView>
