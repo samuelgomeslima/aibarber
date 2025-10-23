@@ -98,6 +98,7 @@ import ServicePackageForm from "../components/ServicePackageForm";
 import FilterToggle from "../components/FilterToggle";
 import DateTimeInput from "../components/DateTimeInput";
 import { DonutChart } from "../components/DonutChart";
+import { RefactorRouterPanel } from "../components/refactor/RefactorRouterPanel";
 
 /* Novo: formulário de usuário (com date_of_birth e salvando no Supabase) */
 import UserForm from "../components/UserForm";
@@ -1330,7 +1331,7 @@ const LANGUAGE_OPTIONS: { code: SupportedLanguage; label: string }[] = [
 type ThemeName = "dark" | "light";
 type ThemePreference = "system" | ThemeName;
 
-type ThemeColors = {
+export type ThemeColors = {
   bg: string;
   surface: string;
   sidebarBg: string;
@@ -3728,7 +3729,9 @@ function AuthenticatedApp({
   }, [colors.bg]);
 
   return (
-    <View style={[styles.appShell, { backgroundColor: colors.bg }]}>
+    <View style={[styles.appContainer, { backgroundColor: colors.bg }]}> 
+      <RefactorRouterPanel colors={colors} />
+      <View style={[styles.appShell, { backgroundColor: colors.bg }]}> 
       {!sidebarOpen && (
         <Pressable
           onPress={() => setSidebarOpen(true)}
@@ -5668,6 +5671,7 @@ const SHADOW = Platform.select({
 });
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
+  appContainer: { flex: 1, flexDirection: "row" },
   appShell: { flex: 1 },
   menuFab: {
     position: "absolute",
