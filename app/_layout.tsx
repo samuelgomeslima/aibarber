@@ -1,12 +1,9 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { View, Text, Pressable, StyleSheet, useColorScheme } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { Slot } from "expo-router";
+import { Link, Slot, usePathname } from "expo-router";
 
 import { AuthGate } from "../src/components/AuthGate";
-import BarbershopOnlineProducts from "./barbershop-online-products";
-import BarbershopNews from "./barbershop-news";
-
 type MenuRoute = "dashboard" | "online-products" | "news";
 
 type MenuItem = {
@@ -14,6 +11,7 @@ type MenuItem = {
   label: string;
   icon: React.ComponentProps<typeof Ionicons>["name"];
   description: string;
+  href: `/${string}`;
 };
 
 const MENU_ITEMS: MenuItem[] = [
@@ -22,18 +20,21 @@ const MENU_ITEMS: MenuItem[] = [
     label: "Dashboard",
     icon: "grid-outline",
     description: "Keep the existing operations experience accessible while refactoring.",
+    href: "/assistant",
   },
   {
     key: "online-products",
     label: "Barbershop online products",
     icon: "bag-handle-outline",
     description: "Prototype ecommerce and digital shelves for barbershop owners.",
+    href: "/barbershop-online-products",
   },
   {
     key: "news",
     label: "Barbershop news",
     icon: "newspaper-outline",
     description: "Share announcements and updates alongside the legacy app.",
+    href: "/barbershop-news",
   },
 ];
 
@@ -60,18 +61,17 @@ const DARK_THEME = {
 export default function RootLayout(): React.ReactElement {
   const scheme = useColorScheme();
   const colors = useMemo(() => (scheme === "dark" ? DARK_THEME : LIGHT_THEME), [scheme]);
-  const [activeRoute, setActiveRoute] = useState<MenuRoute>("dashboard");
+  const pathname = usePathname();
 
-  const renderContent = () => {
-    switch (activeRoute) {
-      case "online-products":
-        return <BarbershopOnlineProducts />;
-      case "news":
-        return <BarbershopNews />;
-      default:
-        return <Slot />;
+  const activeRoute: MenuRoute = useMemo(() => {
+    if (pathname.startsWith("/barbershop-online-products")) {
+      return "online-products";
     }
-  };
+    if (pathname.startsWith("/barbershop-news")) {
+      return "news";
+    }
+    return "dashboard";
+  }, [pathname]);
 
   return (
     <AuthGate>
@@ -96,19 +96,18 @@ export default function RootLayout(): React.ReactElement {
             {MENU_ITEMS.map((item) => {
               const isActive = item.key === activeRoute;
               return (
-                <Pressable
-                  key={item.key}
-                  onPress={() => setActiveRoute(item.key)}
-                  style={[
-                    styles.menuItem,
-                    isActive && [{ backgroundColor: colors.accent }, styles.menuItemActive],
-                  ]}
-                >
-                  <View style={styles.menuItemHeader}>
-                    <Ionicons
-                      name={item.icon}
-                      size={18}
-                      color={isActive ? colors.accentOn : colors.textSecondary}
+                <Link key={item.key} href={item.href} asChild>
+                  <Pressable
+                    style={[
+                      styles.menuItem,
+                      isActive && [{ backgroundColor: colors.accent }, styles.menuItemActive],
+                    ]}
+                  >
+                    <View style={styles.menuItemHeader}>
+                      <Ionicons
+                        name={item.icon}
+                        size={18}
+                        color={isActive ? colors.accentOn : colors.textSecondary}
                     />
                     <Text
                       style={[
@@ -127,13 +126,16 @@ export default function RootLayout(): React.ReactElement {
                   >
                     {item.description}
                   </Text>
-                </Pressable>
+                  </Pressable>
+                </Link>
               );
             })}
           </View>
         </View>
 
-        <View style={styles.content}>{renderContent()}</View>
+        <View style={styles.content}>
+          <Slot />
+        </View>
       </View>
     </AuthGate>
   );
