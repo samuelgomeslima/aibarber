@@ -5,6 +5,7 @@ import AuthenticatedApp, {
   type CashRegisterScreenProps,
   type CashRegisterScreenRenderer,
 } from "../src/app/AuthenticatedApp";
+import { bookingsRenderer } from "./bookings";
 import { formatPrice } from "../src/lib/domain";
 
 export function CashRegisterScreen({
@@ -291,6 +292,10 @@ export const cashRegisterRenderer: CashRegisterScreenRenderer = (props) => (
 
 export default function CashRegister(): React.ReactElement {
   return (
-    <AuthenticatedApp initialScreen="cashRegister" renderCashRegister={cashRegisterRenderer} />
+    <AuthenticatedApp
+      initialScreen="cashRegister"
+      renderBookings={bookingsRenderer}
+      renderCashRegister={cashRegisterRenderer}
+    />
   );
 }
