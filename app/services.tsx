@@ -8,8 +8,8 @@ import AuthenticatedApp, {
 } from "../src/app/AuthenticatedApp";
 import ServiceForm from "../src/components/ServiceForm";
 import { formatPrice } from "../src/lib/domain";
-import { cashRegisterRenderer } from "./(tabs)/cash-register";
-import { bookingsRenderer } from "./(tabs)/bookings";
+import { cashRegisterRenderer } from "../src/app/screens/cash-register";
+import { bookingsRenderer } from "../src/app/screens/bookings";
 import { productsRenderer } from "./products";
 
 export function ServicesScreen({

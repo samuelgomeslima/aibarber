@@ -12,17 +12,14 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
-import AuthenticatedApp, {
-  type BookingsScreenProps,
-  type BookingsScreenRenderer,
-} from "../../src/app/AuthenticatedApp";
-import { BARBERS, BARBER_MAP, humanDate } from "../../src/lib/domain";
-import { applyAlpha } from "../../src/utils/color";
-import FilterToggle from "../../src/components/FilterToggle";
-import DateTimeInput from "../../src/components/DateTimeInput";
-import { cashRegisterRenderer } from "./cash-register";
-import { productsRenderer } from "../products";
-import { servicesRenderer } from "../services";
+import type {
+  BookingsScreenProps,
+  BookingsScreenRenderer,
+} from "../AuthenticatedApp";
+import { BARBERS, BARBER_MAP, humanDate } from "../../lib/domain";
+import { applyAlpha } from "../../utils/color";
+import FilterToggle from "../../components/FilterToggle";
+import DateTimeInput from "../../components/DateTimeInput";
 
 const WHATSAPP_BRAND_COLOR = "#25D366";
 
@@ -543,15 +540,3 @@ export function BookingsScreen({
 export const bookingsRenderer: BookingsScreenRenderer = (props) => (
   <BookingsScreen {...props} />
 );
-
-export default function Bookings(): React.ReactElement {
-  return (
-    <AuthenticatedApp
-      initialScreen="bookings"
-      renderBookings={bookingsRenderer}
-      renderCashRegister={cashRegisterRenderer}
-      renderProducts={productsRenderer}
-      renderServices={servicesRenderer}
-    />
-  );
-}

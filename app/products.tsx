@@ -8,8 +8,8 @@ import AuthenticatedApp, {
 import ProductForm from "../src/components/ProductForm";
 import { formatPrice } from "../src/lib/domain";
 import { applyAlpha, mixHexColor } from "../src/utils/color";
-import { cashRegisterRenderer } from "./(tabs)/cash-register";
-import { bookingsRenderer } from "./(tabs)/bookings";
+import { cashRegisterRenderer } from "../src/app/screens/cash-register";
+import { bookingsRenderer } from "../src/app/screens/bookings";
 import { servicesRenderer } from "./services";
 
 export function ProductsScreen({

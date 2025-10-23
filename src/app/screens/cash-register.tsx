@@ -1,14 +1,11 @@
 import React, { useCallback } from "react";
 import { Modal, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 
-import AuthenticatedApp, {
-  type CashRegisterScreenProps,
-  type CashRegisterScreenRenderer,
-} from "../../src/app/AuthenticatedApp";
-import { bookingsRenderer } from "./bookings";
-import { productsRenderer } from "../products";
-import { servicesRenderer } from "../services";
-import { formatPrice } from "../../src/lib/domain";
+import type {
+  CashRegisterScreenProps,
+  CashRegisterScreenRenderer,
+} from "../AuthenticatedApp";
+import { formatPrice } from "../../lib/domain";
 
 export function CashRegisterScreen({
   isCompactLayout,
@@ -291,15 +288,3 @@ export function CashRegisterScreen({
 export const cashRegisterRenderer: CashRegisterScreenRenderer = (props) => (
   <CashRegisterScreen {...props} />
 );
-
-export default function CashRegister(): React.ReactElement {
-  return (
-    <AuthenticatedApp
-      initialScreen="cashRegister"
-      renderBookings={bookingsRenderer}
-      renderCashRegister={cashRegisterRenderer}
-      renderProducts={productsRenderer}
-      renderServices={servicesRenderer}
-    />
-  );
-}

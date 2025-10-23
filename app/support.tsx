@@ -1,8 +1,8 @@
 import React from "react";
 
 import AuthenticatedApp from "../src/app/AuthenticatedApp";
-import { cashRegisterRenderer } from "./(tabs)/cash-register";
-import { bookingsRenderer } from "./(tabs)/bookings";
+import { cashRegisterRenderer } from "../src/app/screens/cash-register";
+import { bookingsRenderer } from "../src/app/screens/bookings";
 import { productsRenderer } from "./products";
 import { servicesRenderer } from "./services";
 
