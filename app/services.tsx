@@ -6,10 +6,11 @@ import AuthenticatedApp, {
   type ServicesScreenProps,
   type ServicesScreenRenderer,
 } from "../src/app/AuthenticatedApp";
+import { useAuthenticatedAppNavigation } from "../src/app/navigation";
 import ServiceForm from "../src/components/ServiceForm";
 import { formatPrice } from "../src/lib/domain";
-import { cashRegisterRenderer } from "../src/app/screens/cash-register";
-import { bookingsRenderer } from "../src/app/screens/bookings";
+import { cashRegisterRenderer } from "./(tabs)/cash-register";
+import { bookingsRenderer } from "./(tabs)/bookings";
 import { productsRenderer } from "./products";
 
 export function ServicesScreen({
@@ -137,9 +138,12 @@ export function ServicesScreen({
 export const servicesRenderer: ServicesScreenRenderer = (props) => <ServicesScreen {...props} />;
 
 export default function Services(): React.ReactElement {
+  const handleNavigate = useAuthenticatedAppNavigation();
+
   return (
     <AuthenticatedApp
       initialScreen="services"
+      onNavigate={handleNavigate}
       renderBookings={bookingsRenderer}
       renderCashRegister={cashRegisterRenderer}
       renderProducts={productsRenderer}

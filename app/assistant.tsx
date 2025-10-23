@@ -5,8 +5,9 @@ import AuthenticatedApp, {
   type AssistantScreenRenderer,
 } from "../src/app/AuthenticatedApp";
 import AssistantChat from "../src/components/AssistantChat";
-import { bookingsRenderer } from "../src/app/screens/bookings";
-import { cashRegisterRenderer } from "../src/app/screens/cash-register";
+import { useAuthenticatedAppNavigation } from "../src/app/navigation";
+import { bookingsRenderer } from "./(tabs)/bookings";
+import { cashRegisterRenderer } from "./(tabs)/cash-register";
 import { productsRenderer } from "./products";
 import { servicesRenderer } from "./services";
 
@@ -44,9 +45,12 @@ export const assistantRenderer: AssistantScreenRenderer = (props) => (
 );
 
 export default function Assistant(): React.ReactElement {
+  const handleNavigate = useAuthenticatedAppNavigation();
+
   return (
     <AuthenticatedApp
       initialScreen="assistant"
+      onNavigate={handleNavigate}
       renderAssistant={assistantRenderer}
       renderBookings={bookingsRenderer}
       renderCashRegister={cashRegisterRenderer}

@@ -8,8 +8,9 @@ import AuthenticatedApp, {
 import ProductForm from "../src/components/ProductForm";
 import { formatPrice } from "../src/lib/domain";
 import { applyAlpha, mixHexColor } from "../src/utils/color";
-import { cashRegisterRenderer } from "../src/app/screens/cash-register";
-import { bookingsRenderer } from "../src/app/screens/bookings";
+import { useAuthenticatedAppNavigation } from "../src/app/navigation";
+import { cashRegisterRenderer } from "./(tabs)/cash-register";
+import { bookingsRenderer } from "./(tabs)/bookings";
 import { servicesRenderer } from "./services";
 
 export function ProductsScreen({
@@ -370,9 +371,12 @@ export function ProductsScreen({
 export const productsRenderer: ProductsScreenRenderer = (props) => <ProductsScreen {...props} />;
 
 export default function Products(): React.ReactElement {
+  const handleNavigate = useAuthenticatedAppNavigation();
+
   return (
     <AuthenticatedApp
       initialScreen="products"
+      onNavigate={handleNavigate}
       renderBookings={bookingsRenderer}
       renderCashRegister={cashRegisterRenderer}
       renderProducts={productsRenderer}

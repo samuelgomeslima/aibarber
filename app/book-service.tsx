@@ -1,15 +1,19 @@
 import React from "react";
 
 import AuthenticatedApp from "../src/app/AuthenticatedApp";
-import { cashRegisterRenderer } from "../src/app/screens/cash-register";
-import { bookingsRenderer } from "../src/app/screens/bookings";
+import { useAuthenticatedAppNavigation } from "../src/app/navigation";
+import { cashRegisterRenderer } from "./(tabs)/cash-register";
+import { bookingsRenderer } from "./(tabs)/bookings";
 import { productsRenderer } from "./products";
 import { servicesRenderer } from "./services";
 
 export default function BookService(): React.ReactElement {
+  const handleNavigate = useAuthenticatedAppNavigation();
+
   return (
     <AuthenticatedApp
       initialScreen="bookService"
+      onNavigate={handleNavigate}
       renderBookings={bookingsRenderer}
       renderCashRegister={cashRegisterRenderer}
       renderProducts={productsRenderer}

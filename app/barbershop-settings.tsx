@@ -6,10 +6,11 @@ import AuthenticatedApp, {
   type BarbershopSettingsScreenProps,
   type BarbershopSettingsScreenRenderer,
 } from "../src/app/AuthenticatedApp";
-import { bookingsRenderer } from "../src/app/screens/bookings";
-import { cashRegisterRenderer } from "../src/app/screens/cash-register";
+import { bookingsRenderer } from "./(tabs)/bookings";
+import { cashRegisterRenderer } from "./(tabs)/cash-register";
 import { productsRenderer } from "./products";
 import { servicesRenderer } from "./services";
+import { useAuthenticatedAppNavigation } from "../src/app/navigation";
 
 export function BarbershopSettingsScreen({
   isCompactLayout,
@@ -179,9 +180,12 @@ export const barbershopSettingsRenderer: BarbershopSettingsScreenRenderer = (pro
 );
 
 export default function BarbershopSettings(): React.ReactElement {
+  const handleNavigate = useAuthenticatedAppNavigation();
+
   return (
     <AuthenticatedApp
       initialScreen="barbershopSettings"
+      onNavigate={handleNavigate}
       renderBarbershopSettings={barbershopSettingsRenderer}
       renderBookings={bookingsRenderer}
       renderCashRegister={cashRegisterRenderer}

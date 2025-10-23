@@ -1766,7 +1766,6 @@ export type BookingsScreenRenderer = (
 
 type AuthenticatedAppProps = {
   initialScreen?: ScreenName;
-  activeScreenOverride?: ScreenName;
   onNavigate?: (screen: ScreenName) => void;
   renderCashRegister?: CashRegisterScreenRenderer;
   renderAssistant?: AssistantScreenRenderer;
@@ -1778,7 +1777,6 @@ type AuthenticatedAppProps = {
 
 function AuthenticatedApp({
   initialScreen = "home",
-  activeScreenOverride,
   onNavigate,
   renderCashRegister,
   renderAssistant,
@@ -1824,7 +1822,7 @@ function AuthenticatedApp({
   const [apiStatusLoading, setApiStatusLoading] = useState(false);
   const [apiStatusError, setApiStatusError] = useState<string | null>(null);
   const apiStatusRequestId = useRef(0);
-  const [activeScreenState, setActiveScreenState] = useState<ScreenName>(initialScreen);
+  const [activeScreen, setActiveScreen] = useState<ScreenName>(initialScreen);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -1870,18 +1868,11 @@ function AuthenticatedApp({
   const [barbershopSuccess, setBarbershopSuccess] = useState<string | null>(null);
   const emailConfirmed = Boolean(currentUser?.email_confirmed_at);
   const showEmailConfirmationReminder = !currentUserLoading && currentUser && !emailConfirmed;
-  const activeScreen = activeScreenOverride ?? activeScreenState;
 
   useEffect(() => {
-    setActiveScreenState(initialScreen);
+    setActiveScreen(initialScreen);
     setSidebarOpen(false);
   }, [initialScreen]);
-
-  useEffect(() => {
-    if (activeScreenOverride) {
-      setActiveScreenState(activeScreenOverride);
-    }
-  }, [activeScreenOverride]);
 
   useEffect(() => {
     let isMounted = true;
@@ -3673,7 +3664,7 @@ function AuthenticatedApp({
 
   const handleNavigate = useCallback(
     (screen: ScreenName) => {
-      setActiveScreenState(screen);
+      setActiveScreen(screen);
       setSidebarOpen(false);
       onNavigate?.(screen);
     },
