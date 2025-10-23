@@ -6,6 +6,8 @@ import AuthenticatedApp, {
   type CashRegisterScreenRenderer,
 } from "../src/app/AuthenticatedApp";
 import { bookingsRenderer } from "./bookings";
+import { productsRenderer } from "./products";
+import { servicesRenderer } from "./services";
 import { formatPrice } from "../src/lib/domain";
 
 export function CashRegisterScreen({
@@ -296,6 +298,8 @@ export default function CashRegister(): React.ReactElement {
       initialScreen="cashRegister"
       renderBookings={bookingsRenderer}
       renderCashRegister={cashRegisterRenderer}
+      renderProducts={productsRenderer}
+      renderServices={servicesRenderer}
     />
   );
 }
