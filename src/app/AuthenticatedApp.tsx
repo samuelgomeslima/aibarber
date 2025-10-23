@@ -16,6 +16,7 @@ import {
   Linking,
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
+import { usePathname, useRouter } from "expo-router";
 import * as Localization from "expo-localization";
 import type { User } from "@supabase/supabase-js";
 
@@ -115,6 +116,8 @@ const LANGUAGE_COPY = {
       cashRegister: "Cash register",
       assistant: "Assistant",
       support: "Support",
+      barbershopHub: "Barbershop hub",
+      barbershopHubAccessibility: "Browse barbershop news and online products",
       team: "Team members",
       settings: "Settings",
       logout: "Sign out",
@@ -721,6 +724,8 @@ const LANGUAGE_COPY = {
       cashRegister: "Caixa",
       assistant: "Assistente",
       support: "Suporte",
+      barbershopHub: "Central da barbearia",
+      barbershopHubAccessibility: "Acessar notícias e produtos online da barbearia",
       team: "Equipe",
       settings: "Configurações",
       logout: "Sair",
@@ -1825,6 +1830,9 @@ function AuthenticatedApp({
   const [activeScreen, setActiveScreen] = useState<ScreenName>(initialScreen);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+  const barbershopHubActive = pathname?.startsWith("/barbershop-hub") ?? false;
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentUserLoading, setCurrentUserLoading] = useState(true);
   const [resendingConfirmation, setResendingConfirmation] = useState(false);
@@ -3671,6 +3679,11 @@ function AuthenticatedApp({
     [onNavigate],
   );
 
+  const handleOpenBarbershopHub = useCallback(() => {
+    setSidebarOpen(false);
+    router.push("/barbershop-hub");
+  }, [router, setSidebarOpen]);
+
   const handleLogout = useCallback(async () => {
     if (loggingOut) return;
 
@@ -3899,6 +3912,21 @@ function AuthenticatedApp({
             />
             <Text style={[styles.sidebarItemText, activeScreen === "support" && styles.sidebarItemTextActive]}>
               {copy.navigation.support}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={handleOpenBarbershopHub}
+            style={[styles.sidebarItem, barbershopHubActive && styles.sidebarItemActive]}
+            accessibilityRole="button"
+            accessibilityLabel={copy.navigation.barbershopHubAccessibility}
+          >
+            <MaterialCommunityIcons
+              name="compass-outline"
+              size={20}
+              color={barbershopHubActive ? colors.accentFgOn : colors.subtext}
+            />
+            <Text style={[styles.sidebarItemText, barbershopHubActive && styles.sidebarItemTextActive]}>
+              {copy.navigation.barbershopHub}
             </Text>
           </Pressable>
           <Pressable
