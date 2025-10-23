@@ -16,7 +16,7 @@ import {
   Linking,
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
-import { usePathname, useRouter } from "expo-router";
+import { usePathname, router } from "expo-router";
 import * as Localization from "expo-localization";
 import type { User } from "@supabase/supabase-js";
 
@@ -1866,7 +1866,6 @@ function AuthenticatedApp({
   const resolvedTheme = themePreference === "system" ? (colorScheme === "dark" ? "dark" : "light") : themePreference;
   const colors = useMemo(() => THEMES[resolvedTheme], [resolvedTheme]);
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const router = useRouter();
   const pathname = usePathname();
   const emailConfirmationCopy = copy.settingsPage.emailConfirmation;
   const [barbershop, setBarbershop] = useState<Barbershop | null>(null);
