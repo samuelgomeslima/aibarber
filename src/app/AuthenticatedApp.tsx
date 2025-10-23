@@ -16,6 +16,7 @@ import {
   Linking,
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
+import { usePathname, useRouter } from "expo-router";
 import * as Localization from "expo-localization";
 import type { User } from "@supabase/supabase-js";
 
@@ -117,6 +118,11 @@ const LANGUAGE_COPY = {
       support: "Support",
       team: "Team members",
       settings: "Settings",
+      secondMenuSection: "Barbershop updates",
+      secondMenuNews: "Barbershop news",
+      secondMenuProducts: "Online products",
+      secondMenuNewsAccessibility: "Open barbershop news",
+      secondMenuProductsAccessibility: "Open barbershop online products",
       logout: "Sign out",
       logoutAccessibility: "Sign out of AIBarber",
       logoutErrorTitle: "Sign out failed",
@@ -723,6 +729,11 @@ const LANGUAGE_COPY = {
       support: "Suporte",
       team: "Equipe",
       settings: "Configurações",
+      secondMenuSection: "Novidades da barbearia",
+      secondMenuNews: "Notícias",
+      secondMenuProducts: "Produtos online",
+      secondMenuNewsAccessibility: "Abrir notícias da barbearia",
+      secondMenuProductsAccessibility: "Abrir produtos online da barbearia",
       logout: "Sair",
       logoutAccessibility: "Sair do AIBarber",
       logoutErrorTitle: "Falha ao sair",
@@ -1855,6 +1866,8 @@ function AuthenticatedApp({
   const resolvedTheme = themePreference === "system" ? (colorScheme === "dark" ? "dark" : "light") : themePreference;
   const colors = useMemo(() => THEMES[resolvedTheme], [resolvedTheme]);
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const router = useRouter();
+  const pathname = usePathname();
   const emailConfirmationCopy = copy.settingsPage.emailConfirmation;
   const [barbershop, setBarbershop] = useState<Barbershop | null>(null);
   const [barbershopForm, setBarbershopForm] = useState<{ name: string; slug: string; timezone: string }>(() => ({
@@ -3661,6 +3674,9 @@ function AuthenticatedApp({
   ];
 
   const bookingsNavActive = activeScreen === "bookings" || activeScreen === "bookService";
+  const secondMenuNewsActive = pathname.startsWith("/second-menu/barbershop-news");
+  const secondMenuProductsActive = pathname.startsWith("/second-menu/barbershop-online-products");
+  const secondMenuActive = pathname.startsWith("/second-menu");
 
   const handleNavigate = useCallback(
     (screen: ScreenName) => {
@@ -3929,6 +3945,68 @@ function AuthenticatedApp({
             />
             <Text style={[styles.sidebarItemText, activeScreen === "settings" && styles.sidebarItemTextActive]}>
               {copy.navigation.settings}
+            </Text>
+          </Pressable>
+          <Text
+            style={[
+              styles.sidebarSectionLabel,
+              secondMenuActive && styles.sidebarSectionLabelActive,
+            ]}
+          >
+            {copy.navigation.secondMenuSection}
+          </Text>
+          <Pressable
+            onPress={() => {
+              setSidebarOpen(false);
+              router.push("/second-menu/barbershop-news");
+            }}
+            style={[
+              styles.sidebarItem,
+              styles.sidebarSubItem,
+              secondMenuNewsActive && styles.sidebarItemActive,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={copy.navigation.secondMenuNewsAccessibility}
+          >
+            <Ionicons
+              name="newspaper-outline"
+              size={20}
+              color={secondMenuNewsActive ? colors.accentFgOn : colors.subtext}
+            />
+            <Text
+              style={[
+                styles.sidebarItemText,
+                secondMenuNewsActive && styles.sidebarItemTextActive,
+              ]}
+            >
+              {copy.navigation.secondMenuNews}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => {
+              setSidebarOpen(false);
+              router.push("/second-menu/barbershop-online-products");
+            }}
+            style={[
+              styles.sidebarItem,
+              styles.sidebarSubItem,
+              secondMenuProductsActive && styles.sidebarItemActive,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={copy.navigation.secondMenuProductsAccessibility}
+          >
+            <Ionicons
+              name="cart-outline"
+              size={20}
+              color={secondMenuProductsActive ? colors.accentFgOn : colors.subtext}
+            />
+            <Text
+              style={[
+                styles.sidebarItemText,
+                secondMenuProductsActive && styles.sidebarItemTextActive,
+              ]}
+            >
+              {copy.navigation.secondMenuProducts}
             </Text>
           </Pressable>
         </View>
@@ -5734,6 +5812,19 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: 8,
     width: "100%",
   },
+  sidebarSectionLabel: {
+    marginTop: 12,
+    marginBottom: -4,
+    paddingHorizontal: 12,
+    color: colors.subtext,
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  sidebarSectionLabelActive: {
+    color: colors.accent,
+  },
   sidebarFooter: {
     paddingTop: 12,
     marginTop: 4,
@@ -5750,6 +5841,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1,
     borderColor: "transparent",
     backgroundColor: "transparent",
+  },
+  sidebarSubItem: {
+    paddingLeft: 28,
   },
   sidebarItemActive: { backgroundColor: colors.accent, borderColor: colors.accent },
   sidebarItemText: { color: colors.subtext, fontWeight: "700" },
