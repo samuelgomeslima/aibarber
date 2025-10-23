@@ -21,6 +21,8 @@ import { applyAlpha } from "../src/utils/color";
 import FilterToggle from "../src/components/FilterToggle";
 import DateTimeInput from "../src/components/DateTimeInput";
 import { cashRegisterRenderer } from "./cash-register";
+import { productsRenderer } from "./products";
+import { servicesRenderer } from "./services";
 
 const WHATSAPP_BRAND_COLOR = "#25D366";
 
@@ -548,6 +550,8 @@ export default function Bookings(): React.ReactElement {
       initialScreen="bookings"
       renderBookings={bookingsRenderer}
       renderCashRegister={cashRegisterRenderer}
+      renderProducts={productsRenderer}
+      renderServices={servicesRenderer}
     />
   );
 }
