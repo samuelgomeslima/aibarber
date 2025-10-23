@@ -278,7 +278,3 @@ export function summarizeCashEntries(entries: CashEntry[]): CashRegisterSummary 
     { total_cents: 0, service_sales_cents: 0, product_sales_cents: 0, adjustments_cents: 0 },
   );
 }
-
-export function __resetMemoryCashRegister() {
-  memoryEntries = [];
-}
