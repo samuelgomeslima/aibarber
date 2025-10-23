@@ -6,8 +6,8 @@ import AuthenticatedApp, {
   type BarbershopSettingsScreenProps,
   type BarbershopSettingsScreenRenderer,
 } from "../src/app/AuthenticatedApp";
-import { bookingsRenderer } from "./bookings";
-import { cashRegisterRenderer } from "./cash-register";
+import { bookingsRenderer } from "./(tabs)/bookings";
+import { cashRegisterRenderer } from "./(tabs)/cash-register";
 import { productsRenderer } from "./products";
 import { servicesRenderer } from "./services";
 

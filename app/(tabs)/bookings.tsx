@@ -15,14 +15,14 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import AuthenticatedApp, {
   type BookingsScreenProps,
   type BookingsScreenRenderer,
-} from "../src/app/AuthenticatedApp";
-import { BARBERS, BARBER_MAP, humanDate } from "../src/lib/domain";
-import { applyAlpha } from "../src/utils/color";
-import FilterToggle from "../src/components/FilterToggle";
-import DateTimeInput from "../src/components/DateTimeInput";
+} from "../../src/app/AuthenticatedApp";
+import { BARBERS, BARBER_MAP, humanDate } from "../../src/lib/domain";
+import { applyAlpha } from "../../src/utils/color";
+import FilterToggle from "../../src/components/FilterToggle";
+import DateTimeInput from "../../src/components/DateTimeInput";
 import { cashRegisterRenderer } from "./cash-register";
-import { productsRenderer } from "./products";
-import { servicesRenderer } from "./services";
+import { productsRenderer } from "../products";
+import { servicesRenderer } from "../services";
 
 const WHATSAPP_BRAND_COLOR = "#25D366";
 

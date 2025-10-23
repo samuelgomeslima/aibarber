@@ -4,11 +4,11 @@ import { Modal, Pressable, RefreshControl, ScrollView, Text, TextInput, View } f
 import AuthenticatedApp, {
   type CashRegisterScreenProps,
   type CashRegisterScreenRenderer,
-} from "../src/app/AuthenticatedApp";
+} from "../../src/app/AuthenticatedApp";
 import { bookingsRenderer } from "./bookings";
-import { productsRenderer } from "./products";
-import { servicesRenderer } from "./services";
-import { formatPrice } from "../src/lib/domain";
+import { productsRenderer } from "../products";
+import { servicesRenderer } from "../services";
+import { formatPrice } from "../../src/lib/domain";
 
 export function CashRegisterScreen({
   isCompactLayout,
