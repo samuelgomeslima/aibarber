@@ -8,6 +8,7 @@ config.resolver = config.resolver || {};
 config.resolver.extraNodeModules = {
   ...(config.resolver.extraNodeModules || {}),
   "expo-router": path.resolve(projectRoot, "src/router/expo-router"),
+  "@tanstack/react-router": path.resolve(projectRoot, "src/router/tanstack"),
 };
 
 module.exports = config;

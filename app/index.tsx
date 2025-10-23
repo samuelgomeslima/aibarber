@@ -1,19 +1,7 @@
 import React from "react";
 
-import AuthenticatedApp from "../src/app/AuthenticatedApp";
-import { cashRegisterRenderer } from "./cash-register";
-import { bookingsRenderer } from "./bookings";
-import { productsRenderer } from "./products";
-import { servicesRenderer } from "./services";
+import { TanstackAppRouterProvider } from "../src/router/tanstack/router";
 
 export default function Index(): React.ReactElement {
-  return (
-    <AuthenticatedApp
-      initialScreen="home"
-      renderBookings={bookingsRenderer}
-      renderCashRegister={cashRegisterRenderer}
-      renderProducts={productsRenderer}
-      renderServices={servicesRenderer}
-    />
-  );
+  return <TanstackAppRouterProvider />;
 }
