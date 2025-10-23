@@ -107,13 +107,6 @@ function lookupServiceTranslation(
   return null;
 }
 
-export function polyglotServiceName(
-  service: Pick<Service, "id" | "name">,
-  language: LanguageCode,
-): string {
-  return lookupServiceTranslation(service, language) ?? service.name;
-}
-
 export function polyglotServices(services: Service[], language: LanguageCode): Service[] {
   if (language === "en") return services;
 

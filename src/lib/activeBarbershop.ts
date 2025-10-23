@@ -97,11 +97,6 @@ export async function requireCurrentBarbershopId(options?: { refresh?: boolean }
   return id;
 }
 
-export function setCurrentBarbershopId(id: string | null): void {
-  cachedBarbershopId = id;
-  hasResolvedBarbershopId = true;
-}
-
 export function clearCurrentBarbershopCache(): void {
   cachedBarbershopId = null;
   hasResolvedBarbershopId = false;
