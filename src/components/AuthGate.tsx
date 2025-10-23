@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import * as Localization from "expo-localization";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import type { Session } from "@supabase/supabase-js";
 
 import {
@@ -314,9 +315,13 @@ export function AuthGate({ children }: AuthGateProps) {
     return <>{children}</>;
   }
 
-  const oauthProviders: { provider: OAuthProvider; label: string }[] = [
-    { provider: "google", label: "Continue with Google" },
-    { provider: "azure", label: "Continue with Microsoft" },
+  const oauthProviders: {
+    provider: OAuthProvider;
+    label: string;
+    icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  }[] = [
+    { provider: "google", label: "Continue with Google", icon: "google" },
+    { provider: "azure", label: "Continue with Microsoft", icon: "microsoft" },
   ];
 
   return (
@@ -398,7 +403,7 @@ export function AuthGate({ children }: AuthGateProps) {
                   <View style={[styles.divider, { backgroundColor: colors.border }]} />
                 </View>
                 <View style={styles.oauthButtons}>
-                  {oauthProviders.map(({ provider, label }) => (
+                  {oauthProviders.map(({ provider, label, icon }) => (
                     <Pressable
                       key={provider}
                       style={({ pressed }) => [
@@ -412,7 +417,10 @@ export function AuthGate({ children }: AuthGateProps) {
                       onPress={() => handleOAuthSignIn(provider)}
                       disabled={submitting}
                     >
-                      <Text style={[styles.oauthButtonText, { color: colors.textPrimary }]}>{label}</Text>
+                      <View style={styles.oauthButtonContent}>
+                        <MaterialCommunityIcons name={icon} size={20} color={colors.textPrimary} />
+                        <Text style={[styles.oauthButtonText, { color: colors.textPrimary }]}>{label}</Text>
+                      </View>
                     </Pressable>
                   ))}
                 </View>
@@ -632,6 +640,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 14,
     alignItems: "center",
+  },
+  oauthButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
   },
   oauthButtonText: {
     fontSize: 15,
