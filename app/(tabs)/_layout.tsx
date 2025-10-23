@@ -7,10 +7,17 @@ export default function TabLayout(): React.ReactElement {
       screenOptions={{
         headerShown: false,
         tabBarStyle: { display: "none" },
+        unmountOnBlur: true,
       }}
     >
-      <Tabs.Screen name="bookings" options={{ title: "Bookings" }} />
-      <Tabs.Screen name="cash-register" options={{ title: "Cash register" }} />
+      <Tabs.Screen
+        name="bookings"
+        options={{ title: "Bookings", unmountOnBlur: true }}
+      />
+      <Tabs.Screen
+        name="cash-register"
+        options={{ title: "Cash register", unmountOnBlur: true }}
+      />
     </Tabs>
   );
 }
