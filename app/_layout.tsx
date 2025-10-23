@@ -1,5 +1,12 @@
-import React, { useMemo } from "react";
-import { View, Text, Pressable, StyleSheet, useColorScheme } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  useColorScheme,
+  useWindowDimensions,
+} from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Link, Slot, usePathname } from "expo-router";
 
@@ -62,6 +69,9 @@ export default function RootLayout(): React.ReactElement {
   const scheme = useColorScheme();
   const colors = useMemo(() => (scheme === "dark" ? DARK_THEME : LIGHT_THEME), [scheme]);
   const pathname = usePathname();
+  const { width } = useWindowDimensions();
+  const isCompact = width < 768;
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const activeRoute: MenuRoute = useMemo(() => {
     if (pathname.startsWith("/barbershop-online-products")) {
@@ -73,69 +83,134 @@ export default function RootLayout(): React.ReactElement {
     return "dashboard";
   }, [pathname]);
 
-  return (
-    <AuthGate>
-      <View style={[styles.shell, { backgroundColor: colors.background }]}> 
-        <View
-          style={[
-            styles.menu,
-            { backgroundColor: colors.menuBackground, borderRightColor: colors.menuBorder },
-          ]}
-        >
-          <View style={styles.brandRow}>
-            <View style={[styles.brandIcon, { backgroundColor: colors.accent }]}>
-              <MaterialCommunityIcons name="content-cut" size={18} color={colors.accentOn} />
-            </View>
-            <View>
-              <Text style={[styles.brandTitle, { color: colors.textPrimary }]}>AIBarber</Text>
-              <Text style={[styles.brandSubtitle, { color: colors.textSecondary }]}>Workspaces</Text>
-            </View>
-          </View>
+  useEffect(() => {
+    if (!isCompact) {
+      setIsMenuOpen(false);
+    }
+  }, [isCompact]);
 
-          <View style={styles.menuItems}>
-            {MENU_ITEMS.map((item) => {
-              const isActive = item.key === activeRoute;
-              return (
-                <Link key={item.key} href={item.href} asChild>
-                  <Pressable
-                    style={[
-                      styles.menuItem,
-                      isActive && [{ backgroundColor: colors.accent }, styles.menuItemActive],
-                    ]}
-                  >
-                    <View style={styles.menuItemHeader}>
-                      <Ionicons
-                        name={item.icon}
-                        size={18}
-                        color={isActive ? colors.accentOn : colors.textSecondary}
-                    />
-                    <Text
-                      style={[
-                        styles.menuItemLabel,
-                        { color: isActive ? colors.accentOn : colors.textPrimary },
-                      ]}
-                    >
-                      {item.label}
-                    </Text>
-                  </View>
+  const openMenu = () => setIsMenuOpen(true);
+  const closeMenu = () => setIsMenuOpen(false);
+
+  const menuContent = (
+    <>
+      <View style={styles.brandRow}>
+        <View style={[styles.brandIcon, { backgroundColor: colors.accent }]}>
+          <MaterialCommunityIcons name="content-cut" size={18} color={colors.accentOn} />
+        </View>
+        <View>
+          <Text style={[styles.brandTitle, { color: colors.textPrimary }]}>AIBarber</Text>
+          <Text style={[styles.brandSubtitle, { color: colors.textSecondary }]}>Workspaces</Text>
+        </View>
+      </View>
+
+      <View style={styles.menuItems}>
+        {MENU_ITEMS.map((item) => {
+          const isActive = item.key === activeRoute;
+          return (
+            <Link
+              key={item.key}
+              href={item.href}
+              asChild
+              onPress={() => {
+                if (isCompact) {
+                  closeMenu();
+                }
+              }}
+            >
+              <Pressable
+                style={[
+                  styles.menuItem,
+                  isActive && [{ backgroundColor: colors.accent }, styles.menuItemActive],
+                ]}
+              >
+                <View style={styles.menuItemHeader}>
+                  <Ionicons
+                    name={item.icon}
+                    size={18}
+                    color={isActive ? colors.accentOn : colors.textSecondary}
+                  />
                   <Text
                     style={[
-                      styles.menuItemDescription,
-                      { color: isActive ? colors.accentOn : colors.textSecondary },
+                      styles.menuItemLabel,
+                      { color: isActive ? colors.accentOn : colors.textPrimary },
                     ]}
                   >
-                    {item.description}
+                    {item.label}
                   </Text>
-                  </Pressable>
-                </Link>
-              );
-            })}
-          </View>
-        </View>
+                </View>
+                <Text
+                  style={[
+                    styles.menuItemDescription,
+                    { color: isActive ? colors.accentOn : colors.textSecondary },
+                  ]}
+                >
+                  {item.description}
+                </Text>
+              </Pressable>
+            </Link>
+          );
+        })}
+      </View>
+    </>
+  );
 
-        <View style={styles.content}>
+  return (
+    <AuthGate>
+      <View
+        style={[
+          styles.shell,
+          { backgroundColor: colors.background },
+          isCompact && styles.shellCompact,
+        ]}
+      >
+        {!isCompact && (
+          <View
+            style={[
+              styles.menuContainer,
+              styles.menuSurface,
+              { backgroundColor: colors.menuBackground, borderRightColor: colors.menuBorder },
+            ]}
+          >
+            {menuContent}
+          </View>
+        )}
+
+        <View style={[styles.content, isCompact && styles.contentCompact]}>
+          {isCompact && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Open navigation menu"
+              onPress={openMenu}
+              style={[
+                styles.menuToggle,
+                {
+                  backgroundColor: colors.menuBackground,
+                  borderColor: colors.menuBorder,
+                },
+              ]}
+            >
+              <Ionicons name="menu" size={18} color={colors.textPrimary} />
+              <Text style={[styles.menuToggleText, { color: colors.textPrimary }]}>Menu</Text>
+            </Pressable>
+          )}
           <Slot />
         </View>
+
+        {isCompact && isMenuOpen && (
+          <View style={styles.drawerContainer} pointerEvents="box-none">
+            <Pressable style={styles.drawerBackdrop} onPress={closeMenu} />
+            <View
+              style={[
+                styles.menuDrawer,
+                styles.menuSurface,
+                { backgroundColor: colors.menuBackground },
+              ]}
+            >
+              {menuContent}
+            </View>
+          </View>
+        )}
       </View>
     </AuthGate>
   );
@@ -146,11 +221,16 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
   },
-  menu: {
+  shellCompact: {
+    flexDirection: "column",
+  },
+  menuContainer: {
     width: 320,
+    borderRightWidth: 1,
+  },
+  menuSurface: {
     paddingVertical: 32,
     paddingHorizontal: 28,
-    borderRightWidth: 1,
     gap: 32,
   },
   brandRow: {
@@ -207,5 +287,54 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  contentCompact: {
+    padding: 16,
+    position: "relative",
+  },
+  menuToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    alignSelf: "flex-start",
+    marginBottom: 16,
+  },
+  menuToggleText: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  drawerContainer: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    justifyContent: "flex-start",
+  },
+  drawerBackdrop: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: "rgba(16, 32, 67, 0.4)",
+  },
+  menuDrawer: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: 300,
+    borderTopRightRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 10,
   },
 });
