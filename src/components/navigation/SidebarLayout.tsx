@@ -22,6 +22,16 @@ type MenuItem = {
 
 const MENU_ITEMS: MenuItem[] = [
   {
+    href: "/overview",
+    label: "Dashboard Overview",
+    shortLabel: "Overview",
+  },
+  {
+    href: "/operations",
+    label: "Current Operations",
+    shortLabel: "Operations",
+  },
+  {
     href: "/barbershop-online-products",
     label: "Barbershop Online Products",
     shortLabel: "Products",
@@ -33,9 +43,15 @@ const MENU_ITEMS: MenuItem[] = [
   },
 ];
 
+const FULL_BLEED_PATHS = new Set<string>(["/operations"]);
+
 export function SidebarLayout({ children }: SidebarLayoutProps): React.ReactElement {
   const { isCollapsed, toggleCollapse } = useSidebar();
   const pathname = usePathname();
+  const contentStyles = [
+    styles.content,
+    FULL_BLEED_PATHS.has(pathname) && styles.contentFullBleed,
+  ];
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -72,7 +88,7 @@ export function SidebarLayout({ children }: SidebarLayoutProps): React.ReactElem
           </View>
         </View>
 
-        <View style={styles.content}>
+        <View style={contentStyles}>
           {children ?? <Slot />}
         </View>
       </View>
@@ -140,6 +156,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     paddingHorizontal: 24,
     paddingVertical: 24,
+  },
+  contentFullBleed: {
+    paddingHorizontal: 0,
+    paddingVertical: 0,
   },
 });
 

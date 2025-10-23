@@ -1,19 +1,6 @@
 import React from "react";
-
-import AuthenticatedApp from "../src/app/AuthenticatedApp";
-import { cashRegisterRenderer } from "./cash-register";
-import { bookingsRenderer } from "./bookings";
-import { productsRenderer } from "./products";
-import { servicesRenderer } from "./services";
+import { Redirect } from "expo-router";
 
 export default function Index(): React.ReactElement {
-  return (
-    <AuthenticatedApp
-      initialScreen="home"
-      renderBookings={bookingsRenderer}
-      renderCashRegister={cashRegisterRenderer}
-      renderProducts={productsRenderer}
-      renderServices={servicesRenderer}
-    />
-  );
+  return <Redirect href="/overview" />;
 }

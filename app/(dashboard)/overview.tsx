@@ -6,17 +6,17 @@ export default function DashboardHome(): React.ReactElement {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Welcome to the Refined Workspace</Text>
       <Text style={styles.subtitle}>
-        Explore the first modules of the new navigation system. Existing features remain
-        available through the classic menu while we incrementally move experiences into
-        this layout.
+        Explore the first modules of the new navigation system. Existing features now sit
+        inside the Operations area so you can continue running the barbershop while we
+        incrementally move experiences into this layout.
       </Text>
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>What&apos;s New?</Text>
         <Text style={styles.cardBody}>
-          Use the sidebar to jump between the Online Products and News sections. The
-          collapsible menu keeps focus on the task at hand while providing quick access to
-          future modules as they arrive.
+          Use the sidebar to jump between the Operations hub, Online Products, and News
+          sections. The collapsible menu keeps focus on the task at hand while providing
+          quick access to future modules as they arrive.
         </Text>
       </View>
     </ScrollView>
