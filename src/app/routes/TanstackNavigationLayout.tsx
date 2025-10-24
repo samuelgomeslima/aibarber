@@ -43,7 +43,7 @@ const MENU_ITEMS: MenuItem[] = [
 export function TanstackNavigationLayout(): React.ReactElement {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const [collapsed, setCollapsed] = React.useState(false);
+  const [collapsed, setCollapsed] = React.useState(true);
 
   const handleNavigate = React.useCallback(
     (item: MenuItem) => {
@@ -114,16 +114,20 @@ export function TanstackNavigationLayout(): React.ReactElement {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    flexDirection: "row",
     backgroundColor: "#020817",
     position: "relative",
   },
   sidebar: {
     backgroundColor: "#0b1120",
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    right: 0,
     paddingTop: 24,
     paddingBottom: 24,
     borderLeftWidth: 1,
     borderLeftColor: "#1e293b",
+    zIndex: 10,
   },
   toggle: {
     alignSelf: "flex-start",
