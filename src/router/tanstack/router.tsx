@@ -6,6 +6,7 @@ import TanstackNavigationLayout from "../../app/routes/TanstackNavigationLayout"
 import LegacyDashboardRoute from "../../app/routes/LegacyDashboardRoute";
 import BarbershopOnlineProductsRoute from "../../app/routes/BarbershopOnlineProductsRoute";
 import BarbershopNewsRoute from "../../app/routes/BarbershopNewsRoute";
+import ServicesRoute from "../../app/routes/ServicesRoute";
 
 const rootRoute = createRootRoute({
   component: TanstackNavigationLayout,
@@ -15,6 +16,12 @@ createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
   component: LegacyDashboardRoute,
+});
+
+createRoute({
+  getParentRoute: () => rootRoute,
+  path: "services",
+  component: ServicesRoute,
 });
 
 createRoute({

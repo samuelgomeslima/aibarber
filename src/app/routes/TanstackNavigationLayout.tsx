@@ -25,6 +25,13 @@ const MENU_ITEMS: MenuItem[] = [
     description: "Keep working with the current scheduling tools.",
   },
   {
+    key: "services",
+    label: "Services",
+    to: "/services",
+    icon: "cut-outline",
+    description: "Manage the catalog of services offered in the barbershop.",
+  },
+  {
     key: "online-products",
     label: "Barbershop online products",
     to: "/online-products",
