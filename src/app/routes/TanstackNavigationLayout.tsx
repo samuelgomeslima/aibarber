@@ -1,5 +1,5 @@
 import React from "react";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
@@ -18,32 +18,74 @@ type MenuItem = {
 
 const MENU_ITEMS: MenuItem[] = [
   {
-    key: "legacy",
-    label: "Legacy dashboard",
+    key: "overview",
+    label: "Overview",
     to: "/",
     icon: "grid-outline",
-    description: "Keep working with the current scheduling tools.",
+    description: "Review performance insights across your barbershop operations.",
+  },
+  {
+    key: "bookings",
+    label: "Bookings",
+    to: "/bookings",
+    icon: "calendar-outline",
+    description: "Monitor upcoming appointments and confirm recent services.",
   },
   {
     key: "services",
-    label: "Services management",
+    label: "Services",
     to: "/services",
     icon: "cut-outline",
-    description: "Manage service offerings and experiment with catalog updates.",
+    description: "Keep service offerings and pricing up to date.",
   },
   {
-    key: "online-products",
-    label: "Barbershop online products",
-    to: "/online-products",
-    icon: "cart-outline",
-    description: "Draft the future e-commerce experience.",
+    key: "packages",
+    label: "Packages",
+    to: "/packages",
+    icon: "cube-outline",
+    description: "Bundle services together to drive repeat visits.",
   },
   {
-    key: "news",
-    label: "Barbershop news",
-    to: "/news",
-    icon: "newspaper-outline",
-    description: "Read about fresh platform updates and stories.",
+    key: "products",
+    label: "Products",
+    to: "/products",
+    icon: "pricetag-outline",
+    description: "Track retail inventory and manage product catalog.",
+  },
+  {
+    key: "cash-register",
+    label: "Cash register",
+    to: "/cash-register",
+    icon: "cash-outline",
+    description: "Record sales activity and reconcile daily cash flow.",
+  },
+  {
+    key: "assistant",
+    label: "Assistant",
+    to: "/assistant",
+    icon: "sparkles-outline",
+    description: "Chat with the AI assistant for operational support.",
+  },
+  {
+    key: "support",
+    label: "Support",
+    to: "/support",
+    icon: "help-buoy-outline",
+    description: "Reach the support team for troubleshooting.",
+  },
+  {
+    key: "team",
+    label: "Team members",
+    to: "/team",
+    icon: "people-outline",
+    description: "Manage staff access and roles.",
+  },
+  {
+    key: "settings",
+    label: "Settings",
+    to: "/settings",
+    icon: "settings-outline",
+    description: "Adjust preferences and workspace configuration.",
   },
 ];
 
@@ -74,7 +116,11 @@ export function TanstackNavigationLayout(): React.ReactElement {
           >
             <Ionicons name="chevron-forward" size={18} color="#f8fafc" />
           </Pressable>
-          <View style={styles.menuContainer}>
+          <ScrollView
+            style={styles.menuScroll}
+            contentContainerStyle={styles.menuContainer}
+            showsVerticalScrollIndicator={false}
+          >
             {MENU_ITEMS.map((item) => {
               const active = pathname === item.to;
               return (
@@ -101,7 +147,7 @@ export function TanstackNavigationLayout(): React.ReactElement {
                 </Pressable>
               );
             })}
-          </View>
+          </ScrollView>
         </View>
       ) : null}
       {collapsed ? (
@@ -165,9 +211,12 @@ const styles = StyleSheet.create({
     zIndex: 20,
   },
   menuContainer: {
-    flex: 1,
     gap: 12,
     paddingHorizontal: 12,
+    paddingBottom: 24,
+  },
+  menuScroll: {
+    flex: 1,
   },
   menuItem: {
     flexDirection: "row",

@@ -6,7 +6,7 @@ import { cashRegisterRenderer } from "../../../app/cash-register";
 import { productsRenderer } from "../../../app/products";
 import { servicesRenderer } from "../../../app/services";
 
-export function LegacyDashboardRoute(): React.ReactElement {
+export function OverviewRoute(): React.ReactElement {
   return (
     <AuthenticatedApp
       initialScreen="home"
@@ -18,4 +18,4 @@ export function LegacyDashboardRoute(): React.ReactElement {
   );
 }
 
-export default LegacyDashboardRoute;
+export default OverviewRoute;
