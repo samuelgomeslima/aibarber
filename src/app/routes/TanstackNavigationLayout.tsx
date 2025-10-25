@@ -4,95 +4,80 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 
+import { LanguageProvider, useLanguageContext } from "../../contexts/LanguageContext";
+import type { SupportedLanguage } from "../../locales/language";
+
 const MENU_WIDTH = 248;
 const LEGACY_MENU_ICON_TOP = Platform.select<number>({ ios: 52, android: 40, default: 24 });
 const FLOATING_TOGGLE_TOP = LEGACY_MENU_ICON_TOP + 44 + 12;
 
+const MENU_KEYS = [
+  "overview",
+  "bookings",
+  "services",
+  "packages",
+  "products",
+  "cash-register",
+  "assistant",
+  "support",
+  "team",
+  "settings",
+] as const;
+
+type MenuKey = (typeof MENU_KEYS)[number];
+
 type MenuItem = {
-  key: string;
-  label: string;
+  key: MenuKey;
   to: string;
   icon: keyof typeof Ionicons.glyphMap;
-  description: string;
 };
 
+const MENU_LABELS: Record<SupportedLanguage, Record<MenuKey, string>> = {
+  en: {
+    "overview": "Overview",
+    "bookings": "Bookings",
+    "services": "Services",
+    "packages": "Packages",
+    "products": "Products",
+    "cash-register": "Cash register",
+    "assistant": "Assistant",
+    "support": "Support",
+    "team": "Team members",
+    "settings": "Settings",
+  },
+  pt: {
+    "overview": "Visão geral",
+    "bookings": "Agendamentos",
+    "services": "Serviços",
+    "packages": "Pacotes",
+    "products": "Produtos",
+    "cash-register": "Caixa",
+    "assistant": "Assistente",
+    "support": "Suporte",
+    "team": "Equipe",
+    "settings": "Configurações",
+  },
+} as const;
+
 const MENU_ITEMS: MenuItem[] = [
-  {
-    key: "overview",
-    label: "Overview",
-    to: "/",
-    icon: "grid-outline",
-    description: "Review performance insights across your barbershop operations.",
-  },
-  {
-    key: "bookings",
-    label: "Bookings",
-    to: "/bookings",
-    icon: "calendar-outline",
-    description: "Monitor upcoming appointments and confirm recent services.",
-  },
-  {
-    key: "services",
-    label: "Services",
-    to: "/services",
-    icon: "cut-outline",
-    description: "Keep service offerings and pricing up to date.",
-  },
-  {
-    key: "packages",
-    label: "Packages",
-    to: "/packages",
-    icon: "cube-outline",
-    description: "Bundle services together to drive repeat visits.",
-  },
-  {
-    key: "products",
-    label: "Products",
-    to: "/products",
-    icon: "pricetag-outline",
-    description: "Track retail inventory and manage product catalog.",
-  },
-  {
-    key: "cash-register",
-    label: "Cash register",
-    to: "/cash-register",
-    icon: "cash-outline",
-    description: "Record sales activity and reconcile daily cash flow.",
-  },
-  {
-    key: "assistant",
-    label: "Assistant",
-    to: "/assistant",
-    icon: "sparkles-outline",
-    description: "Chat with the AI assistant for operational support.",
-  },
-  {
-    key: "support",
-    label: "Support",
-    to: "/support",
-    icon: "help-buoy-outline",
-    description: "Reach the support team for troubleshooting.",
-  },
-  {
-    key: "team",
-    label: "Team members",
-    to: "/team",
-    icon: "people-outline",
-    description: "Manage staff access and roles.",
-  },
-  {
-    key: "settings",
-    label: "Settings",
-    to: "/settings",
-    icon: "settings-outline",
-    description: "Adjust preferences and workspace configuration.",
-  },
+  { key: "overview", to: "/", icon: "grid-outline" },
+  { key: "bookings", to: "/bookings", icon: "calendar-outline" },
+  { key: "services", to: "/services", icon: "cut-outline" },
+  { key: "packages", to: "/packages", icon: "cube-outline" },
+  { key: "products", to: "/products", icon: "pricetag-outline" },
+  { key: "cash-register", to: "/cash-register", icon: "cash-outline" },
+  { key: "assistant", to: "/assistant", icon: "sparkles-outline" },
+  { key: "support", to: "/support", icon: "help-buoy-outline" },
+  { key: "team", to: "/team", icon: "people-outline" },
+  { key: "settings", to: "/settings", icon: "settings-outline" },
 ];
 
-export function TanstackNavigationLayout(): React.ReactElement {
+function TanstackNavigationLayoutContent(): React.ReactElement {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [collapsed, setCollapsed] = React.useState(true);
+  const { language } = useLanguageContext();
+  const labels = MENU_LABELS[language];
 
   const handleNavigate = React.useCallback(
     (item: MenuItem) => {
@@ -123,6 +108,7 @@ export function TanstackNavigationLayout(): React.ReactElement {
           >
             {MENU_ITEMS.map((item) => {
               const active = pathname === item.to;
+              const label = labels[item.key];
               return (
                 <Pressable
                   key={item.key}
@@ -133,7 +119,7 @@ export function TanstackNavigationLayout(): React.ReactElement {
                     pressed && !active && styles.menuItemPressed,
                   ]}
                   accessibilityRole="button"
-                  accessibilityLabel={item.label}
+                  accessibilityLabel={label}
                 >
                   <Ionicons
                     name={item.icon}
@@ -141,8 +127,7 @@ export function TanstackNavigationLayout(): React.ReactElement {
                     color={active ? "#38bdf8" : "#cbd5f5"}
                   />
                   <View style={styles.menuCopy}>
-                    <Text style={[styles.menuLabel, active && styles.menuLabelActive]}>{item.label}</Text>
-                    <Text style={styles.menuDescription}>{item.description}</Text>
+                    <Text style={[styles.menuLabel, active && styles.menuLabelActive]}>{label}</Text>
                   </View>
                 </Pressable>
               );
@@ -161,6 +146,14 @@ export function TanstackNavigationLayout(): React.ReactElement {
         </Pressable>
       ) : null}
     </View>
+  );
+}
+
+export function TanstackNavigationLayout(): React.ReactElement {
+  return (
+    <LanguageProvider>
+      <TanstackNavigationLayoutContent />
+    </LanguageProvider>
   );
 }
 
@@ -236,7 +229,7 @@ const styles = StyleSheet.create({
   },
   menuCopy: {
     flex: 1,
-    gap: 4,
+    gap: 0,
   },
   menuLabel: {
     color: "#e2e8f0",
@@ -244,11 +237,6 @@ const styles = StyleSheet.create({
   },
   menuLabelActive: {
     color: "#38bdf8",
-  },
-  menuDescription: {
-    color: "#94a3b8",
-    fontSize: 12,
-    lineHeight: 16,
   },
   content: {
     flex: 1,
