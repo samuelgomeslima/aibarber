@@ -16,7 +16,6 @@ import AuthenticatedApp, {
   type BookingsScreenProps,
   type BookingsScreenRenderer,
 } from "../src/app/AuthenticatedApp";
-import { LanguageProvider } from "../src/contexts/LanguageContext";
 import { BARBERS, BARBER_MAP, humanDate } from "../src/lib/domain";
 import { applyAlpha } from "../src/utils/color";
 import FilterToggle from "../src/components/FilterToggle";
@@ -547,14 +546,12 @@ export const bookingsRenderer: BookingsScreenRenderer = (props) => (
 
 export default function Bookings(): React.ReactElement {
   return (
-    <LanguageProvider>
-      <AuthenticatedApp
-        initialScreen="bookings"
-        renderBookings={bookingsRenderer}
-        renderCashRegister={cashRegisterRenderer}
-        renderProducts={productsRenderer}
-        renderServices={servicesRenderer}
-      />
-    </LanguageProvider>
+    <AuthenticatedApp
+      initialScreen="bookings"
+      renderBookings={bookingsRenderer}
+      renderCashRegister={cashRegisterRenderer}
+      renderProducts={productsRenderer}
+      renderServices={servicesRenderer}
+    />
   );
 }

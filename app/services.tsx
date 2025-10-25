@@ -6,7 +6,6 @@ import AuthenticatedApp, {
   type ServicesScreenProps,
   type ServicesScreenRenderer,
 } from "../src/app/AuthenticatedApp";
-import { LanguageProvider } from "../src/contexts/LanguageContext";
 import ServiceForm from "../src/components/ServiceForm";
 import { formatPrice } from "../src/lib/domain";
 import { cashRegisterRenderer } from "./cash-register";
@@ -139,14 +138,12 @@ export const servicesRenderer: ServicesScreenRenderer = (props) => <ServicesScre
 
 export default function Services(): React.ReactElement {
   return (
-    <LanguageProvider>
-      <AuthenticatedApp
-        initialScreen="services"
-        renderBookings={bookingsRenderer}
-        renderCashRegister={cashRegisterRenderer}
-        renderProducts={productsRenderer}
-        renderServices={servicesRenderer}
-      />
-    </LanguageProvider>
+    <AuthenticatedApp
+      initialScreen="services"
+      renderBookings={bookingsRenderer}
+      renderCashRegister={cashRegisterRenderer}
+      renderProducts={productsRenderer}
+      renderServices={servicesRenderer}
+    />
   );
 }

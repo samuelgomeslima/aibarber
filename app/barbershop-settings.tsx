@@ -6,7 +6,6 @@ import AuthenticatedApp, {
   type BarbershopSettingsScreenProps,
   type BarbershopSettingsScreenRenderer,
 } from "../src/app/AuthenticatedApp";
-import { LanguageProvider } from "../src/contexts/LanguageContext";
 import { bookingsRenderer } from "./bookings";
 import { cashRegisterRenderer } from "./cash-register";
 import { productsRenderer } from "./products";
@@ -181,15 +180,13 @@ export const barbershopSettingsRenderer: BarbershopSettingsScreenRenderer = (pro
 
 export default function BarbershopSettings(): React.ReactElement {
   return (
-    <LanguageProvider>
-      <AuthenticatedApp
-        initialScreen="barbershopSettings"
-        renderBarbershopSettings={barbershopSettingsRenderer}
-        renderBookings={bookingsRenderer}
-        renderCashRegister={cashRegisterRenderer}
-        renderProducts={productsRenderer}
-        renderServices={servicesRenderer}
-      />
-    </LanguageProvider>
+    <AuthenticatedApp
+      initialScreen="barbershopSettings"
+      renderBarbershopSettings={barbershopSettingsRenderer}
+      renderBookings={bookingsRenderer}
+      renderCashRegister={cashRegisterRenderer}
+      renderProducts={productsRenderer}
+      renderServices={servicesRenderer}
+    />
   );
 }

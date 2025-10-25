@@ -5,7 +5,6 @@ import AuthenticatedApp, {
   type ProductsScreenProps,
   type ProductsScreenRenderer,
 } from "../src/app/AuthenticatedApp";
-import { LanguageProvider } from "../src/contexts/LanguageContext";
 import ProductForm from "../src/components/ProductForm";
 import { formatPrice } from "../src/lib/domain";
 import { applyAlpha, mixHexColor } from "../src/utils/color";
@@ -372,14 +371,12 @@ export const productsRenderer: ProductsScreenRenderer = (props) => <ProductsScre
 
 export default function Products(): React.ReactElement {
   return (
-    <LanguageProvider>
-      <AuthenticatedApp
-        initialScreen="products"
-        renderBookings={bookingsRenderer}
-        renderCashRegister={cashRegisterRenderer}
-        renderProducts={productsRenderer}
-        renderServices={servicesRenderer}
-      />
-    </LanguageProvider>
+    <AuthenticatedApp
+      initialScreen="products"
+      renderBookings={bookingsRenderer}
+      renderCashRegister={cashRegisterRenderer}
+      renderProducts={productsRenderer}
+      renderServices={servicesRenderer}
+    />
   );
 }
