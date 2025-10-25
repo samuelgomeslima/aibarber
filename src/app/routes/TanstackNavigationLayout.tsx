@@ -1,5 +1,5 @@
 import React from "react";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
@@ -116,7 +116,11 @@ export function TanstackNavigationLayout(): React.ReactElement {
           >
             <Ionicons name="chevron-forward" size={18} color="#f8fafc" />
           </Pressable>
-          <View style={styles.menuContainer}>
+          <ScrollView
+            style={styles.menuScroll}
+            contentContainerStyle={styles.menuContainer}
+            showsVerticalScrollIndicator={false}
+          >
             {MENU_ITEMS.map((item) => {
               const active = pathname === item.to;
               return (
@@ -143,7 +147,7 @@ export function TanstackNavigationLayout(): React.ReactElement {
                 </Pressable>
               );
             })}
-          </View>
+          </ScrollView>
         </View>
       ) : null}
       {collapsed ? (
@@ -207,9 +211,12 @@ const styles = StyleSheet.create({
     zIndex: 20,
   },
   menuContainer: {
-    flex: 1,
     gap: 12,
     paddingHorizontal: 12,
+    paddingBottom: 24,
+  },
+  menuScroll: {
+    flex: 1,
   },
   menuItem: {
     flexDirection: "row",
