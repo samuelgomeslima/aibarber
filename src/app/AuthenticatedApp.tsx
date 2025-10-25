@@ -16,7 +16,6 @@ import {
   Linking,
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
-import * as Localization from "expo-localization";
 import type { User } from "@supabase/supabase-js";
 
 import {
@@ -38,6 +37,8 @@ import {
 } from "../lib/domain";
 import { polyglotProductName, polyglotProducts, polyglotServices } from "../lib/polyglot";
 import { COMPONENT_COPY } from "../locales/componentCopy";
+import { useOptionalLanguageContext } from "../contexts/LanguageContext";
+import { getInitialLanguage, type SupportedLanguage } from "../locales/language";
 import type { RecurrenceFrequency } from "../locales/types";
 import { getEmailConfirmationRedirectUrl } from "../lib/auth";
 import { getBarbershopForOwner, updateBarbershop, type Barbershop } from "../lib/barbershops";
@@ -1320,8 +1321,6 @@ const LANGUAGE_COPY = {
   },
 } as const;
 
-type SupportedLanguage = keyof typeof LANGUAGE_COPY;
-
 const LANGUAGE_OPTIONS: { code: SupportedLanguage; label: string }[] = [
   { code: "en", label: "English (US)" },
   { code: "pt", label: "Português (BR)" },
@@ -1372,22 +1371,6 @@ const THEME_OPTIONS: { value: ThemePreference }[] = [
   { value: "light" },
   { value: "dark" },
 ];
-
-function getInitialLanguage(): SupportedLanguage {
-  try {
-    const locales = Localization.getLocales();
-    if (Array.isArray(locales) && locales.length > 0) {
-      const primary = locales[0];
-      const languageCode = primary.languageCode?.toLowerCase();
-      if (languageCode === "pt") {
-        return "pt";
-      }
-    }
-  } catch (error) {
-    console.warn("Failed to detect system language", error);
-  }
-  return "en";
-}
 
 /** ========== App ========== */
 export type ScreenName =
@@ -1830,7 +1813,10 @@ function AuthenticatedApp({
   const [resendingConfirmation, setResendingConfirmation] = useState(false);
   const [resentConfirmation, setResentConfirmation] = useState(false);
   const [resendConfirmationError, setResendConfirmationError] = useState<string | null>(null);
-  const [language, setLanguage] = useState<SupportedLanguage>(() => getInitialLanguage());
+  const languageContext = useOptionalLanguageContext();
+  const [fallbackLanguage, setFallbackLanguage] = useState<SupportedLanguage>(() => getInitialLanguage());
+  const language = languageContext?.language ?? fallbackLanguage;
+  const setLanguage = languageContext?.setLanguage ?? setFallbackLanguage;
   const copy = useMemo(() => LANGUAGE_COPY[language], [language]);
   const locale = language === "pt" ? "pt-BR" : "en-US";
   const bookServiceCopy = copy.bookService;

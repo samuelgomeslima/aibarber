@@ -7,8 +7,7 @@ import type {
   ServicePackageFormCopy,
   UserFormCopy,
 } from "./types";
-
-type SupportedLanguage = "en" | "pt";
+import type { SupportedLanguage } from "./language";
 
 type ComponentCopy = {
   assistantChat: AssistantChatCopy;

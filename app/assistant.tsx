@@ -4,6 +4,7 @@ import AuthenticatedApp, {
   type AssistantScreenProps,
   type AssistantScreenRenderer,
 } from "../src/app/AuthenticatedApp";
+import { LanguageProvider } from "../src/contexts/LanguageContext";
 import AssistantChat from "../src/components/AssistantChat";
 import { bookingsRenderer } from "./bookings";
 import { cashRegisterRenderer } from "./cash-register";
@@ -45,13 +46,15 @@ export const assistantRenderer: AssistantScreenRenderer = (props) => (
 
 export default function Assistant(): React.ReactElement {
   return (
-    <AuthenticatedApp
-      initialScreen="assistant"
-      renderAssistant={assistantRenderer}
-      renderBookings={bookingsRenderer}
-      renderCashRegister={cashRegisterRenderer}
-      renderProducts={productsRenderer}
-      renderServices={servicesRenderer}
-    />
+    <LanguageProvider>
+      <AuthenticatedApp
+        initialScreen="assistant"
+        renderAssistant={assistantRenderer}
+        renderBookings={bookingsRenderer}
+        renderCashRegister={cashRegisterRenderer}
+        renderProducts={productsRenderer}
+        renderServices={servicesRenderer}
+      />
+    </LanguageProvider>
   );
 }
