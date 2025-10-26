@@ -43,6 +43,12 @@ import type { RecurrenceFrequency } from "../locales/types";
 import { getEmailConfirmationRedirectUrl } from "../lib/auth";
 import { getBarbershopForOwner, updateBarbershop, type Barbershop } from "../lib/barbershops";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
+import {
+  getUserSettings,
+  upsertUserSettings,
+  type ThemePreferenceSetting,
+  type UserSettingsUpdatePayload,
+} from "../lib/userSettings";
 import { applyAlpha, mixHexColor, tintHexColor } from "../utils/color";
 import { buildDateTime, getCurrentTimeString, getTodayDateKey, normalizeTimeInput } from "../utils/datetime";
 import { parseSignedCurrency, sanitizeSignedCurrencyInput } from "../utils/currency";
@@ -1326,8 +1332,8 @@ const LANGUAGE_OPTIONS: { code: SupportedLanguage; label: string }[] = [
   { code: "pt", label: "Português (BR)" },
 ];
 
-type ThemeName = "dark" | "light";
-type ThemePreference = "system" | ThemeName;
+type ThemeName = Exclude<ThemePreferenceSetting, "system">;
+type ThemePreference = ThemePreferenceSetting;
 
 type ThemeColors = {
   bg: string;
@@ -1816,7 +1822,16 @@ function AuthenticatedApp({
   const languageContext = useOptionalLanguageContext();
   const [fallbackLanguage, setFallbackLanguage] = useState<SupportedLanguage>(() => getInitialLanguage());
   const language = languageContext?.language ?? fallbackLanguage;
-  const setLanguage = languageContext?.setLanguage ?? setFallbackLanguage;
+  const applyLanguage = useCallback(
+    (nextLanguage: SupportedLanguage) => {
+      if (languageContext) {
+        languageContext.setLanguage(nextLanguage);
+      } else {
+        setFallbackLanguage(nextLanguage);
+      }
+    },
+    [languageContext, setFallbackLanguage],
+  );
   const copy = useMemo(() => LANGUAGE_COPY[language], [language]);
   const locale = language === "pt" ? "pt-BR" : "en-US";
   const bookServiceCopy = copy.bookService;
@@ -1841,6 +1856,65 @@ function AuthenticatedApp({
   const resolvedTheme = themePreference === "system" ? (colorScheme === "dark" ? "dark" : "light") : themePreference;
   const colors = useMemo(() => THEMES[resolvedTheme], [resolvedTheme]);
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const persistUserSettings = useCallback(
+    async (updates: UserSettingsUpdatePayload) => {
+      if (!currentUser?.id) {
+        return;
+      }
+
+      try {
+        await upsertUserSettings(currentUser.id, updates);
+      } catch (error) {
+        console.error("Failed to persist user settings", error);
+      }
+    },
+    [currentUser?.id],
+  );
+
+  useEffect(() => {
+    if (!currentUser?.id) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadSettings = async () => {
+      const settings = await getUserSettings(currentUser.id);
+      if (!isMounted || !settings) {
+        return;
+      }
+
+      if (settings.language) {
+        applyLanguage(settings.language);
+      }
+
+      if (settings.theme_preference) {
+        setThemePreference(settings.theme_preference);
+      }
+    };
+
+    void loadSettings();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUser?.id, applyLanguage]);
+
+  const handleLanguageChange = useCallback(
+    (nextLanguage: SupportedLanguage) => {
+      applyLanguage(nextLanguage);
+      void persistUserSettings({ language: nextLanguage });
+    },
+    [applyLanguage, persistUserSettings],
+  );
+
+  const handleThemePreferenceChange = useCallback(
+    (nextPreference: ThemePreference) => {
+      setThemePreference(nextPreference);
+      void persistUserSettings({ theme_preference: nextPreference });
+    },
+    [persistUserSettings],
+  );
   const emailConfirmationCopy = copy.settingsPage.emailConfirmation;
   const [barbershop, setBarbershop] = useState<Barbershop | null>(null);
   const [barbershopForm, setBarbershopForm] = useState<{ name: string; slug: string; timezone: string }>(() => ({
@@ -4923,7 +4997,7 @@ function AuthenticatedApp({
               return (
                 <Pressable
                   key={option.code}
-                  onPress={() => setLanguage(option.code)}
+                  onPress={() => handleLanguageChange(option.code)}
                   style={[
                     styles.languageOption,
                     { borderColor: colors.border, backgroundColor: colors.surface },
@@ -4957,7 +5031,7 @@ function AuthenticatedApp({
               return (
                 <Pressable
                   key={option.value}
-                  onPress={() => setThemePreference(option.value)}
+                  onPress={() => handleThemePreferenceChange(option.value)}
                   style={[
                     styles.languageOption,
                     { borderColor: colors.border, backgroundColor: colors.surface },
