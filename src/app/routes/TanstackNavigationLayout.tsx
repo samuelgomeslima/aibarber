@@ -1,11 +1,12 @@
 import React from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 
 import { LanguageProvider, useLanguageContext } from "../../contexts/LanguageContext";
 import type { SupportedLanguage } from "../../locales/language";
+import { isSupabaseConfigured, supabase } from "../../lib/supabase";
 
 const MENU_WIDTH = 248;
 const LEGACY_MENU_ICON_TOP = Platform.select<number>({ ios: 52, android: 40, default: 24 });
@@ -72,12 +73,32 @@ const MENU_ITEMS: MenuItem[] = [
   { key: "settings", to: "/settings", icon: "settings-outline" },
 ];
 
+const LOGOUT_COPY: Record<
+  SupportedLanguage,
+  { label: string; accessibility: string; errorTitle: string; errorMessage: string }
+> = {
+  en: {
+    label: "Sign out",
+    accessibility: "Sign out of AIBarber",
+    errorTitle: "Sign out failed",
+    errorMessage: "Unable to sign out. Please try again.",
+  },
+  pt: {
+    label: "Sair",
+    accessibility: "Sair do AIBarber",
+    errorTitle: "Falha ao sair",
+    errorMessage: "Não foi possível encerrar a sessão. Tente novamente.",
+  },
+};
+
 function TanstackNavigationLayoutContent(): React.ReactElement {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [collapsed, setCollapsed] = React.useState(true);
+  const [loggingOut, setLoggingOut] = React.useState(false);
   const { language } = useLanguageContext();
   const labels = MENU_LABELS[language];
+  const logoutCopy = LOGOUT_COPY[language];
 
   const handleNavigate = React.useCallback(
     (item: MenuItem) => {
@@ -85,6 +106,34 @@ function TanstackNavigationLayoutContent(): React.ReactElement {
     },
     [navigate],
   );
+
+  const handleLogout = React.useCallback(async () => {
+    if (loggingOut) {
+      return;
+    }
+
+    setCollapsed(true);
+
+    if (!isSupabaseConfigured()) {
+      Alert.alert(logoutCopy.errorTitle, logoutCopy.errorMessage);
+      return;
+    }
+
+    setLoggingOut(true);
+
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      const fallback = logoutCopy.errorMessage;
+      const message = error instanceof Error ? error.message : fallback;
+      Alert.alert(logoutCopy.errorTitle, message || fallback);
+    } finally {
+      setLoggingOut(false);
+    }
+  }, [loggingOut, logoutCopy.errorMessage, logoutCopy.errorTitle]);
 
   return (
     <View style={styles.root}>
@@ -101,38 +150,60 @@ function TanstackNavigationLayoutContent(): React.ReactElement {
           >
             <Ionicons name="chevron-forward" size={18} color="#f8fafc" />
           </Pressable>
-          <ScrollView
-            style={styles.menuScroll}
-            contentContainerStyle={styles.menuContainer}
-            showsVerticalScrollIndicator={false}
-          >
-            {MENU_ITEMS.map((item) => {
-              const active = pathname === item.to;
-              const label = labels[item.key];
-              return (
-                <Pressable
-                  key={item.key}
-                  onPress={() => handleNavigate(item)}
-                  style={({ pressed }) => [
-                    styles.menuItem,
-                    active && styles.menuItemActive,
-                    pressed && !active && styles.menuItemPressed,
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel={label}
-                >
-                  <Ionicons
-                    name={item.icon}
-                    size={20}
-                    color={active ? "#38bdf8" : "#cbd5f5"}
-                  />
-                  <View style={styles.menuCopy}>
-                    <Text style={[styles.menuLabel, active && styles.menuLabelActive]}>{label}</Text>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
+          <View style={styles.menuBody}>
+            <ScrollView
+              style={styles.menuScroll}
+              contentContainerStyle={styles.menuContainer}
+              showsVerticalScrollIndicator={false}
+            >
+              {MENU_ITEMS.map((item) => {
+                const active = pathname === item.to;
+                const label = labels[item.key];
+                return (
+                  <Pressable
+                    key={item.key}
+                    onPress={() => handleNavigate(item)}
+                    style={({ pressed }) => [
+                      styles.menuItem,
+                      active && styles.menuItemActive,
+                      pressed && !active && styles.menuItemPressed,
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={label}
+                  >
+                    <Ionicons
+                      name={item.icon}
+                      size={20}
+                      color={active ? "#38bdf8" : "#cbd5f5"}
+                    />
+                    <View style={styles.menuCopy}>
+                      <Text style={[styles.menuLabel, active && styles.menuLabelActive]}>{label}</Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+            <View style={styles.menuFooter}>
+              <Pressable
+                onPress={handleLogout}
+                disabled={loggingOut}
+                style={({ pressed }) => [
+                  styles.menuItem,
+                  styles.menuLogout,
+                  pressed && styles.menuLogoutPressed,
+                  loggingOut && styles.menuLogoutDisabled,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={logoutCopy.accessibility}
+                accessibilityState={{ disabled: loggingOut }}
+              >
+                <Ionicons name="log-out-outline" size={20} color="#f87171" />
+                <View style={styles.menuCopy}>
+                  <Text style={[styles.menuLabel, styles.menuLogoutLabel]}>{logoutCopy.label}</Text>
+                </View>
+              </Pressable>
+            </View>
+          </View>
         </View>
       ) : null}
       {collapsed ? (
@@ -174,6 +245,9 @@ const styles = StyleSheet.create({
     borderLeftWidth: 1,
     borderLeftColor: "#1e293b",
     zIndex: 10,
+  },
+  menuBody: {
+    flex: 1,
   },
   toggle: {
     alignSelf: "flex-start",
@@ -237,6 +311,25 @@ const styles = StyleSheet.create({
   },
   menuLabelActive: {
     color: "#38bdf8",
+  },
+  menuFooter: {
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#1e293b",
+  },
+  menuLogout: {
+    borderWidth: 1,
+    borderColor: "rgba(248, 113, 113, 0.4)",
+  },
+  menuLogoutPressed: {
+    backgroundColor: "rgba(248, 113, 113, 0.12)",
+  },
+  menuLogoutLabel: {
+    color: "#f87171",
+  },
+  menuLogoutDisabled: {
+    opacity: 0.6,
   },
   content: {
     flex: 1,
