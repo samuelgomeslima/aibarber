@@ -14,6 +14,7 @@ import {
   useWindowDimensions,
   useColorScheme,
   Linking,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import type { User } from "@supabase/supabase-js";
@@ -118,6 +119,7 @@ const LANGUAGE_COPY = {
       support: "Support",
       team: "Team members",
       settings: "Settings",
+      more: "More",
       logout: "Sign out",
       logoutAccessibility: "Sign out of AIBarber",
       logoutErrorTitle: "Sign out failed",
@@ -724,6 +726,7 @@ const LANGUAGE_COPY = {
       support: "Suporte",
       team: "Equipe",
       settings: "Configurações",
+      more: "Mais",
       logout: "Sair",
       logoutAccessibility: "Sair do AIBarber",
       logoutErrorTitle: "Falha ao sair",
@@ -1807,6 +1810,7 @@ function AuthenticatedApp({
   const apiStatusRequestId = useRef(0);
   const [activeScreen, setActiveScreen] = useState<ScreenName>(initialScreen);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [iosMenuOpen, setIosMenuOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentUserLoading, setCurrentUserLoading] = useState(true);
@@ -1841,6 +1845,7 @@ function AuthenticatedApp({
   const resolvedTheme = themePreference === "system" ? (colorScheme === "dark" ? "dark" : "light") : themePreference;
   const colors = useMemo(() => THEMES[resolvedTheme], [resolvedTheme]);
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const isIOS = Platform.OS === "ios";
   const emailConfirmationCopy = copy.settingsPage.emailConfirmation;
   const [barbershop, setBarbershop] = useState<Barbershop | null>(null);
   const [barbershopForm, setBarbershopForm] = useState<{ name: string; slug: string; timezone: string }>(() => ({
@@ -3647,11 +3652,14 @@ function AuthenticatedApp({
   ];
 
   const bookingsNavActive = activeScreen === "bookings" || activeScreen === "bookService";
+  const quickMenuScreens: ScreenName[] = ["home", "bookings", "bookService", "cashRegister"];
+  const moreNavActive = !quickMenuScreens.includes(activeScreen);
 
   const handleNavigate = useCallback(
     (screen: ScreenName) => {
       setActiveScreen(screen);
       setSidebarOpen(false);
+      setIosMenuOpen(false);
       onNavigate?.(screen);
     },
     [onNavigate],
@@ -3661,6 +3669,7 @@ function AuthenticatedApp({
     if (loggingOut) return;
 
     setSidebarOpen(false);
+    setIosMenuOpen(false);
     setLoggingOut(true);
 
     try {
@@ -3715,9 +3724,9 @@ function AuthenticatedApp({
 
   return (
     <View style={[styles.appShell, { backgroundColor: colors.bg }]}>
-      {!sidebarOpen && (
+      {!sidebarOpen && (!isIOS || !iosMenuOpen) && (
         <Pressable
-          onPress={() => setSidebarOpen(true)}
+          onPress={() => (isIOS ? setIosMenuOpen(true) : setSidebarOpen(true))}
           style={[
             styles.menuFab,
             {
@@ -3741,6 +3750,173 @@ function AuthenticatedApp({
           accessibilityLabel="Close navigation menu"
         />
       )}
+
+      {isIOS ? (
+        <Modal
+          transparent
+          visible={iosMenuOpen}
+          animationType="slide"
+          presentationStyle="overFullScreen"
+          onRequestClose={() => setIosMenuOpen(false)}
+        >
+          <View style={styles.iosMenuOverlay}>
+            <TouchableWithoutFeedback onPress={() => setIosMenuOpen(false)}>
+              <View
+                style={[
+                  styles.iosMenuScrim,
+                  { backgroundColor: applyAlpha(colors.bg, 0.55) },
+                ]}
+              />
+            </TouchableWithoutFeedback>
+            <View
+              style={[
+                styles.iosMenuSheet,
+                { backgroundColor: colors.sidebarBg, borderColor: colors.border },
+              ]}
+            >
+              <View style={[styles.iosMenuHandle, { backgroundColor: colors.border }]} />
+              <View style={styles.iosMenuItems}>
+                <Pressable
+                  onPress={() => handleNavigate("home")}
+                  style={({ pressed }) => [
+                    styles.iosMenuItem,
+                    {
+                      borderColor: applyAlpha(
+                        activeScreen === "home" ? colors.accent : colors.border,
+                        0.6,
+                      ),
+                      backgroundColor:
+                        activeScreen === "home"
+                          ? applyAlpha(colors.accent, 0.18)
+                          : pressed
+                            ? applyAlpha(colors.border, 0.25)
+                            : applyAlpha(colors.border, 0.16),
+                    },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={copy.navigation.overview}
+                >
+                  <MaterialCommunityIcons
+                    name="view-dashboard-outline"
+                    size={20}
+                    color={activeScreen === "home" ? colors.accentFgOn : colors.subtext}
+                  />
+                  <Text
+                    style={[
+                      styles.iosMenuItemText,
+                      { color: activeScreen === "home" ? colors.accentFgOn : colors.text },
+                    ]}
+                  >
+                    {copy.navigation.overview}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => handleNavigate("bookings")}
+                  style={({ pressed }) => [
+                    styles.iosMenuItem,
+                    {
+                      borderColor: applyAlpha(
+                        bookingsNavActive ? colors.accent : colors.border,
+                        0.6,
+                      ),
+                      backgroundColor:
+                        bookingsNavActive
+                          ? applyAlpha(colors.accent, 0.18)
+                          : pressed
+                            ? applyAlpha(colors.border, 0.25)
+                            : applyAlpha(colors.border, 0.16),
+                    },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={copy.navigation.bookings}
+                >
+                  <MaterialCommunityIcons
+                    name="calendar-clock"
+                    size={20}
+                    color={bookingsNavActive ? colors.accentFgOn : colors.subtext}
+                  />
+                  <Text
+                    style={[
+                      styles.iosMenuItemText,
+                      { color: bookingsNavActive ? colors.accentFgOn : colors.text },
+                    ]}
+                  >
+                    {copy.navigation.bookings}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => handleNavigate("cashRegister")}
+                  style={({ pressed }) => [
+                    styles.iosMenuItem,
+                    {
+                      borderColor: applyAlpha(
+                        activeScreen === "cashRegister" ? colors.accent : colors.border,
+                        0.6,
+                      ),
+                      backgroundColor:
+                        activeScreen === "cashRegister"
+                          ? applyAlpha(colors.accent, 0.18)
+                          : pressed
+                            ? applyAlpha(colors.border, 0.25)
+                            : applyAlpha(colors.border, 0.16),
+                    },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={copy.navigation.cashRegister}
+                >
+                  <MaterialCommunityIcons
+                    name="cash-register"
+                    size={20}
+                    color={activeScreen === "cashRegister" ? colors.accentFgOn : colors.subtext}
+                  />
+                  <Text
+                    style={[
+                      styles.iosMenuItemText,
+                      { color: activeScreen === "cashRegister" ? colors.accentFgOn : colors.text },
+                    ]}
+                  >
+                    {copy.navigation.cashRegister}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    setIosMenuOpen(false);
+                    setSidebarOpen(true);
+                  }}
+                  style={({ pressed }) => [
+                    styles.iosMenuItem,
+                    {
+                      borderColor: applyAlpha(moreNavActive ? colors.accent : colors.border, 0.6),
+                      backgroundColor:
+                        moreNavActive
+                          ? applyAlpha(colors.accent, 0.18)
+                          : pressed
+                            ? applyAlpha(colors.border, 0.25)
+                            : applyAlpha(colors.border, 0.16),
+                    },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={copy.navigation.more}
+                >
+                  <Ionicons
+                    name="ellipsis-horizontal"
+                    size={20}
+                    color={moreNavActive ? colors.accentFgOn : colors.subtext}
+                  />
+                  <Text
+                    style={[
+                      styles.iosMenuItemText,
+                      { color: moreNavActive ? colors.accentFgOn : colors.text },
+                    ]}
+                  >
+                    {copy.navigation.more}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      ) : null}
 
       <View
         style={[
@@ -5677,6 +5853,48 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     bottom: 0,
     backgroundColor: "rgba(0,0,0,0.35)",
     zIndex: 20,
+  },
+  iosMenuOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  iosMenuScrim: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  iosMenuSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 28,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    gap: 12,
+    zIndex: 1,
+  },
+  iosMenuHandle: {
+    alignSelf: "center",
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    marginBottom: 12,
+    opacity: 0.7,
+  },
+  iosMenuItems: {
+    gap: 12,
+  },
+  iosMenuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  iosMenuItemText: {
+    fontWeight: "700",
+    fontSize: 15,
   },
   sidebar: {
     position: "absolute",
