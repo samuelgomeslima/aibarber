@@ -11,8 +11,7 @@ import { isSupabaseConfigured, supabase } from "../../lib/supabase";
 import type { ThemeColors } from "../../theme/theme";
 
 const MENU_WIDTH = 248;
-const LEGACY_MENU_ICON_TOP = Platform.select<number>({ ios: 52, android: 40, default: 24 });
-const FLOATING_TOGGLE_TOP = LEGACY_MENU_ICON_TOP + 44;
+const MENU_ICON_TOP = Platform.select<number>({ ios: 52, android: 40, default: 24 });
 
 const MENU_KEYS = [
   "overview",
@@ -351,7 +350,7 @@ const createStyles = (theme: MenuTheme) =>
     },
     floatingToggle: {
       position: "absolute",
-      top: FLOATING_TOGGLE_TOP,
+      top: MENU_ICON_TOP,
       right: 16,
       width: 36,
       height: 36,
