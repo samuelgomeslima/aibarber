@@ -57,7 +57,7 @@ describe("createOpenAIClient", () => {
     expect(response.choices[0]?.message.content).toBe("Hello");
   });
 
-  it("surfaced backend errors returned by the proxy", async () => {
+  it("surfaces backend errors returned by the proxy", async () => {
     process.env.EXPO_PUBLIC_OPENAI_PROXY_TOKEN = "test-token";
     const { createOpenAIClient } = await importOpenAI();
 
