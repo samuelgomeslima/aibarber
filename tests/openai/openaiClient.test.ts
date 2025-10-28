@@ -1,8 +1,25 @@
-import { describe, expect, it, vi } from "vitest";
-import { createOpenAIClient } from "../../src/lib/openai";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const ORIGINAL_OPENAI_PROXY_TOKEN = process.env.EXPO_PUBLIC_OPENAI_PROXY_TOKEN;
+
+async function importOpenAI() {
+  return import("../../src/lib/openai");
+}
+
+afterEach(() => {
+  vi.resetModules();
+  if (typeof ORIGINAL_OPENAI_PROXY_TOKEN === "undefined") {
+    delete process.env.EXPO_PUBLIC_OPENAI_PROXY_TOKEN;
+  } else {
+    process.env.EXPO_PUBLIC_OPENAI_PROXY_TOKEN = ORIGINAL_OPENAI_PROXY_TOKEN;
+  }
+});
 
 describe("createOpenAIClient", () => {
   it("uses the provided fetch implementation for chat completions", async () => {
+    process.env.EXPO_PUBLIC_OPENAI_PROXY_TOKEN = "test-token";
+    const { createOpenAIClient } = await importOpenAI();
+
     const fetchImpl = vi.fn(async () => ({
       ok: true,
       status: 200,
@@ -31,13 +48,19 @@ describe("createOpenAIClient", () => {
       "/api/chat",
       expect.objectContaining({
         method: "POST",
-        headers: expect.objectContaining({ "Content-Type": "application/json" }),
+        headers: expect.objectContaining({
+          "Content-Type": "application/json",
+          "x-api-key": "test-token",
+        }),
       }),
     );
     expect(response.choices[0]?.message.content).toBe("Hello");
   });
 
   it("surfaced backend errors returned by the proxy", async () => {
+    process.env.EXPO_PUBLIC_OPENAI_PROXY_TOKEN = "test-token";
+    const { createOpenAIClient } = await importOpenAI();
+
     const fetchImpl = vi.fn(async () => ({
       ok: false,
       status: 503,
@@ -52,6 +75,32 @@ describe("createOpenAIClient", () => {
     await expect(
       client.callChatCompletion({ messages: [{ role: "user", content: "Hi" }] }),
     ).rejects.toThrowError("Proxy unavailable");
+  });
+
+  it("throws when the OpenAI proxy token is missing", async () => {
+    delete process.env.EXPO_PUBLIC_OPENAI_PROXY_TOKEN;
+    const { createOpenAIClient } = await importOpenAI();
+
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        id: "response-id",
+        choices: [],
+      }),
+    }));
+
+    const client = createOpenAIClient({
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(client.isConfigured).toBe(false);
+    await expect(
+      client.callChatCompletion({ messages: [{ role: "user", content: "Hi" }] }),
+    ).rejects.toThrowError(
+      "OpenAI service is not configured. Ensure the backend has OPENAI_API_KEY and OPENAI_PROXY_TOKEN secrets set.",
+    );
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 });
 
