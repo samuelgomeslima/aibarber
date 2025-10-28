@@ -17,13 +17,10 @@ const FLOATING_TOGGLE_TOP = LEGACY_MENU_ICON_TOP + 44 + 12;
 const MENU_KEYS = [
   "overview",
   "bookings",
-  "services",
-  "packages",
   "products",
   "cash-register",
   "assistant",
   "support",
-  "team",
   "settings",
 ] as const;
 
@@ -39,25 +36,19 @@ const MENU_LABELS: Record<SupportedLanguage, Record<MenuKey, string>> = {
   en: {
     "overview": "Overview",
     "bookings": "Bookings",
-    "services": "Services",
-    "packages": "Packages",
     "products": "Products",
     "cash-register": "Cash register",
     "assistant": "Assistant",
     "support": "Support",
-    "team": "Team members",
     "settings": "Settings",
   },
   pt: {
     "overview": "Visão geral",
     "bookings": "Agendamentos",
-    "services": "Serviços",
-    "packages": "Pacotes",
     "products": "Produtos",
     "cash-register": "Caixa",
     "assistant": "Assistente",
     "support": "Suporte",
-    "team": "Equipe",
     "settings": "Configurações",
   },
 } as const;
@@ -65,13 +56,10 @@ const MENU_LABELS: Record<SupportedLanguage, Record<MenuKey, string>> = {
 const MENU_ITEMS: MenuItem[] = [
   { key: "overview", to: "/", icon: "grid-outline" },
   { key: "bookings", to: "/bookings", icon: "calendar-outline" },
-  { key: "services", to: "/services", icon: "cut-outline" },
-  { key: "packages", to: "/packages", icon: "cube-outline" },
   { key: "products", to: "/products", icon: "pricetag-outline" },
   { key: "cash-register", to: "/cash-register", icon: "cash-outline" },
   { key: "assistant", to: "/assistant", icon: "sparkles-outline" },
   { key: "support", to: "/support", icon: "help-buoy-outline" },
-  { key: "team", to: "/team", icon: "people-outline" },
   { key: "settings", to: "/settings", icon: "settings-outline" },
 ];
 
