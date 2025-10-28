@@ -7,6 +7,7 @@ import { isSupabaseConfigured, supabase } from "../lib/supabase";
 type LanguageContextValue = {
   language: SupportedLanguage;
   setLanguage: (language: SupportedLanguage) => void;
+  ready: boolean;
 };
 
 const LanguageContext = React.createContext<LanguageContextValue | undefined>(undefined);
@@ -169,7 +170,10 @@ export function LanguageProvider({ children }: { children: React.ReactNode }): R
     [preferencesReady, persistUpdates, userId],
   );
 
-  const value = React.useMemo(() => ({ language, setLanguage }), [language, setLanguage]);
+  const value = React.useMemo(
+    () => ({ language, setLanguage, ready: preferencesReady }),
+    [language, setLanguage, preferencesReady],
+  );
 
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 }
