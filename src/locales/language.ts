@@ -17,3 +17,7 @@ export function getInitialLanguage(): SupportedLanguage {
   }
   return "en";
 }
+
+export function isSupportedLanguage(value: unknown): value is SupportedLanguage {
+  return value === "en" || value === "pt";
+}
