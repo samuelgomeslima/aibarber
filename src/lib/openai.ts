@@ -105,12 +105,17 @@ export function createOpenAIClient(config: OpenAIClientConfig): OpenAIClient {
   const transcriptionUrl = config.transcriptionUrl ?? AUDIO_TRANSCRIPTION_URL;
   const fetchImpl = config.fetchImpl ?? fetch;
   const isConfigured =
-    typeof apiUrl === "string" && apiUrl.length > 0 && typeof transcriptionUrl === "string" && transcriptionUrl.length > 0;
+    typeof apiUrl === "string" &&
+    apiUrl.length > 0 &&
+    typeof transcriptionUrl === "string" &&
+    transcriptionUrl.length > 0 &&
+    typeof OPENAI_PROXY_TOKEN === "string" &&
+    OPENAI_PROXY_TOKEN.length > 0;
 
   const ensureConfigured = () => {
     if (!isConfigured) {
       throw new Error(
-        "OpenAI service is not configured. Ensure the backend has an OPENAI_API_KEY secret set.",
+        "OpenAI service is not configured. Ensure the backend has OPENAI_API_KEY and OPENAI_PROXY_TOKEN secrets set.",
       );
     }
   };
