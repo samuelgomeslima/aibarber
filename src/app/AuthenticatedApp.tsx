@@ -42,10 +42,12 @@ import { getInitialLanguage, type SupportedLanguage } from "../locales/language"
 import type { RecurrenceFrequency } from "../locales/types";
 import { getEmailConfirmationRedirectUrl } from "../lib/auth";
 import { getBarbershopForOwner, updateBarbershop, type Barbershop } from "../lib/barbershops";
+import { fetchUserPreferences, saveUserPreferences } from "../lib/userPreferences";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { applyAlpha, mixHexColor, tintHexColor } from "../utils/color";
 import { buildDateTime, getCurrentTimeString, getTodayDateKey, normalizeTimeInput } from "../utils/datetime";
 import { parseSignedCurrency, sanitizeSignedCurrencyInput } from "../utils/currency";
+import { DEFAULT_THEME_PREFERENCE, type ThemeName, type ThemePreference } from "../theme/preferences";
 
 const SLOT_MINUTES = 15;
 const WHATSAPP_BRAND_COLOR = "#25D366";
@@ -1326,9 +1328,6 @@ const LANGUAGE_OPTIONS: { code: SupportedLanguage; label: string }[] = [
   { code: "pt", label: "Português (BR)" },
 ];
 
-type ThemeName = "dark" | "light";
-type ThemePreference = "system" | ThemeName;
-
 type ThemeColors = {
   bg: string;
   surface: string;
@@ -1837,10 +1836,115 @@ function AuthenticatedApp({
     return Object.fromEntries(entries) as Record<string, string>;
   }, [teamCopy.roles]);
   const colorScheme = useColorScheme();
-  const [themePreference, setThemePreference] = useState<ThemePreference>("system");
+  const [themePreference, setThemePreferenceState] = useState<ThemePreference>(DEFAULT_THEME_PREFERENCE);
+  const [themePreferenceReady, setThemePreferenceReady] = useState<boolean>(() => !isSupabaseConfigured());
+  const pendingThemePreferenceRef = useRef<ThemePreference | null>(null);
   const resolvedTheme = themePreference === "system" ? (colorScheme === "dark" ? "dark" : "light") : themePreference;
   const colors = useMemo(() => THEMES[resolvedTheme], [resolvedTheme]);
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const persistUserPreferences = useCallback(
+    async (updates: { appearance?: ThemePreference; language?: SupportedLanguage }) => {
+      if (!isSupabaseConfigured()) {
+        return;
+      }
+
+      const userId = currentUser?.id;
+      if (!userId) {
+        return;
+      }
+
+      try {
+        await saveUserPreferences(userId, updates);
+      } catch (error) {
+        console.error("Failed to save user preferences", error);
+      }
+    },
+    [currentUser?.id],
+  );
+  useEffect(() => {
+    if (!isSupabaseConfigured()) {
+      setThemePreferenceReady(true);
+      return;
+    }
+
+    const userId = currentUser?.id;
+    if (!userId) {
+      if (!currentUserLoading) {
+        setThemePreferenceReady(true);
+      }
+      return;
+    }
+
+    let isMounted = true;
+    setThemePreferenceReady(false);
+
+    const loadPreferences = async () => {
+      try {
+        const preferences = await fetchUserPreferences(userId);
+        if (!isMounted) {
+          return;
+        }
+
+        if (preferences?.appearance) {
+          setThemePreferenceState(preferences.appearance);
+        }
+
+        if (!languageContext && preferences?.language) {
+          setFallbackLanguage(preferences.language);
+        }
+      } catch (error) {
+        console.error("Failed to load user preferences", error);
+      } finally {
+        if (isMounted) {
+          setThemePreferenceReady(true);
+        }
+      }
+    };
+
+    loadPreferences();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUser?.id, currentUserLoading, languageContext, setFallbackLanguage]);
+  useEffect(() => {
+    if (!isSupabaseConfigured()) {
+      return;
+    }
+
+    if (!themePreferenceReady) {
+      return;
+    }
+
+    if (!currentUser?.id) {
+      return;
+    }
+
+    if (!pendingThemePreferenceRef.current) {
+      return;
+    }
+
+    const nextPreference = pendingThemePreferenceRef.current;
+    pendingThemePreferenceRef.current = null;
+    void persistUserPreferences({ appearance: nextPreference });
+  }, [currentUser?.id, persistUserPreferences, themePreferenceReady]);
+  const setThemePreference = useCallback(
+    (next: ThemePreference) => {
+      setThemePreferenceState(next);
+
+      if (!isSupabaseConfigured()) {
+        return;
+      }
+
+      if (!currentUser?.id || !themePreferenceReady) {
+        pendingThemePreferenceRef.current = next;
+        return;
+      }
+
+      void persistUserPreferences({ appearance: next });
+    },
+    [currentUser?.id, persistUserPreferences, themePreferenceReady],
+  );
   const emailConfirmationCopy = copy.settingsPage.emailConfirmation;
   const [barbershop, setBarbershop] = useState<Barbershop | null>(null);
   const [barbershopForm, setBarbershopForm] = useState<{ name: string; slug: string; timezone: string }>(() => ({
