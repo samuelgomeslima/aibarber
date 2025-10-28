@@ -1,4 +1,5 @@
 import { Platform, StyleSheet } from "react-native";
+import { applyAlpha, mixHexColor } from "../../utils/color";
 import type { ThemeColors } from "../../theme/theme";
 
 /** ========== Design tokens & styles ========== */
