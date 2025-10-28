@@ -5,8 +5,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 
 import { LanguageProvider, useLanguageContext } from "../../contexts/LanguageContext";
+import { useThemeContext } from "../../contexts/ThemeContext";
 import type { SupportedLanguage } from "../../locales/language";
 import { isSupabaseConfigured, supabase } from "../../lib/supabase";
+import type { ThemeColors } from "../../theme/theme";
 
 const MENU_WIDTH = 248;
 const LEGACY_MENU_ICON_TOP = Platform.select<number>({ ios: 52, android: 40, default: 24 });
@@ -91,6 +93,79 @@ const LOGOUT_COPY: Record<
   },
 };
 
+type MenuTheme = {
+  rootBackground: string;
+  sidebarBackground: string;
+  sidebarBorderColor: string;
+  toggleBackground: string;
+  togglePressedBackground: string;
+  toggleIconColor: string;
+  floatingToggleBackground: string;
+  floatingToggleBorderColor: string;
+  iconActiveColor: string;
+  iconInactiveColor: string;
+  itemActiveBackground: string;
+  itemActiveBorderColor: string;
+  itemPressedBackground: string;
+  labelColor: string;
+  labelActiveColor: string;
+  footerBorderColor: string;
+  logoutBorderColor: string;
+  logoutPressedBackground: string;
+  logoutLabelColor: string;
+  logoutIconColor: string;
+};
+
+function getMenuTheme(resolvedTheme: "light" | "dark", colors: ThemeColors): MenuTheme {
+  if (resolvedTheme === "dark") {
+    return {
+      rootBackground: colors.bg,
+      sidebarBackground: colors.sidebarBg,
+      sidebarBorderColor: "#1e293b",
+      toggleBackground: "#1e293b",
+      togglePressedBackground: "#1f2a48",
+      toggleIconColor: "#f8fafc",
+      floatingToggleBackground: "#1e293b",
+      floatingToggleBorderColor: "#1e293b",
+      iconActiveColor: colors.accent,
+      iconInactiveColor: "#cbd5f5",
+      itemActiveBackground: "#0f172a",
+      itemActiveBorderColor: colors.accent,
+      itemPressedBackground: "#0f172a",
+      labelColor: colors.text,
+      labelActiveColor: colors.accent,
+      footerBorderColor: "#1e293b",
+      logoutBorderColor: "rgba(248, 113, 113, 0.4)",
+      logoutPressedBackground: "rgba(248, 113, 113, 0.12)",
+      logoutLabelColor: "#f87171",
+      logoutIconColor: "#f87171",
+    };
+  }
+
+  return {
+    rootBackground: colors.bg,
+    sidebarBackground: colors.sidebarBg,
+    sidebarBorderColor: "#e2e8f0",
+    toggleBackground: "#e2e8f0",
+    togglePressedBackground: "#cbd5f5",
+    toggleIconColor: colors.text,
+    floatingToggleBackground: colors.sidebarBg,
+    floatingToggleBorderColor: "#cbd5f5",
+    iconActiveColor: colors.accent,
+    iconInactiveColor: "#64748b",
+    itemActiveBackground: "#dbeafe",
+    itemActiveBorderColor: colors.accent,
+    itemPressedBackground: "#e2e8f0",
+    labelColor: colors.text,
+    labelActiveColor: colors.accent,
+    footerBorderColor: "#e2e8f0",
+    logoutBorderColor: "rgba(220, 38, 38, 0.35)",
+    logoutPressedBackground: "rgba(220, 38, 38, 0.08)",
+    logoutLabelColor: colors.danger,
+    logoutIconColor: colors.danger,
+  };
+}
+
 function TanstackNavigationLayoutContent(): React.ReactElement {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
@@ -99,6 +174,9 @@ function TanstackNavigationLayoutContent(): React.ReactElement {
   const { language } = useLanguageContext();
   const labels = MENU_LABELS[language];
   const logoutCopy = LOGOUT_COPY[language];
+  const { colors: themeColors, resolvedTheme } = useThemeContext();
+  const menuTheme = React.useMemo(() => getMenuTheme(resolvedTheme, themeColors), [resolvedTheme, themeColors]);
+  const styles = React.useMemo(() => createStyles(menuTheme), [menuTheme]);
 
   const handleNavigate = React.useCallback(
     (item: MenuItem) => {
@@ -148,7 +226,7 @@ function TanstackNavigationLayoutContent(): React.ReactElement {
             accessibilityRole="button"
             accessibilityLabel="Collapse tanstack navigation"
           >
-            <Ionicons name="chevron-forward" size={18} color="#f8fafc" />
+            <Ionicons name="chevron-forward" size={18} color={menuTheme.toggleIconColor} />
           </Pressable>
           <View style={styles.menuBody}>
             <ScrollView
@@ -174,7 +252,7 @@ function TanstackNavigationLayoutContent(): React.ReactElement {
                     <Ionicons
                       name={item.icon}
                       size={20}
-                      color={active ? "#38bdf8" : "#cbd5f5"}
+                      color={active ? menuTheme.iconActiveColor : menuTheme.iconInactiveColor}
                     />
                     <View style={styles.menuCopy}>
                       <Text style={[styles.menuLabel, active && styles.menuLabelActive]}>{label}</Text>
@@ -197,7 +275,7 @@ function TanstackNavigationLayoutContent(): React.ReactElement {
                 accessibilityLabel={logoutCopy.accessibility}
                 accessibilityState={{ disabled: loggingOut }}
               >
-                <Ionicons name="log-out-outline" size={20} color="#f87171" />
+                <Ionicons name="log-out-outline" size={20} color={menuTheme.logoutIconColor} />
                 <View style={styles.menuCopy}>
                   <Text style={[styles.menuLabel, styles.menuLogoutLabel]}>{logoutCopy.label}</Text>
                 </View>
@@ -213,7 +291,7 @@ function TanstackNavigationLayoutContent(): React.ReactElement {
           accessibilityRole="button"
           accessibilityLabel="Expand tanstack navigation"
         >
-          <Ionicons name="chevron-back" size={18} color="#f8fafc" />
+          <Ionicons name="chevron-back" size={18} color={menuTheme.toggleIconColor} />
         </Pressable>
       ) : null}
     </View>
@@ -228,112 +306,113 @@ export function TanstackNavigationLayout(): React.ReactElement {
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: "#020817",
-    position: "relative",
-  },
-  sidebar: {
-    backgroundColor: "#0b1120",
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    right: 0,
-    paddingTop: 24,
-    paddingBottom: 24,
-    borderLeftWidth: 1,
-    borderLeftColor: "#1e293b",
-    zIndex: 10,
-  },
-  menuBody: {
-    flex: 1,
-  },
-  toggle: {
-    alignSelf: "flex-start",
-    marginLeft: 16,
-    marginBottom: 16,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#1e293b",
-  },
-  togglePressed: {
-    backgroundColor: "#1f2a48",
-  },
-  floatingToggle: {
-    position: "absolute",
-    top: FLOATING_TOGGLE_TOP,
-    right: 16,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#1e293b",
-    borderWidth: 1,
-    borderColor: "#1e293b",
-    zIndex: 20,
-  },
-  menuContainer: {
-    gap: 12,
-    paddingHorizontal: 12,
-    paddingBottom: 24,
-  },
-  menuScroll: {
-    flex: 1,
-  },
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-  },
-  menuItemActive: {
-    backgroundColor: "#0f172a",
-    borderWidth: 1,
-    borderColor: "#38bdf8",
-  },
-  menuItemPressed: {
-    backgroundColor: "#0f172a",
-  },
-  menuCopy: {
-    flex: 1,
-    gap: 0,
-  },
-  menuLabel: {
-    color: "#e2e8f0",
-    fontWeight: "700",
-  },
-  menuLabelActive: {
-    color: "#38bdf8",
-  },
-  menuFooter: {
-    paddingHorizontal: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#1e293b",
-  },
-  menuLogout: {
-    borderWidth: 1,
-    borderColor: "rgba(248, 113, 113, 0.4)",
-  },
-  menuLogoutPressed: {
-    backgroundColor: "rgba(248, 113, 113, 0.12)",
-  },
-  menuLogoutLabel: {
-    color: "#f87171",
-  },
-  menuLogoutDisabled: {
-    opacity: 0.6,
-  },
-  content: {
-    flex: 1,
-  },
-});
+const createStyles = (theme: MenuTheme) =>
+  StyleSheet.create({
+    root: {
+      flex: 1,
+      backgroundColor: theme.rootBackground,
+      position: "relative",
+    },
+    sidebar: {
+      backgroundColor: theme.sidebarBackground,
+      position: "absolute",
+      top: 0,
+      bottom: 0,
+      right: 0,
+      paddingTop: 24,
+      paddingBottom: 24,
+      borderLeftWidth: 1,
+      borderLeftColor: theme.sidebarBorderColor,
+      zIndex: 10,
+    },
+    menuBody: {
+      flex: 1,
+    },
+    toggle: {
+      alignSelf: "flex-start",
+      marginLeft: 16,
+      marginBottom: 16,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.toggleBackground,
+    },
+    togglePressed: {
+      backgroundColor: theme.togglePressedBackground,
+    },
+    floatingToggle: {
+      position: "absolute",
+      top: FLOATING_TOGGLE_TOP,
+      right: 16,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.floatingToggleBackground,
+      borderWidth: 1,
+      borderColor: theme.floatingToggleBorderColor,
+      zIndex: 20,
+    },
+    menuContainer: {
+      gap: 12,
+      paddingHorizontal: 12,
+      paddingBottom: 24,
+    },
+    menuScroll: {
+      flex: 1,
+    },
+    menuItem: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 12,
+      paddingVertical: 12,
+      paddingHorizontal: 12,
+      borderRadius: 12,
+    },
+    menuItemActive: {
+      backgroundColor: theme.itemActiveBackground,
+      borderWidth: 1,
+      borderColor: theme.itemActiveBorderColor,
+    },
+    menuItemPressed: {
+      backgroundColor: theme.itemPressedBackground,
+    },
+    menuCopy: {
+      flex: 1,
+      gap: 0,
+    },
+    menuLabel: {
+      color: theme.labelColor,
+      fontWeight: "700",
+    },
+    menuLabelActive: {
+      color: theme.labelActiveColor,
+    },
+    menuFooter: {
+      paddingHorizontal: 12,
+      paddingTop: 12,
+      borderTopWidth: 1,
+      borderTopColor: theme.footerBorderColor,
+    },
+    menuLogout: {
+      borderWidth: 1,
+      borderColor: theme.logoutBorderColor,
+    },
+    menuLogoutPressed: {
+      backgroundColor: theme.logoutPressedBackground,
+    },
+    menuLogoutLabel: {
+      color: theme.logoutLabelColor,
+    },
+    menuLogoutDisabled: {
+      opacity: 0.6,
+    },
+    content: {
+      flex: 1,
+    },
+  });
 
 export default TanstackNavigationLayout;
