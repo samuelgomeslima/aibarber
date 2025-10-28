@@ -125,6 +125,10 @@ const LANGUAGE_COPY = {
       logoutErrorTitle: "Sign out failed",
       logoutErrorMessage: "Unable to sign out. Please try again.",
     },
+    loading: {
+      title: "Loading your workspace",
+      subtitle: "Hold on while we apply your preferences.",
+    },
     settingsPage: {
       title: "Settings",
       subtitle: "Manage your preferences for the AIBarber dashboard.",
@@ -730,6 +734,10 @@ const LANGUAGE_COPY = {
       logoutAccessibility: "Sair do AIBarber",
       logoutErrorTitle: "Falha ao sair",
       logoutErrorMessage: "Não foi possível encerrar a sessão. Tente novamente.",
+    },
+    loading: {
+      title: "Carregando seu painel",
+      subtitle: "Aguarde enquanto aplicamos suas preferências.",
     },
     settingsPage: {
       title: "Configurações",
@@ -1814,6 +1822,9 @@ function AuthenticatedApp({
   const [resendConfirmationError, setResendConfirmationError] = useState<string | null>(null);
   const languageContext = useOptionalLanguageContext();
   const [fallbackLanguage, setFallbackLanguage] = useState<SupportedLanguage>(() => getInitialLanguage());
+  const [fallbackLanguageReady, setFallbackLanguageReady] = useState<boolean>(() =>
+    languageContext ? true : !isSupabaseConfigured(),
+  );
   const language = languageContext?.language ?? fallbackLanguage;
   const setLanguage = languageContext?.setLanguage ?? setFallbackLanguage;
   const copy = useMemo(() => LANGUAGE_COPY[language], [language]);
@@ -1842,6 +1853,8 @@ function AuthenticatedApp({
   const resolvedTheme = themePreference === "system" ? (colorScheme === "dark" ? "dark" : "light") : themePreference;
   const colors = useMemo(() => THEMES[resolvedTheme], [resolvedTheme]);
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const languageReady = languageContext ? languageContext.ready : fallbackLanguageReady;
+  const preferencesReady = themePreferenceReady && languageReady;
   const persistUserPreferences = useCallback(
     async (updates: { appearance?: ThemePreference; language?: SupportedLanguage }) => {
       if (!isSupabaseConfigured()) {
@@ -1864,6 +1877,9 @@ function AuthenticatedApp({
   useEffect(() => {
     if (!isSupabaseConfigured()) {
       setThemePreferenceReady(true);
+      if (!languageContext) {
+        setFallbackLanguageReady(true);
+      }
       return;
     }
 
@@ -1871,12 +1887,18 @@ function AuthenticatedApp({
     if (!userId) {
       if (!currentUserLoading) {
         setThemePreferenceReady(true);
+        if (!languageContext) {
+          setFallbackLanguageReady(true);
+        }
       }
       return;
     }
 
     let isMounted = true;
     setThemePreferenceReady(false);
+    if (!languageContext) {
+      setFallbackLanguageReady(false);
+    }
 
     const loadPreferences = async () => {
       try {
@@ -1898,9 +1920,15 @@ function AuthenticatedApp({
         }
       } catch (error) {
         console.error("Failed to load user preferences", error);
+        if (!languageContext && isMounted) {
+          setFallbackLanguageReady(true);
+        }
       } finally {
         if (isMounted) {
           setThemePreferenceReady(true);
+          if (!languageContext) {
+            setFallbackLanguageReady(true);
+          }
         }
       }
     };
@@ -3821,8 +3849,20 @@ function AuthenticatedApp({
     };
   }, [colors.bg]);
 
+  if (!preferencesReady) {
+    return (
+      <View style={[styles.loadingRoot, { backgroundColor: colors.bg }]}>
+        <View style={[styles.loadingCard, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+          <ActivityIndicator size="large" color={colors.accent} />
+          <Text style={[styles.loadingTitle, { color: colors.text }]}>{copy.loading.title}</Text>
+          <Text style={[styles.loadingSubtitle, { color: colors.subtext }]}>{copy.loading.subtitle}</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
-    <View style={[styles.appShell, { backgroundColor: colors.bg }]}>
+    <View style={[styles.appShell, { backgroundColor: colors.bg }]}> 
       {!sidebarOpen && (
         <Pressable
           onPress={() => setSidebarOpen(true)}
@@ -5763,6 +5803,24 @@ const SHADOW = Platform.select({
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   appShell: { flex: 1 },
+  loadingRoot: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  loadingCard: {
+    width: "100%",
+    maxWidth: 360,
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingVertical: 32,
+    paddingHorizontal: 24,
+    alignItems: "center",
+    gap: 12,
+  },
+  loadingTitle: { fontSize: 18, fontWeight: "800", textAlign: "center" },
+  loadingSubtitle: { fontSize: 14, fontWeight: "600", textAlign: "center" },
   menuFab: {
     position: "absolute",
     right: 16,
