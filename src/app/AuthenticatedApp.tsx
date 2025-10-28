@@ -17,6 +17,7 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import type { User } from "@supabase/supabase-js";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   BARBERS,
@@ -89,6 +90,7 @@ import {
 } from "../lib/cashRegister";
 import { listStaffMembers, type StaffMember, type StaffRole } from "../lib/users";
 import { checkApiStatuses, type ApiServiceName, type ApiServiceStatus } from "../lib/apiStatus";
+import { queryKeys } from "../lib/queryKeys";
 
 /* Components (mantidos) */
 import DateSelector from "../components/DateSelector";
@@ -1677,6 +1679,11 @@ export type ProductsScreenRenderer = (
   props: ProductsScreenProps,
 ) => React.ReactElement | null;
 
+type ProductsQueryData = {
+  products: Product[];
+  totals: Record<string, number>;
+};
+
 export type ServicesScreenProps = {
   isCompactLayout: boolean;
   colors: ThemeColors;
@@ -1779,9 +1786,6 @@ function AuthenticatedApp({
   const [packageFormVisible, setPackageFormVisible] = useState(false);
   const [packageFormMode, setPackageFormMode] = useState<"create" | "edit">("create");
   const [packageBeingEdited, setPackageBeingEdited] = useState<ServicePackage | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [productSalesTotals, setProductSalesTotals] = useState<Record<string, number>>({});
-  const [productsLoading, setProductsLoading] = useState(false);
   const [productFormVisible, setProductFormVisible] = useState(false);
   const [productFormMode, setProductFormMode] = useState<"create" | "edit">("create");
   const [productBeingEdited, setProductBeingEdited] = useState<Product | null>(null);
@@ -2257,12 +2261,6 @@ function AuthenticatedApp({
     () => new Map(localizedServices.map((s) => [s.id, s])),
     [localizedServices],
   );
-  const localizedProducts = useMemo(() => polyglotProducts(products, language), [products, language]);
-  const productMap = useMemo(() => new Map(products.map((product) => [product.id, product])), [products]);
-  const localizedProductMap = useMemo(
-    () => new Map(localizedProducts.map((product) => [product.id, product])),
-    [localizedProducts],
-  );
   const sortProducts = useCallback(
     (list: Product[]) =>
       [...list].sort((a, b) =>
@@ -2271,6 +2269,49 @@ function AuthenticatedApp({
         }),
       ),
     [language, locale],
+  );
+
+  const queryClient = useQueryClient();
+  const productsQueryKey = queryKeys.products;
+
+  const productsQuery = useQuery<ProductsQueryData>({
+    queryKey: productsQueryKey,
+    queryFn: async () => {
+      const [rows, totals] = await Promise.all([listProducts(), listProductSalesTotals()]);
+      const normalizedTotals: Record<string, number> = {};
+      rows.forEach((product) => {
+        normalizedTotals[product.id] = totals[product.id] ?? 0;
+      });
+      return { products: rows, totals: normalizedTotals } satisfies ProductsQueryData;
+    },
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(error);
+      Alert.alert(productsCopy.alerts.loadTitle, message);
+    },
+  });
+
+  const products = useMemo(
+    () => sortProducts(productsQuery.data?.products ?? []),
+    [productsQuery.data?.products, sortProducts],
+  );
+  const productSalesTotals = productsQuery.data?.totals ?? {};
+  const productsLoading = productsQuery.isPending || productsQuery.isRefetching;
+
+  const localizedProducts = useMemo(() => polyglotProducts(products, language), [products, language]);
+  const productMap = useMemo(() => new Map(products.map((product) => [product.id, product])), [products]);
+  const localizedProductMap = useMemo(
+    () => new Map(localizedProducts.map((product) => [product.id, product])),
+    [localizedProducts],
+  );
+
+  const updateProductsCache = useCallback(
+    (updater: (current: ProductsQueryData) => ProductsQueryData) => {
+      queryClient.setQueryData<ProductsQueryData>(productsQueryKey, (current) =>
+        updater(current ?? { products: [], totals: {} }),
+      );
+    },
+    [queryClient, productsQueryKey],
   );
 
   const sortCashEntries = useCallback(
@@ -2368,34 +2409,8 @@ function AuthenticatedApp({
   }, [loadServicePackages]);
 
   const loadProducts = useCallback(async () => {
-    setProductsLoading(true);
-    try {
-      const [rows, totals] = await Promise.all([listProducts(), listProductSalesTotals()]);
-      setProducts(sortProducts(rows));
-      setProductSalesTotals(() => {
-        const next: Record<string, number> = {};
-        rows.forEach((product) => {
-          next[product.id] = totals[product.id] ?? 0;
-        });
-        return next;
-      });
-    } catch (e: any) {
-      console.error(e);
-      Alert.alert(productsCopy.alerts.loadTitle, e?.message ?? String(e));
-      setProducts([]);
-      setProductSalesTotals({});
-    } finally {
-      setProductsLoading(false);
-    }
-  }, [productsCopy.alerts.loadTitle, sortProducts]);
-
-  useEffect(() => {
-    loadProducts();
-  }, [loadProducts]);
-
-  useEffect(() => {
-    setProducts((prev) => sortProducts(prev));
-  }, [sortProducts]);
+    await queryClient.invalidateQueries({ queryKey: productsQueryKey });
+  }, [queryClient, productsQueryKey]);
 
   const loadCashRegister = useCallback(async () => {
     setCashLoading(true);
@@ -2730,26 +2745,39 @@ function AuthenticatedApp({
 
   const handleProductCreated = useCallback(
     (product: Product) => {
-      setProducts((prev) => sortProducts([...prev, product]));
-      setProductSalesTotals((prev) => ({
-        ...prev,
-        [product.id]: prev[product.id] ?? 0,
-      }));
+      updateProductsCache((current) => {
+        const withoutCurrent = current.products.filter((item) => item.id !== product.id);
+        return {
+          products: [...withoutCurrent, product],
+          totals: {
+            ...current.totals,
+            [product.id]: current.totals[product.id] ?? 0,
+          },
+        };
+      });
       handleProductFormClose();
     },
-    [handleProductFormClose, sortProducts],
+    [handleProductFormClose, updateProductsCache],
   );
 
   const handleProductUpdated = useCallback(
     (product: Product) => {
-      setProducts((prev) => sortProducts(prev.map((item) => (item.id === product.id ? product : item))));
-      setProductSalesTotals((prev) => ({
-        ...prev,
-        [product.id]: prev[product.id] ?? 0,
-      }));
+      updateProductsCache((current) => {
+        const hasProduct = current.products.some((item) => item.id === product.id);
+        const nextProducts = hasProduct
+          ? current.products.map((item) => (item.id === product.id ? product : item))
+          : [...current.products, product];
+        return {
+          products: nextProducts,
+          totals: {
+            ...current.totals,
+            [product.id]: current.totals[product.id] ?? 0,
+          },
+        };
+      });
       handleProductFormClose();
     },
-    [handleProductFormClose, sortProducts],
+    [handleProductFormClose, updateProductsCache],
   );
 
   const handleDeleteProduct = useCallback(
@@ -2761,10 +2789,10 @@ function AuthenticatedApp({
       const executeDelete = async () => {
         try {
           await deleteProduct(product.id);
-          setProducts((prev) => prev.filter((item) => item.id !== product.id));
-          setProductSalesTotals((prev) => {
-            const { [product.id]: _ignored, ...rest } = prev;
-            return rest;
+          updateProductsCache((current) => {
+            const filtered = current.products.filter((item) => item.id !== product.id);
+            const { [product.id]: _ignored, ...rest } = current.totals;
+            return { products: filtered, totals: rest };
           });
         } catch (e: any) {
           console.error(e);
@@ -2789,7 +2817,7 @@ function AuthenticatedApp({
         ],
       );
     },
-    [localizedProductMap, productsCopy],
+    [localizedProductMap, productsCopy, updateProductsCache],
   );
 
   const handleOpenSellProduct = useCallback((product: Product) => {
@@ -2863,15 +2891,20 @@ function AuthenticatedApp({
         );
       }
 
-      setProducts((prev) =>
-        sortProducts(prev.map((item) => (item.id === updated.id ? updated : item))),
-      );
-      if (stockModalMode === "sell") {
-        setProductSalesTotals((prev) => ({
-          ...prev,
-          [updated.id]: (prev[updated.id] ?? 0) + quantity,
-        }));
-      }
+      updateProductsCache((current) => {
+        const hasProduct = current.products.some((item) => item.id === updated.id);
+        const nextProducts = hasProduct
+          ? current.products.map((item) => (item.id === updated.id ? updated : item))
+          : [...current.products, updated];
+        const nextTotals = { ...current.totals };
+        if (!(updated.id in nextTotals)) {
+          nextTotals[updated.id] = nextTotals[updated.id] ?? 0;
+        }
+        if (stockModalMode === "sell") {
+          nextTotals[updated.id] = (nextTotals[updated.id] ?? 0) + quantity;
+        }
+        return { products: nextProducts, totals: nextTotals };
+      });
       handleCloseStockModal();
     } catch (e: any) {
       const title =
@@ -2891,11 +2924,11 @@ function AuthenticatedApp({
     productsCopy.alerts.restockErrorTitle,
     productsCopy.alerts.sellErrorTitle,
     productsCopy.stockModal,
-    sortProducts,
     stockModalMode,
     stockModalProduct,
     stockQuantityText,
     language,
+    updateProductsCache,
   ]);
 
   const stockModalDisplayProduct = stockModalProduct

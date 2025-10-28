@@ -9,6 +9,7 @@ config.resolver.extraNodeModules = {
   ...(config.resolver.extraNodeModules || {}),
   "expo-router": path.resolve(projectRoot, "src/router/expo-router"),
   "@tanstack/react-router": path.resolve(projectRoot, "src/router/tanstack"),
+  "@tanstack/react-query": path.resolve(projectRoot, "src/query"),
 };
 
 module.exports = config;

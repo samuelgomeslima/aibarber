@@ -1,4 +1,5 @@
 import { hasSupabaseCredentials, supabase } from "./supabase";
+import { queryClient } from "./queryClient";
 
 let cachedBarbershopId: string | null = null;
 let hasResolvedBarbershopId = false;
@@ -102,4 +103,5 @@ export function clearCurrentBarbershopCache(): void {
   hasResolvedBarbershopId = false;
   pendingRequest = null;
   pendingRequestToken = null;
+  queryClient.clear();
 }
