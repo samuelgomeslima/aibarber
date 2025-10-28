@@ -1777,8 +1777,6 @@ function AuthenticatedApp({
   const [apiStatusError, setApiStatusError] = useState<string | null>(null);
   const apiStatusRequestId = useRef(0);
   const [activeScreen, setActiveScreen] = useState<ScreenName>(initialScreen);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentUserLoading, setCurrentUserLoading] = useState(true);
   const [resendingConfirmation, setResendingConfirmation] = useState(false);
@@ -1878,7 +1876,6 @@ function AuthenticatedApp({
 
   useEffect(() => {
     setActiveScreen(initialScreen);
-    setSidebarOpen(false);
   }, [initialScreen]);
 
   useEffect(() => {
@@ -2155,7 +2152,6 @@ function AuthenticatedApp({
   const screenWidth = windowWidth || 0;
   const isCompactLayout = screenWidth < 768;
   const isUltraCompactLayout = screenWidth < 560;
-  const sidebarWidth = Math.min(320, Math.max(240, screenWidth * 0.9));
 
   const [weekBookings, setWeekBookings] = useState<BookingWithCustomer[]>([]);
   const [weekDays, setWeekDays] = useState<{ date: Date; key: string }[]>([]);
@@ -3667,38 +3663,13 @@ function AuthenticatedApp({
     },
   ];
 
-  const bookingsNavActive = activeScreen === "bookings" || activeScreen === "bookService";
-
   const handleNavigate = useCallback(
     (screen: ScreenName) => {
       setActiveScreen(screen);
-      setSidebarOpen(false);
       onNavigate?.(screen);
     },
     [onNavigate],
   );
-
-  const handleLogout = useCallback(async () => {
-    if (loggingOut) return;
-
-    setSidebarOpen(false);
-    setLoggingOut(true);
-
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        throw error;
-      }
-    } catch (error) {
-      const fallback = copy.navigation.logoutErrorMessage;
-      const message = error instanceof Error ? error.message : fallback;
-      Alert.alert(copy.navigation.logoutErrorTitle, message || fallback);
-    } finally {
-      setLoggingOut(false);
-    }
-  }, [loggingOut, copy.navigation.logoutErrorMessage, copy.navigation.logoutErrorTitle]);
-
-  const menuButtonTop = Platform.select({ ios: 52, android: 40, default: 24 });
 
   useEffect(() => {
     if (Platform.OS !== "web" || typeof document === "undefined") return;
@@ -3747,231 +3718,7 @@ function AuthenticatedApp({
   }
 
   return (
-    <View style={[styles.appShell, { backgroundColor: colors.bg }]}> 
-      {!sidebarOpen && (
-        <Pressable
-          onPress={() => setSidebarOpen(true)}
-          style={[
-            styles.menuFab,
-            {
-              top: menuButtonTop,
-              borderColor: colors.border,
-              backgroundColor: colors.sidebarBg,
-            },
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel="Open navigation menu"
-        >
-          <MaterialCommunityIcons name="menu" size={20} color={colors.text} />
-        </Pressable>
-      )}
-
-      {sidebarOpen && (
-        <Pressable
-          onPress={() => setSidebarOpen(false)}
-          style={styles.sidebarBackdrop}
-          accessibilityRole="button"
-          accessibilityLabel="Close navigation menu"
-        />
-      )}
-
-      <View
-        style={[
-          styles.sidebar,
-          { borderColor: colors.border, backgroundColor: colors.sidebarBg, width: sidebarWidth },
-          sidebarOpen
-            ? styles.sidebarOpen
-            : [styles.sidebarClosed, { transform: [{ translateX: sidebarWidth + 40 }] }],
-        ]}
-        pointerEvents={sidebarOpen ? "auto" : "none"}
-      >
-        <View style={styles.sidebarHeader}>
-          <View style={styles.sidebarBrand}>
-            <MaterialCommunityIcons name="content-cut" size={22} color="#fff" />
-            <Text style={styles.navBrand}>AIBarber</Text>
-          </View>
-          <Pressable
-            onPress={() => setSidebarOpen(false)}
-            style={styles.sidebarClose}
-            accessibilityRole="button"
-            accessibilityLabel="Close navigation menu"
-          >
-            <Ionicons name="close" size={18} color={colors.subtext} />
-          </Pressable>
-        </View>
-        <View style={styles.sidebarItems}>
-          <Pressable
-            onPress={() => handleNavigate("home")}
-            style={[styles.sidebarItem, activeScreen === "home" && styles.sidebarItemActive]}
-            accessibilityRole="button"
-            accessibilityLabel="Go to overview"
-          >
-            <MaterialCommunityIcons
-              name="view-dashboard-outline"
-              size={20}
-              color={activeScreen === "home" ? colors.accentFgOn : colors.subtext}
-            />
-            <Text style={[styles.sidebarItemText, activeScreen === "home" && styles.sidebarItemTextActive]}>
-              {copy.navigation.overview}
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => handleNavigate("bookings")}
-            style={[styles.sidebarItem, bookingsNavActive && styles.sidebarItemActive]}
-            accessibilityRole="button"
-            accessibilityLabel="Go to bookings"
-          >
-            <MaterialCommunityIcons
-              name="calendar-clock"
-              size={20}
-              color={bookingsNavActive ? colors.accentFgOn : colors.subtext}
-            />
-            <Text style={[styles.sidebarItemText, bookingsNavActive && styles.sidebarItemTextActive]}>
-              {copy.navigation.bookings}
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => handleNavigate("services")}
-            style={[styles.sidebarItem, activeScreen === "services" && styles.sidebarItemActive]}
-            accessibilityRole="button"
-            accessibilityLabel="Manage services"
-          >
-            <MaterialCommunityIcons
-              name="briefcase-outline"
-              size={20}
-              color={activeScreen === "services" ? colors.accentFgOn : colors.subtext}
-            />
-            <Text style={[styles.sidebarItemText, activeScreen === "services" && styles.sidebarItemTextActive]}>
-              {copy.navigation.services}
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => handleNavigate("packages")}
-            style={[styles.sidebarItem, activeScreen === "packages" && styles.sidebarItemActive]}
-            accessibilityRole="button"
-            accessibilityLabel="Manage service packages"
-          >
-            <MaterialCommunityIcons
-              name="package-variant"
-              size={20}
-              color={activeScreen === "packages" ? colors.accentFgOn : colors.subtext}
-            />
-            <Text style={[styles.sidebarItemText, activeScreen === "packages" && styles.sidebarItemTextActive]}>
-              {copy.navigation.packages}
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => handleNavigate("products")}
-            style={[styles.sidebarItem, activeScreen === "products" && styles.sidebarItemActive]}
-            accessibilityRole="button"
-            accessibilityLabel="Manage products"
-          >
-            <MaterialCommunityIcons
-              name="store-outline"
-              size={20}
-              color={activeScreen === "products" ? colors.accentFgOn : colors.subtext}
-            />
-            <Text style={[styles.sidebarItemText, activeScreen === "products" && styles.sidebarItemTextActive]}>
-              {copy.navigation.products}
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => handleNavigate("cashRegister")}
-            style={[styles.sidebarItem, activeScreen === "cashRegister" && styles.sidebarItemActive]}
-            accessibilityRole="button"
-            accessibilityLabel="Open cash register"
-          >
-            <MaterialCommunityIcons
-              name="cash-register"
-              size={20}
-              color={activeScreen === "cashRegister" ? colors.accentFgOn : colors.subtext}
-            />
-            <Text style={[styles.sidebarItemText, activeScreen === "cashRegister" && styles.sidebarItemTextActive]}>
-              {copy.navigation.cashRegister}
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => handleNavigate("assistant")}
-            style={[styles.sidebarItem, activeScreen === "assistant" && styles.sidebarItemActive]}
-            accessibilityRole="button"
-            accessibilityLabel="Open the AI assistant"
-          >
-            <Ionicons
-              name="sparkles-outline"
-              size={20}
-              color={activeScreen === "assistant" ? colors.accentFgOn : colors.subtext}
-            />
-            <Text style={[styles.sidebarItemText, activeScreen === "assistant" && styles.sidebarItemTextActive]}>
-              {copy.navigation.assistant}
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => handleNavigate("support")}
-            style={[styles.sidebarItem, activeScreen === "support" && styles.sidebarItemActive]}
-            accessibilityRole="button"
-            accessibilityLabel="Open the support assistant"
-          >
-            <Ionicons
-              name="chatbubble-ellipses-outline"
-              size={20}
-              color={activeScreen === "support" ? colors.accentFgOn : colors.subtext}
-            />
-            <Text style={[styles.sidebarItemText, activeScreen === "support" && styles.sidebarItemTextActive]}>
-              {copy.navigation.support}
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => handleNavigate("team")}
-            style={[styles.sidebarItem, activeScreen === "team" && styles.sidebarItemActive]}
-            accessibilityRole="button"
-            accessibilityLabel="Manage team members"
-          >
-            <Ionicons
-              name="people-outline"
-              size={20}
-              color={activeScreen === "team" ? colors.accentFgOn : colors.subtext}
-            />
-            <Text style={[styles.sidebarItemText, activeScreen === "team" && styles.sidebarItemTextActive]}>
-              {copy.navigation.team}
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => handleNavigate("settings")}
-            style={[styles.sidebarItem, activeScreen === "settings" && styles.sidebarItemActive]}
-            accessibilityRole="button"
-            accessibilityLabel="Configure app settings"
-          >
-            <Ionicons
-              name="settings-outline"
-              size={20}
-              color={activeScreen === "settings" ? colors.accentFgOn : colors.subtext}
-            />
-            <Text style={[styles.sidebarItemText, activeScreen === "settings" && styles.sidebarItemTextActive]}>
-              {copy.navigation.settings}
-            </Text>
-          </Pressable>
-        </View>
-        <View style={[styles.sidebarFooter, { borderTopColor: colors.border }]}>
-          <Pressable
-            onPress={handleLogout}
-            disabled={loggingOut}
-            style={({ pressed }) => [
-              styles.sidebarLogout,
-              {
-                borderColor: applyAlpha(colors.danger, 0.35),
-                backgroundColor: pressed || loggingOut ? applyAlpha(colors.danger, 0.12) : "transparent",
-                opacity: loggingOut ? 0.6 : 1,
-              },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel={copy.navigation.logoutAccessibility}
-          >
-            <Ionicons name="log-out-outline" size={20} color={colors.danger} />
-            <Text style={[styles.sidebarLogoutText, { color: colors.danger }]}>{copy.navigation.logout}</Text>
-          </Pressable>
-        </View>
-      </View>
-
+    <View style={[styles.appShell, { backgroundColor: colors.bg }]}>
       <View style={styles.mainArea}>
         {activeScreen === "bookService" ? (
           <>
@@ -5706,101 +5453,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   loadingTitle: { fontSize: 18, fontWeight: "800", textAlign: "center" },
   loadingSubtitle: { fontSize: 14, fontWeight: "600", textAlign: "center" },
-  menuFab: {
-    position: "absolute",
-    right: 16,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 40,
-    ...(SHADOW as object),
-  },
-  sidebarBackdrop: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.35)",
-    zIndex: 20,
-  },
-  sidebar: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    right: 0,
-    width: 260,
-    paddingTop: Platform.select({ ios: 52, android: 40, default: 24 }),
-    paddingBottom: 24,
-    paddingHorizontal: 16,
-    borderLeftWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.sidebarBg,
-    alignItems: "stretch",
-    gap: 16,
-    zIndex: 30,
-    ...(SHADOW as object),
-  },
-  sidebarOpen: { transform: [{ translateX: 0 }] },
-  sidebarClosed: { transform: [{ translateX: 320 }] },
-  sidebarHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  sidebarBrand: { flexDirection: "row", alignItems: "center", gap: 10 },
-  navBrand: { color: colors.text, fontSize: 18, fontWeight: "800", letterSpacing: 0.3 },
-  sidebarClose: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.surface,
-  },
-  sidebarItems: {
-    flex: 1,
-    gap: 8,
-    width: "100%",
-  },
-  sidebarFooter: {
-    paddingTop: 12,
-    marginTop: 4,
-    borderTopWidth: 1,
-    width: "100%",
-  },
-  sidebarItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "transparent",
-    backgroundColor: "transparent",
-  },
-  sidebarItemActive: { backgroundColor: colors.accent, borderColor: colors.accent },
-  sidebarItemText: { color: colors.subtext, fontWeight: "700" },
-  sidebarItemTextActive: { color: colors.accentFgOn },
-  sidebarLogout: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  sidebarLogoutText: { fontWeight: "700" },
   mainArea: { flex: 1 },
 
   defaultScreen: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 16 },
