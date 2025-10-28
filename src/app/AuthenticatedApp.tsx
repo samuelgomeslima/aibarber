@@ -174,6 +174,24 @@ const LANGUAGE_COPY = {
         cta: "Edit barbershop data",
         ctaAccessibility: "Open barbershop profile settings",
       },
+      services: {
+        title: "Services",
+        description: "Create, edit, and archive the services available for booking.",
+        cta: "Manage services",
+        ctaAccessibility: "Open services management",
+      },
+      packages: {
+        title: "Packages",
+        description: "Bundle services together and adjust their pricing.",
+        cta: "Manage packages",
+        ctaAccessibility: "Open service packages management",
+      },
+      team: {
+        title: "Team members",
+        description: "Invite and update the professionals who can access your workspace.",
+        cta: "Manage team",
+        ctaAccessibility: "Open team management",
+      },
     },
     teamPage: {
       title: "Team members",
@@ -783,6 +801,24 @@ const LANGUAGE_COPY = {
         description: "Atualize o nome do workspace, o slug público e o fuso horário.",
         cta: "Editar dados da barbearia",
         ctaAccessibility: "Abrir edição do perfil da barbearia",
+      },
+      services: {
+        title: "Serviços",
+        description: "Crie, edite e arquive os serviços disponíveis para agendamento.",
+        cta: "Gerenciar serviços",
+        ctaAccessibility: "Abrir gerenciamento de serviços",
+      },
+      packages: {
+        title: "Pacotes",
+        description: "Combine serviços e ajuste os preços dos pacotes.",
+        cta: "Gerenciar pacotes",
+        ctaAccessibility: "Abrir gerenciamento de pacotes de serviços",
+      },
+      team: {
+        title: "Membros da equipe",
+        description: "Convide e atualize os profissionais que podem acessar o workspace.",
+        cta: "Gerenciar equipe",
+        ctaAccessibility: "Abrir gerenciamento da equipe",
       },
     },
     teamPage: {
@@ -1803,6 +1839,9 @@ function AuthenticatedApp({
   const serviceFormCopy = copy.serviceForm;
   const teamCopy = copy.teamPage;
   const settingsBarbershopCopy = copy.settingsPage.barbershop;
+  const settingsServicesCopy = copy.settingsPage.services;
+  const settingsPackagesCopy = copy.settingsPage.packages;
+  const settingsTeamCopy = copy.settingsPage.team;
   const barbershopPageCopy = copy.barbershopPage;
   const teamRoleLabelMap = useMemo(() => {
     const entries = teamCopy.roles.map((role) => [role.value, role.label]);
@@ -4784,6 +4823,87 @@ function AuthenticatedApp({
             accessibilityLabel={settingsBarbershopCopy.ctaAccessibility}
           >
             <Text style={{ color: colors.accentFgOn, fontWeight: "900" }}>{settingsBarbershopCopy.cta}</Text>
+          </Pressable>
+        </View>
+
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <MaterialCommunityIcons name="content-cut" size={22} color={colors.accent} />
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={[styles.languageLabel, { color: colors.subtext }]}>{settingsServicesCopy.title}</Text>
+              <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
+                {settingsServicesCopy.description}
+              </Text>
+            </View>
+          </View>
+          <Pressable
+            onPress={() => handleNavigate("services")}
+            style={[
+              styles.smallBtn,
+              {
+                alignSelf: "flex-start",
+                borderColor: colors.accent,
+                backgroundColor: colors.accent,
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={settingsServicesCopy.ctaAccessibility}
+          >
+            <Text style={{ color: colors.accentFgOn, fontWeight: "900" }}>{settingsServicesCopy.cta}</Text>
+          </Pressable>
+        </View>
+
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <MaterialCommunityIcons name="package-variant-closed" size={22} color={colors.accent} />
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={[styles.languageLabel, { color: colors.subtext }]}>{settingsPackagesCopy.title}</Text>
+              <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
+                {settingsPackagesCopy.description}
+              </Text>
+            </View>
+          </View>
+          <Pressable
+            onPress={() => handleNavigate("packages")}
+            style={[
+              styles.smallBtn,
+              {
+                alignSelf: "flex-start",
+                borderColor: colors.accent,
+                backgroundColor: colors.accent,
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={settingsPackagesCopy.ctaAccessibility}
+          >
+            <Text style={{ color: colors.accentFgOn, fontWeight: "900" }}>{settingsPackagesCopy.cta}</Text>
+          </Pressable>
+        </View>
+
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <MaterialCommunityIcons name="account-group-outline" size={22} color={colors.accent} />
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={[styles.languageLabel, { color: colors.subtext }]}>{settingsTeamCopy.title}</Text>
+              <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
+                {settingsTeamCopy.description}
+              </Text>
+            </View>
+          </View>
+          <Pressable
+            onPress={() => handleNavigate("team")}
+            style={[
+              styles.smallBtn,
+              {
+                alignSelf: "flex-start",
+                borderColor: colors.accent,
+                backgroundColor: colors.accent,
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={settingsTeamCopy.ctaAccessibility}
+          >
+            <Text style={{ color: colors.accentFgOn, fontWeight: "900" }}>{settingsTeamCopy.cta}</Text>
           </Pressable>
         </View>
 
