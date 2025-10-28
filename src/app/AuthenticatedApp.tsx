@@ -1885,7 +1885,11 @@ function AuthenticatedApp({
           return;
         }
 
-        if (preferences?.appearance) {
+        const pendingThemePreference = pendingThemePreferenceRef.current;
+
+        if (pendingThemePreference) {
+          setThemePreferenceState(pendingThemePreference);
+        } else if (preferences?.appearance) {
           setThemePreferenceState(preferences.appearance);
         }
 

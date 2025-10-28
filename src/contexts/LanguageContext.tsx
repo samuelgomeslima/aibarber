@@ -110,7 +110,11 @@ export function LanguageProvider({ children }: { children: React.ReactNode }): R
           return;
         }
 
-        if (preferences?.language) {
+        const pendingLanguage = pendingUpdatesRef.current?.language;
+
+        if (pendingLanguage) {
+          setLanguageState(pendingLanguage);
+        } else if (preferences?.language) {
           setLanguageState(preferences.language);
         } else {
           setLanguageState(initialLanguage);
