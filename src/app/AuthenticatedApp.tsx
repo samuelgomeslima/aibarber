@@ -256,7 +256,6 @@ const LANGUAGE_COPY = {
       actions: {
         save: "Save changes",
         saving: "Saving…",
-        back: "Back to settings",
         retry: "Try again",
       },
       feedback: {
@@ -1451,7 +1450,6 @@ export type BarbershopSettingsScreenProps = {
   barbershopSuccess: string | null;
   handleBarbershopFieldChange: (field: "name" | "slug" | "timezone", value: string) => void;
   handleSaveBarbershop: () => Promise<void>;
-  handleNavigateToSettings: () => void;
   handleRetryBarbershop: () => Promise<void>;
 };
 
@@ -1499,7 +1497,6 @@ const defaultBarbershopSettingsRenderer: BarbershopSettingsScreenRenderer = ({
   barbershopSuccess,
   handleBarbershopFieldChange,
   handleSaveBarbershop,
-  handleNavigateToSettings,
   handleRetryBarbershop,
 }) => (
   <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}>
@@ -1597,17 +1594,6 @@ const defaultBarbershopSettingsRenderer: BarbershopSettingsScreenRenderer = ({
           gap: 12,
         }}
       >
-        <Pressable
-          onPress={handleNavigateToSettings}
-          style={[styles.smallBtn, { borderColor: colors.border }]}
-          accessibilityRole="button"
-          accessibilityLabel={barbershopPageCopy.actions.back}
-        >
-          <Text style={{ color: colors.subtext, fontWeight: "800" }}>
-            {barbershopPageCopy.actions.back}
-          </Text>
-        </Pressable>
-
         {barbershop ? (
           <Pressable
             onPress={handleSaveBarbershop}
@@ -4577,7 +4563,6 @@ function AuthenticatedApp({
         barbershopSuccess,
         handleBarbershopFieldChange,
         handleSaveBarbershop,
-        handleNavigateToSettings: () => handleNavigate("settings"),
         handleRetryBarbershop,
       })
     ) : activeScreen === "settings" ? (
