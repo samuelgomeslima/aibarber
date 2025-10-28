@@ -12,7 +12,8 @@ type LanguageContextValue = {
 const LanguageContext = React.createContext<LanguageContextValue | undefined>(undefined);
 
 export function LanguageProvider({ children }: { children: React.ReactNode }): React.ReactElement {
-  const [language, setLanguageState] = React.useState<SupportedLanguage>(() => getInitialLanguage());
+  const initialLanguage = React.useMemo(() => getInitialLanguage(), []);
+  const [language, setLanguageState] = React.useState<SupportedLanguage>(initialLanguage);
   const [userId, setUserId] = React.useState<string | null>(null);
   const [preferencesReady, setPreferencesReady] = React.useState<boolean>(() => !isSupabaseConfigured());
   const pendingUpdatesRef = React.useRef<UserPreferencesUpdate | null>(null);
@@ -44,7 +45,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }): R
 
     let isMounted = true;
 
-    const loadPreferences = async () => {
+    const resolveInitialUser = async () => {
       try {
         const { data, error } = await supabase.auth.getUser();
         if (error) {
@@ -55,20 +56,65 @@ export function LanguageProvider({ children }: { children: React.ReactNode }): R
           return;
         }
 
-        const id = data.user?.id ?? null;
-        setUserId(id);
-
-        if (!id) {
-          return;
+        setUserId(data.user?.id ?? null);
+      } catch (error) {
+        console.error("Failed to resolve authenticated user", error);
+        if (isMounted) {
+          setUserId(null);
         }
+      }
+    };
 
-        const preferences = await fetchUserPreferences(id);
+    void resolveInitialUser();
+
+    const { data, error } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isMounted) {
+        return;
+      }
+
+      setUserId(session?.user?.id ?? null);
+    });
+
+    if (error) {
+      console.error("Failed to subscribe to auth changes", error);
+    }
+
+    return () => {
+      isMounted = false;
+      data?.subscription.unsubscribe();
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (!isSupabaseConfigured()) {
+      setPreferencesReady(true);
+      return;
+    }
+
+    let isMounted = true;
+
+    setPreferencesReady(false);
+    pendingUpdatesRef.current = null;
+
+    if (!userId) {
+      setLanguageState(initialLanguage);
+      setPreferencesReady(true);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    const loadPreferences = async () => {
+      try {
+        const preferences = await fetchUserPreferences(userId);
         if (!isMounted) {
           return;
         }
 
         if (preferences?.language) {
           setLanguageState(preferences.language);
+        } else {
+          setLanguageState(initialLanguage);
         }
       } catch (error) {
         console.error("Failed to load language preference", error);
@@ -79,12 +125,12 @@ export function LanguageProvider({ children }: { children: React.ReactNode }): R
       }
     };
 
-    loadPreferences();
+    void loadPreferences();
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [initialLanguage, userId]);
 
   React.useEffect(() => {
     if (!preferencesReady || !userId) {
