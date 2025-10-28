@@ -33,11 +33,12 @@ Azure Static Web Apps automatically discovers the Azure Functions application be
      }
    }
    ```
-4. Run both the SWA front-end and the Azure Functions backend locally using the SWA CLI or separate terminals:
+4. Run both the Expo web front-end and the Azure Functions backend locally using the SWA CLI or separate terminals:
    ```bash
-   npm run dev                 # front-end
+   npm run web -- --port 5173  # front-end (Expo web dev server)
    npm run start --prefix api  # backend (func start)
    ```
+   > Expo defaults to port 19006; passing `--port 5173` keeps the local server aligned with the SWA CLI example below.
 
 ## Secure Configuration and Secret Management
 - Store `OPENAI_API_KEY` and `OPENAI_PROXY_TOKEN` as application settings in Azure Static Web Apps (SWA). Do **not** commit these values to the repository.
