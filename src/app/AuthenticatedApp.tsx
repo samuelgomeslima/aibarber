@@ -256,7 +256,7 @@ const LANGUAGE_COPY = {
       actions: {
         save: "Save changes",
         saving: "Saving…",
-        back: "Back to settings",
+        back: "Go back",
         retry: "Try again",
       },
       feedback: {
@@ -884,7 +884,7 @@ const LANGUAGE_COPY = {
       actions: {
         save: "Salvar alterações",
         saving: "Salvando…",
-        back: "Voltar para configurações",
+        back: "Voltar",
         retry: "Tentar novamente",
       },
       feedback: {
@@ -1451,7 +1451,8 @@ export type BarbershopSettingsScreenProps = {
   barbershopSuccess: string | null;
   handleBarbershopFieldChange: (field: "name" | "slug" | "timezone", value: string) => void;
   handleSaveBarbershop: () => Promise<void>;
-  handleNavigateToSettings: () => void;
+  canNavigateBack: boolean;
+  handleGoBack: () => void;
   handleRetryBarbershop: () => Promise<void>;
 };
 
@@ -1499,7 +1500,8 @@ const defaultBarbershopSettingsRenderer: BarbershopSettingsScreenRenderer = ({
   barbershopSuccess,
   handleBarbershopFieldChange,
   handleSaveBarbershop,
-  handleNavigateToSettings,
+  canNavigateBack,
+  handleGoBack,
   handleRetryBarbershop,
 }) => (
   <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}>
@@ -1597,16 +1599,18 @@ const defaultBarbershopSettingsRenderer: BarbershopSettingsScreenRenderer = ({
           gap: 12,
         }}
       >
-        <Pressable
-          onPress={handleNavigateToSettings}
-          style={[styles.smallBtn, { borderColor: colors.border }]}
-          accessibilityRole="button"
-          accessibilityLabel={barbershopPageCopy.actions.back}
-        >
-          <Text style={{ color: colors.subtext, fontWeight: "800" }}>
-            {barbershopPageCopy.actions.back}
-          </Text>
-        </Pressable>
+        {canNavigateBack ? (
+          <Pressable
+            onPress={handleGoBack}
+            style={[styles.smallBtn, { borderColor: colors.border }]}
+            accessibilityRole="button"
+            accessibilityLabel={barbershopPageCopy.actions.back}
+          >
+            <Text style={{ color: colors.subtext, fontWeight: "800" }}>
+              {barbershopPageCopy.actions.back}
+            </Text>
+          </Pressable>
+        ) : null}
 
         {barbershop ? (
           <Pressable
@@ -1813,6 +1817,7 @@ function AuthenticatedApp({
   const [apiStatusError, setApiStatusError] = useState<string | null>(null);
   const apiStatusRequestId = useRef(0);
   const [activeScreen, setActiveScreen] = useState<ScreenName>(initialScreen);
+  const [navigationHistory, setNavigationHistory] = useState<ScreenName[]>(() => [initialScreen]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentUserLoading, setCurrentUserLoading] = useState(true);
   const [resendingConfirmation, setResendingConfirmation] = useState(false);
@@ -1915,6 +1920,7 @@ function AuthenticatedApp({
 
   useEffect(() => {
     setActiveScreen(initialScreen);
+    setNavigationHistory([initialScreen]);
   }, [initialScreen]);
 
   useEffect(() => {
@@ -3705,10 +3711,31 @@ function AuthenticatedApp({
   const handleNavigate = useCallback(
     (screen: ScreenName) => {
       setActiveScreen(screen);
+      setNavigationHistory((prev) => {
+        if (prev[prev.length - 1] === screen) {
+          return prev;
+        }
+        return [...prev, screen];
+      });
       onNavigate?.(screen);
     },
     [onNavigate],
   );
+
+  const handleGoBack = useCallback(() => {
+    setNavigationHistory((prev) => {
+      if (prev.length <= 1) {
+        return prev;
+      }
+      const updated = prev.slice(0, -1);
+      const previousScreen = updated[updated.length - 1] ?? initialScreen;
+      setActiveScreen(previousScreen);
+      onNavigate?.(previousScreen);
+      return updated;
+    });
+  }, [initialScreen, onNavigate]);
+
+  const canNavigateBack = navigationHistory.length > 1;
 
   useEffect(() => {
     if (Platform.OS !== "web" || typeof document === "undefined") return;
@@ -4577,7 +4604,8 @@ function AuthenticatedApp({
         barbershopSuccess,
         handleBarbershopFieldChange,
         handleSaveBarbershop,
-        handleNavigateToSettings: () => handleNavigate("settings"),
+        canNavigateBack,
+        handleGoBack,
         handleRetryBarbershop,
       })
     ) : activeScreen === "settings" ? (

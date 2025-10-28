@@ -24,7 +24,8 @@ export function BarbershopSettingsScreen({
   barbershopSuccess,
   handleBarbershopFieldChange,
   handleSaveBarbershop,
-  handleNavigateToSettings,
+  canNavigateBack,
+  handleGoBack,
   handleRetryBarbershop,
 }: BarbershopSettingsScreenProps): React.ReactElement {
   return (
@@ -123,8 +124,9 @@ export function BarbershopSettingsScreen({
             gap: 12,
           }}
         >
+        {canNavigateBack ? (
           <Pressable
-            onPress={handleNavigateToSettings}
+            onPress={handleGoBack}
             style={[styles.smallBtn, { borderColor: colors.border }]}
             accessibilityRole="button"
             accessibilityLabel={barbershopPageCopy.actions.back}
@@ -133,6 +135,7 @@ export function BarbershopSettingsScreen({
               {barbershopPageCopy.actions.back}
             </Text>
           </Pressable>
+        ) : null}
 
           {barbershop ? (
             <Pressable
