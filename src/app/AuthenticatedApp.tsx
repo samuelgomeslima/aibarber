@@ -1534,6 +1534,8 @@ function AuthenticatedApp({
     };
   }, [serviceMap, weekBookings]);
 
+  const weekBarberCounts = weekSummary.barberCounts;
+
   const weekDayMap = useMemo(() => {
     const map = new Map<string, BookingWithCustomer[]>();
     weekBookings.forEach((booking) => {
@@ -1559,10 +1561,10 @@ function AuthenticatedApp({
   }, [locale, weekDays]);
 
   const topBarberEntry = useMemo(() => {
-    const entries = Array.from(weekSummary.barberCounts.entries());
+    const entries = Array.from(weekBarberCounts.entries());
     entries.sort((a, b) => b[1] - a[1]);
     return entries[0] ?? null;
-  }, [weekSummary.barberCounts]);
+  }, [weekBarberCounts]);
 
   const serviceBreakdown = useMemo(() => {
     const counts = new Map<
@@ -1588,14 +1590,14 @@ function AuthenticatedApp({
 
   const barberBreakdown = useMemo(
     () =>
-      Array.from(weekSummary.barberCounts.entries())
+      Array.from(weekBarberCounts.entries())
         .map(([barberId, count]) => ({
           id: barberId,
           name: BARBER_MAP[barberId]?.name ?? barberId,
           count,
         }))
         .sort((a, b) => b.count - a.count),
-    [weekSummary.barberCounts],
+    [weekBarberCounts],
   );
 
   const productSalesBreakdown = useMemo(() => {
