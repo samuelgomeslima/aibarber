@@ -102,5 +102,66 @@ describe("createOpenAIClient", () => {
     );
     expect(fetchImpl).not.toHaveBeenCalled();
   });
+
+  it("uses the provided fetch implementation for audio transcription and handles missing text", async () => {
+    process.env.EXPO_PUBLIC_OPENAI_PROXY_TOKEN = "test-token";
+    const { createOpenAIClient } = await importOpenAI();
+
+    const appendMock = vi.fn();
+    const hadOriginalFormData = "FormData" in globalThis;
+    const originalFormData = globalThis.FormData;
+    class MockFormData {
+      append = appendMock;
+    }
+    globalThis.FormData = MockFormData as unknown as typeof FormData;
+
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ text: "  Hello world  " }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      });
+
+    const client = createOpenAIClient({
+      apiKey: "test-key",
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    try {
+      const transcript = await client.transcribeAudio({ uri: "file:///test.m4a" });
+
+      expect(transcript).toBe("Hello world");
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+
+      const [url, requestInit] = fetchImpl.mock.calls[0] ?? [];
+      expect(url).toBe("/api/transcribe");
+      expect(requestInit).toEqual(
+        expect.objectContaining({
+          method: "POST",
+          headers: expect.objectContaining({
+            "x-api-key": "test-token",
+          }),
+          body: expect.any(MockFormData),
+        }),
+      );
+
+      await expect(client.transcribeAudio({ uri: "file:///missing-text.m4a" })).rejects.toThrowError(
+        "Unexpected response format from OpenAI transcription.",
+      );
+      expect(fetchImpl).toHaveBeenCalledTimes(2);
+    } finally {
+      if (hadOriginalFormData) {
+        globalThis.FormData = originalFormData!;
+      } else {
+        delete (globalThis as { FormData?: typeof FormData }).FormData;
+      }
+    }
+  });
 });
 
