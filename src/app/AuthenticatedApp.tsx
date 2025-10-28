@@ -1384,6 +1384,7 @@ function AuthenticatedApp({
         const barberName = BARBER_MAP[b.barber]?.name ?? b.barber;
         const customerName = b._customer
           ? `${b._customer.first_name}${b._customer.last_name ? ` ${b._customer.last_name}` : ""}`
+          : b.customer_name ?? b.customer ?? null;
         return assistantCopy.systemPrompt.bookingLine({
           date: humanDate(b.date, locale),
           start: b.start,
