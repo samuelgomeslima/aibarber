@@ -181,8 +181,9 @@ function TanstackNavigationLayoutContent(): React.ReactElement {
   const handleNavigate = React.useCallback(
     (item: MenuItem) => {
       navigate({ to: item.to });
+      setCollapsed(true);
     },
-    [navigate],
+    [navigate, setCollapsed],
   );
 
   const handleLogout = React.useCallback(async () => {
@@ -219,70 +220,79 @@ function TanstackNavigationLayoutContent(): React.ReactElement {
         <Outlet />
       </View>
       {!collapsed ? (
-        <View style={[styles.sidebar, { width: MENU_WIDTH }]}>
+        <>
           <Pressable
             onPress={() => setCollapsed(true)}
-            style={({ pressed }) => [styles.toggle, pressed && styles.togglePressed]}
+            style={styles.backdrop}
             accessibilityRole="button"
             accessibilityLabel="Collapse tanstack navigation"
-          >
-            <Ionicons name="chevron-forward" size={18} color={menuTheme.toggleIconColor} />
-          </Pressable>
-          <View style={styles.menuBody}>
-            <ScrollView
-              style={styles.menuScroll}
-              contentContainerStyle={styles.menuContainer}
-              showsVerticalScrollIndicator={false}
+            accessibilityHint="Closes the tanstack navigation menu"
+          />
+          <View style={[styles.sidebar, { width: MENU_WIDTH }]}>
+            <Pressable
+              onPress={() => setCollapsed(true)}
+              style={({ pressed }) => [styles.toggle, pressed && styles.togglePressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Collapse tanstack navigation"
             >
-              {MENU_ITEMS.map((item) => {
-                const active = pathname === item.to;
-                const label = labels[item.key];
-                return (
-                  <Pressable
-                    key={item.key}
-                    onPress={() => handleNavigate(item)}
-                    style={({ pressed }) => [
-                      styles.menuItem,
-                      active && styles.menuItemActive,
-                      pressed && !active && styles.menuItemPressed,
-                    ]}
-                    accessibilityRole="button"
-                    accessibilityLabel={label}
-                  >
-                    <Ionicons
-                      name={item.icon}
-                      size={20}
-                      color={active ? menuTheme.iconActiveColor : menuTheme.iconInactiveColor}
-                    />
-                    <View style={styles.menuCopy}>
-                      <Text style={[styles.menuLabel, active && styles.menuLabelActive]}>{label}</Text>
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-            <View style={styles.menuFooter}>
-              <Pressable
-                onPress={handleLogout}
-                disabled={loggingOut}
-                style={({ pressed }) => [
-                  styles.menuItem,
-                  styles.menuLogout,
-                  pressed && styles.menuLogoutPressed,
-                  loggingOut && styles.menuLogoutDisabled,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={logoutCopy.accessibility}
-                accessibilityState={{ disabled: loggingOut }}
+              <Ionicons name="chevron-forward" size={18} color={menuTheme.toggleIconColor} />
+            </Pressable>
+            <View style={styles.menuBody}>
+              <ScrollView
+                style={styles.menuScroll}
+                contentContainerStyle={styles.menuContainer}
+                showsVerticalScrollIndicator={false}
               >
-                <Ionicons name="log-out-outline" size={20} color={menuTheme.logoutIconColor} />
-                <View style={styles.menuCopy}>
-                  <Text style={[styles.menuLabel, styles.menuLogoutLabel]}>{logoutCopy.label}</Text>
-                </View>
-              </Pressable>
+                {MENU_ITEMS.map((item) => {
+                  const active = pathname === item.to;
+                  const label = labels[item.key];
+                  return (
+                    <Pressable
+                      key={item.key}
+                      onPress={() => handleNavigate(item)}
+                      style={({ pressed }) => [
+                        styles.menuItem,
+                        active && styles.menuItemActive,
+                        pressed && !active && styles.menuItemPressed,
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel={label}
+                    >
+                      <Ionicons
+                        name={item.icon}
+                        size={20}
+                        color={active ? menuTheme.iconActiveColor : menuTheme.iconInactiveColor}
+                      />
+                      <View style={styles.menuCopy}>
+                        <Text style={[styles.menuLabel, active && styles.menuLabelActive]}>{label}</Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+              <View style={styles.menuFooter}>
+                <Pressable
+                  onPress={handleLogout}
+                  disabled={loggingOut}
+                  style={({ pressed }) => [
+                    styles.menuItem,
+                    styles.menuLogout,
+                    pressed && styles.menuLogoutPressed,
+                    loggingOut && styles.menuLogoutDisabled,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={logoutCopy.accessibility}
+                  accessibilityState={{ disabled: loggingOut }}
+                >
+                  <Ionicons name="log-out-outline" size={20} color={menuTheme.logoutIconColor} />
+                  <View style={styles.menuCopy}>
+                    <Text style={[styles.menuLabel, styles.menuLogoutLabel]}>{logoutCopy.label}</Text>
+                  </View>
+                </Pressable>
+              </View>
             </View>
           </View>
-        </View>
+        </>
       ) : null}
       {collapsed ? (
         <Pressable
@@ -324,6 +334,15 @@ const createStyles = (theme: MenuTheme) =>
       borderLeftWidth: 1,
       borderLeftColor: theme.sidebarBorderColor,
       zIndex: 10,
+    },
+    backdrop: {
+      position: "absolute",
+      top: 0,
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: "transparent",
+      zIndex: 5,
     },
     menuBody: {
       flex: 1,
