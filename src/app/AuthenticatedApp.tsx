@@ -445,12 +445,6 @@ function AuthenticatedApp({
 
   const { apiStatuses, apiStatusLoading, apiStatusError, fetchApiStatuses } = useApiStatus();
   useEffect(() => {
-    if (activeScreen === "barbershopSettings") {
-      void loadBarbershop();
-    }
-  }, [activeScreen, loadBarbershop]);
-
-  useEffect(() => {
     if (activeScreen !== "barbershopSettings") {
       setBarbershopError(null);
       setBarbershopSuccess(null);
@@ -770,6 +764,12 @@ function AuthenticatedApp({
     setBarbershopError(null);
     return loadBarbershop();
   }, [loadBarbershop]);
+
+  useEffect(() => {
+    if (activeScreen === "barbershopSettings") {
+      void loadBarbershop();
+    }
+  }, [activeScreen, loadBarbershop]);
 
   // Cliente -> obrigatório antes do barbeiro
   const [clientModalOpen, setClientModalOpen] = useState(false);
