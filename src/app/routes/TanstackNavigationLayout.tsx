@@ -13,6 +13,7 @@ import type { ThemeColors } from "../../theme/theme";
 const MENU_WIDTH = 248;
 const LEGACY_MENU_ICON_TOP = Platform.select<number>({ ios: 52, android: 40, default: 24 });
 const FLOATING_TOGGLE_TOP = LEGACY_MENU_ICON_TOP + 44 + 12;
+const IOS_BOTTOM_BAR_HORIZONTAL_PADDING = 12;
 
 const MENU_KEYS = [
   "overview",
@@ -157,7 +158,8 @@ function getMenuTheme(resolvedTheme: "light" | "dark", colors: ThemeColors): Men
 function TanstackNavigationLayoutContent(): React.ReactElement {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const [collapsed, setCollapsed] = React.useState(true);
+  const isIOS = Platform.OS === "ios";
+  const [collapsed, setCollapsed] = React.useState(!isIOS);
   const [loggingOut, setLoggingOut] = React.useState(false);
   const { language } = useLanguageContext();
   const labels = MENU_LABELS[language];
@@ -169,9 +171,11 @@ function TanstackNavigationLayoutContent(): React.ReactElement {
   const handleNavigate = React.useCallback(
     (item: MenuItem) => {
       navigate({ to: item.to });
-      setCollapsed(true);
+      if (!isIOS) {
+        setCollapsed(true);
+      }
     },
-    [navigate, setCollapsed],
+    [navigate, setCollapsed, isIOS],
   );
 
   const handleLogout = React.useCallback(async () => {
@@ -179,7 +183,9 @@ function TanstackNavigationLayoutContent(): React.ReactElement {
       return;
     }
 
-    setCollapsed(true);
+    if (!isIOS) {
+      setCollapsed(true);
+    }
 
     if (!isSupabaseConfigured()) {
       Alert.alert(logoutCopy.errorTitle, logoutCopy.errorMessage);
@@ -207,7 +213,58 @@ function TanstackNavigationLayoutContent(): React.ReactElement {
       <View style={styles.content}>
         <Outlet />
       </View>
-      {!collapsed ? (
+      {isIOS ? (
+        <View style={styles.bottomBarContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.bottomBarContent}
+            style={styles.bottomBarScroll}
+          >
+            {MENU_ITEMS.map((item) => {
+              const active = pathname === item.to;
+              const label = labels[item.key];
+              return (
+                <Pressable
+                  key={item.key}
+                  onPress={() => handleNavigate(item)}
+                  style={({ pressed }) => [
+                    styles.bottomBarItem,
+                    active && styles.bottomBarItemActive,
+                    pressed && !active && styles.bottomBarItemPressed,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={label}
+                >
+                  <Ionicons
+                    name={item.icon}
+                    size={20}
+                    color={active ? menuTheme.iconActiveColor : menuTheme.iconInactiveColor}
+                  />
+                  <Text style={[styles.bottomBarLabel, active && styles.bottomBarLabelActive]}>{label}</Text>
+                </Pressable>
+              );
+            })}
+            <Pressable
+              onPress={handleLogout}
+              disabled={loggingOut}
+              style={({ pressed }) => [
+                styles.bottomBarItem,
+                styles.bottomBarLogout,
+                pressed && styles.bottomBarLogoutPressed,
+                loggingOut && styles.bottomBarLogoutDisabled,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={logoutCopy.accessibility}
+              accessibilityState={{ disabled: loggingOut }}
+            >
+              <Ionicons name="log-out-outline" size={20} color={menuTheme.logoutIconColor} />
+              <Text style={[styles.bottomBarLabel, styles.bottomBarLogoutLabel]}>{logoutCopy.label}</Text>
+            </Pressable>
+          </ScrollView>
+        </View>
+      ) : null}
+      {!isIOS && !collapsed ? (
         <>
           <Pressable
             onPress={() => setCollapsed(true)}
@@ -282,7 +339,7 @@ function TanstackNavigationLayoutContent(): React.ReactElement {
           </View>
         </>
       ) : null}
-      {collapsed ? (
+      {!isIOS && collapsed ? (
         <Pressable
           onPress={() => setCollapsed(false)}
           style={({ pressed }) => [styles.floatingToggle, pressed && styles.togglePressed]}
@@ -419,6 +476,58 @@ const createStyles = (theme: MenuTheme) =>
     },
     content: {
       flex: 1,
+    },
+    bottomBarContainer: {
+      borderTopWidth: 1,
+      borderTopColor: theme.sidebarBorderColor,
+      backgroundColor: theme.sidebarBackground,
+      paddingVertical: 12,
+      paddingHorizontal: IOS_BOTTOM_BAR_HORIZONTAL_PADDING,
+    },
+    bottomBarScroll: {
+      flexGrow: 0,
+    },
+    bottomBarContent: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    bottomBarItem: {
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 12,
+      gap: 6,
+    },
+    bottomBarItemActive: {
+      backgroundColor: theme.itemActiveBackground,
+      borderWidth: 1,
+      borderColor: theme.itemActiveBorderColor,
+    },
+    bottomBarItemPressed: {
+      backgroundColor: theme.itemPressedBackground,
+    },
+    bottomBarLabel: {
+      color: theme.labelColor,
+      fontWeight: "600",
+      fontSize: 12,
+    },
+    bottomBarLabelActive: {
+      color: theme.labelActiveColor,
+    },
+    bottomBarLogout: {
+      borderWidth: 1,
+      borderColor: theme.logoutBorderColor,
+    },
+    bottomBarLogoutLabel: {
+      color: theme.logoutLabelColor,
+    },
+    bottomBarLogoutPressed: {
+      backgroundColor: theme.logoutPressedBackground,
+    },
+    bottomBarLogoutDisabled: {
+      opacity: 0.6,
     },
   });
 
