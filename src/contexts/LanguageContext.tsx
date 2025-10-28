@@ -94,7 +94,6 @@ export function LanguageProvider({ children }: { children: React.ReactNode }): R
     let isMounted = true;
 
     setPreferencesReady(false);
-    pendingUpdatesRef.current = null;
 
     if (!userId) {
       setLanguageState(initialLanguage);
