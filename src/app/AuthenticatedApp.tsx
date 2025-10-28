@@ -121,6 +121,9 @@ import {
   type BarbershopSettingsScreenRenderer,
 } from "./screens/BarbershopSettingsScreen";
 
+export type { AssistantScreenProps } from "./screens/AssistantScreen";
+export type { BarbershopSettingsScreenProps } from "./screens/BarbershopSettingsScreen";
+
 /** ========== App ========== */
 export type ScreenName =
   | "home"
