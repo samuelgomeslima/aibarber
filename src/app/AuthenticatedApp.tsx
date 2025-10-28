@@ -725,6 +725,7 @@ function AuthenticatedApp({
           .replace(/[^a-z0-9-]/g, "-")
           .replace(/-+/g, "-")
           .replace(/^-+|-+$/g, "")
+      : null;
 
     setBarbershopSaving(true);
     setBarbershopError(null);
