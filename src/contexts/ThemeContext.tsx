@@ -20,6 +20,19 @@ type ThemeProviderProps = {
   children: React.ReactNode;
 };
 
+function isAuthSessionMissingError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const message = (error as { message?: unknown }).message;
+  if (typeof message !== "string") {
+    return false;
+  }
+
+  return message.toLowerCase().includes("auth session missing");
+}
+
 export function ThemeProvider({ children }: ThemeProviderProps): React.ReactElement {
   const colorScheme = useColorScheme();
   const [themePreference, setThemePreferenceState] = React.useState<ThemePreference>(
@@ -45,14 +58,18 @@ export function ThemeProvider({ children }: ThemeProviderProps): React.ReactElem
         }
 
         if (error) {
-          console.error("Failed to resolve authenticated user for theme preferences", error);
+          if (!isAuthSessionMissingError(error)) {
+            console.error("Failed to resolve authenticated user for theme preferences", error);
+          }
           setUserId(null);
           return;
         }
 
         setUserId(data.user?.id ?? null);
       } catch (error) {
-        console.error("Failed to resolve authenticated user for theme preferences", error);
+        if (!isAuthSessionMissingError(error)) {
+          console.error("Failed to resolve authenticated user for theme preferences", error);
+        }
         if (isMounted) {
           setUserId(null);
         }

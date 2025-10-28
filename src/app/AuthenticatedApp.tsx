@@ -45,7 +45,6 @@ import { fetchUserPreferences } from "../lib/userPreferences";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { applyAlpha, mixHexColor, tintHexColor } from "../utils/color";
 import { buildDateTime, getCurrentTimeString, getTodayDateKey, normalizeTimeInput } from "../utils/datetime";
-import { parseSignedCurrency, sanitizeSignedCurrencyInput } from "../utils/currency";
 import type { ThemePreference } from "../theme/preferences";
 import type { ThemeColors } from "../theme/theme";
 
@@ -70,25 +69,9 @@ import {
   type BookingWithCustomer,
   type Customer,
 } from "../lib/bookings";
-import { deleteService, listServices } from "../lib/services";
-import { listServicePackages, deleteServicePackage } from "../lib/servicePackages";
-import {
-  listProducts,
-  deleteProduct,
-  sellProduct,
-  restockProduct,
-  listProductSalesTotals,
-} from "../lib/products";
-import {
-  listCashEntries,
-  recordCashAdjustment,
-  recordProductSale,
-  recordServiceSale,
-  summarizeCashEntries,
-  type CashEntry,
-} from "../lib/cashRegister";
-import { listStaffMembers, type StaffMember, type StaffRole } from "../lib/users";
-import { checkApiStatuses, type ApiServiceName, type ApiServiceStatus } from "../lib/apiStatus";
+import { recordServiceSale, type CashEntry } from "../lib/cashRegister";
+import { type StaffMember } from "../lib/users";
+import { type ApiServiceName } from "../lib/apiStatus";
 
 /* Components (mantidos) */
 import DateSelector from "../components/DateSelector";
@@ -122,6 +105,13 @@ import {
 } from "./screens/BarbershopSettingsScreen";
 
 export type { AssistantScreenProps } from "./screens/AssistantScreen";
+import { useServicesManagement } from "./hooks/useServicesManagement";
+import { useProductsManagement } from "./hooks/useProductsManagement";
+import { useCashRegisterManagement, type CashSummary } from "./hooks/useCashRegisterManagement";
+import { useTeamManagement } from "./hooks/useTeamManagement";
+import { useApiStatus } from "./hooks/useApiStatus";
+
+
 export type { BarbershopSettingsScreenProps } from "./screens/BarbershopSettingsScreen";
 
 /** ========== App ========== */
@@ -139,7 +129,6 @@ export type ScreenName =
   | "settings"
   | "barbershopSettings";
 
-type CashSummary = ReturnType<typeof summarizeCashEntries>;
 
 export type CashRegisterScreenProps = {
   isCompactLayout: boolean;
@@ -296,43 +285,6 @@ function AuthenticatedApp({
   renderProducts,
   renderServices,
 }: AuthenticatedAppProps) {
-  const [services, setServices] = useState<Service[]>([]);
-  const [servicesLoading, setServicesLoading] = useState(false);
-  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
-  const [serviceFormVisible, setServiceFormVisible] = useState(false);
-  const [serviceFormMode, setServiceFormMode] = useState<"create" | "edit">("create");
-  const [serviceBeingEdited, setServiceBeingEdited] = useState<Service | null>(null);
-  const [servicePackages, setServicePackages] = useState<ServicePackage[]>([]);
-  const [servicePackagesLoading, setServicePackagesLoading] = useState(false);
-  const servicePackagesRequestId = useRef(0);
-  const [packageFormVisible, setPackageFormVisible] = useState(false);
-  const [packageFormMode, setPackageFormMode] = useState<"create" | "edit">("create");
-  const [packageBeingEdited, setPackageBeingEdited] = useState<ServicePackage | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [productSalesTotals, setProductSalesTotals] = useState<Record<string, number>>({});
-  const [productsLoading, setProductsLoading] = useState(false);
-  const [productFormVisible, setProductFormVisible] = useState(false);
-  const [productFormMode, setProductFormMode] = useState<"create" | "edit">("create");
-  const [productBeingEdited, setProductBeingEdited] = useState<Product | null>(null);
-  const [stockModalProduct, setStockModalProduct] = useState<Product | null>(null);
-  const [stockModalMode, setStockModalMode] = useState<"sell" | "restock">("sell");
-  const [stockQuantityText, setStockQuantityText] = useState("1");
-  const [stockSaving, setStockSaving] = useState(false);
-  const [cashEntries, setCashEntries] = useState<CashEntry[]>([]);
-  const [cashLoading, setCashLoading] = useState(false);
-  const [adjustmentModalOpen, setAdjustmentModalOpen] = useState(false);
-  const [adjustmentAmountText, setAdjustmentAmountText] = useState("");
-  const [adjustmentNote, setAdjustmentNote] = useState("");
-  const [adjustmentReference, setAdjustmentReference] = useState("");
-  const [adjustmentSaving, setAdjustmentSaving] = useState(false);
-  const [adjustmentError, setAdjustmentError] = useState<string | null>(null);
-  const [teamMembers, setTeamMembers] = useState<StaffMember[]>([]);
-  const [teamLoading, setTeamLoading] = useState(false);
-  const [teamFormVisible, setTeamFormVisible] = useState(false);
-  const [apiStatuses, setApiStatuses] = useState<ApiServiceStatus[]>([]);
-  const [apiStatusLoading, setApiStatusLoading] = useState(false);
-  const [apiStatusError, setApiStatusError] = useState<string | null>(null);
-  const apiStatusRequestId = useRef(0);
   const [activeScreen, setActiveScreen] = useState<ScreenName>(initialScreen);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentUserLoading, setCurrentUserLoading] = useState(true);
@@ -373,6 +325,147 @@ function AuthenticatedApp({
   const styles = useMemo(() => createAuthenticatedAppStyles(colors), [colors]);
   const languageReady = languageContext ? languageContext.ready : fallbackLanguageReady;
   const preferencesReady = themePreferenceReady && languageReady;
+
+  const localizedServiceMapRef = useRef<Map<string, Service>>(new Map());
+  const localizedProductMapRef = useRef<Map<string, Product>>(new Map());
+
+  const getServiceDisplayName = useCallback(
+    (service: Service) => localizedServiceMapRef.current.get(service.id)?.name ?? service.name,
+    [],
+  );
+
+  const getProductDisplayName = useCallback(
+    (product: Product) =>
+      localizedProductMapRef.current.get(product.id)?.name ?? polyglotProductName(product, language),
+    [language],
+  );
+
+  const getDisplayProduct = useCallback(
+    (product: Product) => localizedProductMapRef.current.get(product.id) ?? product,
+    [],
+  );
+
+  const {
+    cashEntries,
+    cashLoading,
+    cashSummary,
+    cashEntryTypeLabels,
+    loadCashRegister,
+    appendCashEntry,
+    adjustmentModalOpen,
+    adjustmentAmountText,
+    adjustmentNote,
+    adjustmentReference,
+    adjustmentSaving,
+    adjustmentError,
+    handleOpenAdjustmentModal,
+    handleCloseAdjustmentModal,
+    handleAdjustmentAmountChange,
+    handleAdjustmentNoteChange,
+    handleAdjustmentReferenceChange,
+    handleConfirmAdjustment,
+  } = useCashRegisterManagement({ cashRegisterCopy });
+
+  const {
+    services,
+    servicesLoading,
+    selectedServiceId,
+    setSelectedServiceId,
+    serviceFormVisible,
+    serviceFormMode,
+    serviceBeingEdited,
+    loadServices,
+    handleServiceFormClose,
+    handleOpenCreateService,
+    handleOpenEditService,
+    handleServiceCreated,
+    handleServiceUpdated,
+    handleDeleteService,
+    servicePackages,
+    servicePackagesLoading,
+    loadServicePackages,
+    packageFormVisible,
+    packageFormMode,
+    packageBeingEdited,
+    handlePackageFormClose,
+    handleOpenCreatePackage,
+    handleOpenEditPackage,
+    handlePackageCreated,
+    handlePackageUpdated,
+    handleDeletePackage,
+  } = useServicesManagement({
+    servicesCopy,
+    packagesCopy,
+    getServiceDisplayName,
+  });
+
+  const {
+    products,
+    productSalesTotals,
+    productsLoading,
+    productFormVisible,
+    productFormMode,
+    productBeingEdited,
+    stockModalProduct,
+    stockModalMode,
+    stockModalDisplayProduct,
+    stockQuantityText,
+    stockSaving,
+    loadProducts,
+    handleProductFormClose,
+    handleOpenCreateProduct,
+    handleOpenEditProduct,
+    handleProductCreated,
+    handleProductUpdated,
+    handleDeleteProduct,
+    handleOpenSellProduct,
+    handleOpenRestockProduct,
+    handleCloseStockModal,
+    handleStockQuantityChange,
+    handleConfirmStockModal,
+  } = useProductsManagement({
+    productsCopy,
+    productFormCopy,
+    cashRegisterCopy,
+    language,
+    locale,
+    appendCashEntry,
+    getProductDisplayName,
+    getDisplayProduct,
+  });
+
+  const {
+    teamMembers,
+    teamLoading,
+    teamFormVisible,
+    loadTeamMembers,
+    handleOpenTeamForm,
+    handleCloseTeamForm,
+  } = useTeamManagement({ teamCopy, locale });
+
+  const { apiStatuses, apiStatusLoading, apiStatusError, fetchApiStatuses } = useApiStatus();
+  useEffect(() => {
+    if (activeScreen !== "barbershopSettings") {
+      setBarbershopError(null);
+      setBarbershopSuccess(null);
+    }
+  }, [activeScreen]);
+
+  useEffect(() => {
+    if (activeScreen === "team") {
+      void loadTeamMembers();
+    }
+  }, [activeScreen, loadTeamMembers]);
+
+  useEffect(() => {
+    if (activeScreen === "settings") {
+      void fetchApiStatuses();
+    }
+  }, [activeScreen, fetchApiStatuses]);
+
+  const handleRefreshApiStatuses = useCallback(() => {
+    void fetchApiStatuses();
+  }, [fetchApiStatuses]);
 
   useEffect(() => {
     if (languageContext) {
@@ -672,6 +765,12 @@ function AuthenticatedApp({
     return loadBarbershop();
   }, [loadBarbershop]);
 
+  useEffect(() => {
+    if (activeScreen === "barbershopSettings") {
+      void loadBarbershop();
+    }
+  }, [activeScreen, loadBarbershop]);
+
   // Cliente -> obrigatório antes do barbeiro
   const [clientModalOpen, setClientModalOpen] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -732,34 +831,16 @@ function AuthenticatedApp({
     () => new Map(localizedProducts.map((product) => [product.id, product])),
     [localizedProducts],
   );
-  const sortProducts = useCallback(
-    (list: Product[]) =>
-      [...list].sort((a, b) =>
-        polyglotProductName(a, language).localeCompare(polyglotProductName(b, language), locale, {
-          sensitivity: "base",
-        }),
-      ),
-    [language, locale],
-  );
+  useEffect(() => {
+    localizedServiceMapRef.current = new Map(localizedServices.map((service) => [service.id, service]));
+  }, [localizedServices]);
 
-  const sortCashEntries = useCallback(
-    (list: CashEntry[]) =>
-      [...list].sort((a, b) => b.created_at.localeCompare(a.created_at)),
-    [],
-  );
+  useEffect(() => {
+    localizedProductMapRef.current = new Map(localizedProducts.map((product) => [product.id, product]));
+  }, [localizedProducts]);
 
-  const sortTeamMembers = useCallback(
-    (list: StaffMember[]) =>
-      [...list].sort((a, b) => {
-        const nameA = `${a.first_name ?? ""} ${a.last_name ?? ""}`.trim();
-        const nameB = `${b.first_name ?? ""} ${b.last_name ?? ""}`.trim();
-        if (!nameA && !nameB) return 0;
-        if (!nameA) return 1;
-        if (!nameB) return -1;
-        return nameA.localeCompare(nameB, locale, { sensitivity: "base" });
-      }),
-    [locale],
-  );
+
+
 
   const updateBookingPerformed = useCallback((id: string, performedAt: string) => {
     setBookings((prev) => prev.map((booking) => (booking.id === id ? { ...booking, performed_at: performedAt } : booking)));
@@ -771,605 +852,6 @@ function AuthenticatedApp({
     );
   }, []);
 
-  const loadServices = useCallback(async () => {
-    setServicesLoading(true);
-    try {
-      const rows = await listServices();
-      setServices(rows);
-      setSelectedServiceId((prev) => {
-        if (prev && rows.some((s) => s.id === prev)) return prev;
-        return rows[0]?.id ?? null;
-      });
-    } catch (e: any) {
-      console.error(e);
-      Alert.alert(copy.servicesPage.alerts.loadTitle, e?.message ?? String(e));
-      setServices([]);
-      setSelectedServiceId(null);
-    } finally {
-      setServicesLoading(false);
-    }
-  }, [copy]);
-
-  useEffect(() => { loadServices(); }, [loadServices]);
-
-  useEffect(() => {
-    if (activeScreen === "barbershopSettings") {
-      void loadBarbershop();
-    }
-  }, [activeScreen, loadBarbershop]);
-
-  useEffect(() => {
-    if (activeScreen !== "barbershopSettings") {
-      setBarbershopError(null);
-      setBarbershopSuccess(null);
-    }
-  }, [activeScreen]);
-
-  useEffect(() => {
-    return () => {
-      apiStatusRequestId.current += 1;
-    };
-  }, []);
-
-  const loadServicePackages = useCallback(async () => {
-    const requestId = ++servicePackagesRequestId.current;
-    setServicePackagesLoading(true);
-    try {
-      const rows = await listServicePackages();
-      if (servicePackagesRequestId.current === requestId) {
-        setServicePackages(rows);
-      }
-    } catch (e: any) {
-      console.error(e);
-      if (servicePackagesRequestId.current === requestId) {
-        Alert.alert(packagesCopy.alerts.loadTitle, e?.message ?? String(e));
-        setServicePackages([]);
-      }
-    } finally {
-      if (servicePackagesRequestId.current === requestId) {
-        setServicePackagesLoading(false);
-      }
-    }
-  }, [packagesCopy.alerts.loadTitle]);
-
-  useEffect(() => {
-    loadServicePackages();
-  }, [loadServicePackages]);
-
-  const loadProducts = useCallback(async () => {
-    setProductsLoading(true);
-    try {
-      const [rows, totals] = await Promise.all([listProducts(), listProductSalesTotals()]);
-      setProducts(sortProducts(rows));
-      setProductSalesTotals(() => {
-        const next: Record<string, number> = {};
-        rows.forEach((product) => {
-          next[product.id] = totals[product.id] ?? 0;
-        });
-        return next;
-      });
-    } catch (e: any) {
-      console.error(e);
-      Alert.alert(productsCopy.alerts.loadTitle, e?.message ?? String(e));
-      setProducts([]);
-      setProductSalesTotals({});
-    } finally {
-      setProductsLoading(false);
-    }
-  }, [productsCopy.alerts.loadTitle, sortProducts]);
-
-  useEffect(() => {
-    loadProducts();
-  }, [loadProducts]);
-
-  useEffect(() => {
-    setProducts((prev) => sortProducts(prev));
-  }, [sortProducts]);
-
-  const loadCashRegister = useCallback(async () => {
-    setCashLoading(true);
-    try {
-      const rows = await listCashEntries();
-      setCashEntries(sortCashEntries(rows));
-    } catch (e: any) {
-      console.error(e);
-      Alert.alert(cashRegisterCopy.alerts.loadTitle, e?.message ?? String(e));
-      setCashEntries([]);
-    } finally {
-      setCashLoading(false);
-    }
-  }, [cashRegisterCopy.alerts.loadTitle, sortCashEntries]);
-
-  useEffect(() => {
-    loadCashRegister();
-  }, [loadCashRegister]);
-
-  useEffect(() => {
-    setCashEntries((prev) => sortCashEntries(prev));
-  }, [sortCashEntries]);
-
-  const appendCashEntry = useCallback(
-    (entry: CashEntry) => {
-      setCashEntries((prev) => sortCashEntries([entry, ...prev]));
-    },
-    [sortCashEntries],
-  );
-
-  const cashSummary = useMemo(() => summarizeCashEntries(cashEntries), [cashEntries]);
-  const cashEntryTypeLabels = useMemo(
-    () => ({
-      service_sale: cashRegisterCopy.entryLabels.service,
-      product_sale: cashRegisterCopy.entryLabels.product,
-      adjustment: cashRegisterCopy.entryLabels.adjustment,
-    }),
-    [cashRegisterCopy.entryLabels],
-  );
-
-  const handleOpenAdjustmentModal = useCallback(() => {
-    setAdjustmentAmountText("");
-    setAdjustmentNote("");
-    setAdjustmentReference("");
-    setAdjustmentError(null);
-    setAdjustmentSaving(false);
-    setAdjustmentModalOpen(true);
-  }, []);
-
-  const handleCloseAdjustmentModal = useCallback(() => {
-    if (adjustmentSaving) return;
-    setAdjustmentModalOpen(false);
-    setAdjustmentAmountText("");
-    setAdjustmentNote("");
-    setAdjustmentReference("");
-    setAdjustmentError(null);
-    setAdjustmentSaving(false);
-  }, [adjustmentSaving]);
-
-  const handleAdjustmentAmountChange = useCallback((text: string) => {
-    setAdjustmentAmountText(sanitizeSignedCurrencyInput(text));
-    setAdjustmentError(null);
-  }, []);
-
-  const handleAdjustmentNoteChange = useCallback((text: string) => {
-    setAdjustmentNote(text);
-  }, []);
-
-  const handleAdjustmentReferenceChange = useCallback((text: string) => {
-    setAdjustmentReference(text);
-  }, []);
-
-  const handleConfirmAdjustment = useCallback(async () => {
-    const amountCents = parseSignedCurrency(adjustmentAmountText);
-    if (!Number.isFinite(amountCents) || amountCents === 0) {
-      setAdjustmentError(cashRegisterCopy.adjustmentModal.amountError);
-      return;
-    }
-
-    setAdjustmentSaving(true);
-    try {
-      const entry = await recordCashAdjustment({
-        amount_cents: amountCents,
-        note: adjustmentNote.trim() ? adjustmentNote.trim() : null,
-        reference_id: adjustmentReference.trim() ? adjustmentReference.trim() : null,
-      });
-
-      appendCashEntry(entry);
-      setAdjustmentModalOpen(false);
-      setAdjustmentAmountText("");
-      setAdjustmentNote("");
-      setAdjustmentReference("");
-      setAdjustmentError(null);
-
-      Alert.alert(
-        cashRegisterCopy.adjustmentModal.successTitle,
-        cashRegisterCopy.adjustmentModal.successMessage(formatPrice(entry.amount_cents)),
-      );
-    } catch (error: any) {
-      console.error(error);
-      Alert.alert(
-        cashRegisterCopy.alerts.adjustmentFailedTitle,
-        error?.message ?? cashRegisterCopy.alerts.adjustmentFailedMessage,
-      );
-    } finally {
-      setAdjustmentSaving(false);
-    }
-  }, [
-    adjustmentAmountText,
-    adjustmentNote,
-    adjustmentReference,
-    appendCashEntry,
-    cashRegisterCopy.adjustmentModal,
-    cashRegisterCopy.alerts,
-  ]);
-
-  const loadTeamMembers = useCallback(async () => {
-    setTeamLoading(true);
-    try {
-      const rows = await listStaffMembers();
-      setTeamMembers(sortTeamMembers(rows));
-    } catch (e: any) {
-      console.error(e);
-      Alert.alert(teamCopy.alerts.loadTitle, e?.message ?? String(e));
-      setTeamMembers([]);
-    } finally {
-      setTeamLoading(false);
-    }
-  }, [sortTeamMembers, teamCopy.alerts.loadTitle, listStaffMembers]);
-
-  const handleOpenTeamForm = useCallback(() => {
-    setTeamFormVisible(true);
-  }, []);
-
-  const handleCloseTeamForm = useCallback(() => {
-    setTeamFormVisible(false);
-  }, []);
-
-  const fetchApiStatuses = useCallback(async () => {
-    const requestId = ++apiStatusRequestId.current;
-    setApiStatusLoading(true);
-    setApiStatusError(null);
-    try {
-      const results = await checkApiStatuses();
-      if (apiStatusRequestId.current === requestId) {
-        setApiStatuses(results);
-      }
-    } catch (error: any) {
-      if (apiStatusRequestId.current === requestId) {
-        setApiStatuses([]);
-        setApiStatusError(error?.message ?? String(error));
-      }
-    } finally {
-      if (apiStatusRequestId.current === requestId) {
-        setApiStatusLoading(false);
-      }
-    }
-  }, []);
-
-  const handleRefreshApiStatuses = useCallback(() => {
-    void fetchApiStatuses();
-  }, [fetchApiStatuses]);
-
-  useEffect(() => {
-    if (activeScreen === "team") {
-      void loadTeamMembers();
-    }
-  }, [activeScreen, loadTeamMembers]);
-
-  useEffect(() => {
-    if (activeScreen === "settings") {
-      void fetchApiStatuses();
-    }
-  }, [activeScreen, fetchApiStatuses]);
-
-  const handleServiceFormClose = useCallback(() => {
-    setServiceFormVisible(false);
-    setServiceBeingEdited(null);
-    setServiceFormMode("create");
-  }, []);
-
-  const handleOpenCreateService = useCallback(() => {
-    setServiceFormMode("create");
-    setServiceBeingEdited(null);
-    setServiceFormVisible(true);
-  }, []);
-
-  const handleOpenEditService = useCallback((svc: Service) => {
-    setServiceFormMode("edit");
-    setServiceBeingEdited(svc);
-    setServiceFormVisible(true);
-  }, []);
-
-  const handleServiceCreated = useCallback(
-    (svc: Service) => {
-      setSelectedServiceId((prev) => prev ?? svc.id);
-      handleServiceFormClose();
-      void loadServices();
-    },
-    [handleServiceFormClose, loadServices],
-  );
-
-  const handleServiceUpdated = useCallback(
-    (svc: Service) => {
-      setSelectedServiceId((prev) => prev ?? svc.id);
-      handleServiceFormClose();
-      void loadServices();
-    },
-    [handleServiceFormClose, loadServices],
-  );
-
-  const handlePackageFormClose = useCallback(() => {
-    setPackageFormVisible(false);
-    setPackageBeingEdited(null);
-    setPackageFormMode("create");
-  }, []);
-
-  const handleOpenCreatePackage = useCallback(() => {
-    setPackageFormMode("create");
-    setPackageBeingEdited(null);
-    setPackageFormVisible(true);
-  }, []);
-
-  const handleOpenEditPackage = useCallback((pkg: ServicePackage) => {
-    setPackageFormMode("edit");
-    setPackageBeingEdited(pkg);
-    setPackageFormVisible(true);
-  }, []);
-
-  const handlePackageCreated = useCallback(
-    (_pkg: ServicePackage) => {
-      handlePackageFormClose();
-      void loadServicePackages();
-    },
-    [handlePackageFormClose, loadServicePackages],
-  );
-
-  const handlePackageUpdated = useCallback(
-    (_pkg: ServicePackage) => {
-      handlePackageFormClose();
-      void loadServicePackages();
-    },
-    [handlePackageFormClose, loadServicePackages],
-  );
-
-  const handleDeletePackage = useCallback(
-    (pkg: ServicePackage) => {
-      if (!pkg?.id) return;
-
-      const executeDelete = async () => {
-        try {
-          await deleteServicePackage(pkg.id);
-          void loadServicePackages();
-        } catch (e: any) {
-          console.error(e);
-          Alert.alert(packagesCopy.alerts.deleteErrorTitle, e?.message ?? String(e));
-        }
-      };
-
-      if (Platform.OS === "web" && typeof window !== "undefined") {
-        const confirmed = window.confirm(
-          `${packagesCopy.alerts.deleteTitle}\n\n${packagesCopy.alerts.deleteMessage(pkg.name)}`,
-        );
-        if (confirmed) {
-          void executeDelete();
-        }
-        return;
-      }
-
-      Alert.alert(packagesCopy.alerts.deleteTitle, packagesCopy.alerts.deleteMessage(pkg.name), [
-        { text: packagesCopy.alerts.cancel, style: "cancel" },
-        { text: packagesCopy.alerts.confirm, style: "destructive", onPress: () => void executeDelete() },
-      ]);
-    },
-    [loadServicePackages, packagesCopy],
-  );
-
-  const handleDeleteService = useCallback(
-    (svc: Service) => {
-      if (!svc?.id) return;
-
-      const localized = localizedServiceMap.get(svc.id) ?? svc;
-      const confirmPrompt = `${copy.servicesPage.alerts.deleteTitle}\n\n${copy.servicesPage.alerts.deleteMessage(localized.name)}`;
-      const executeDelete = async () => {
-        try {
-          await deleteService(svc.id);
-          setSelectedServiceId((prev) => (prev === svc.id ? null : prev));
-          void loadServices();
-        } catch (e: any) {
-          console.error(e);
-          Alert.alert(copy.servicesPage.alerts.deleteErrorTitle, e?.message ?? String(e));
-        }
-      };
-
-      if (Platform.OS === "web" && typeof window !== "undefined") {
-        const confirmed = window.confirm(confirmPrompt);
-        if (confirmed) {
-          void executeDelete();
-        }
-        return;
-      }
-
-      Alert.alert(
-        copy.servicesPage.alerts.deleteTitle,
-        copy.servicesPage.alerts.deleteMessage(localized.name),
-        [
-          { text: copy.servicesPage.alerts.cancel, style: "cancel" },
-          { text: copy.servicesPage.alerts.confirm, style: "destructive", onPress: () => void executeDelete() },
-        ],
-      );
-    },
-    [copy, loadServices, localizedServiceMap],
-  );
-
-  const handleProductFormClose = useCallback(() => {
-    setProductFormVisible(false);
-    setProductBeingEdited(null);
-    setProductFormMode("create");
-  }, []);
-
-  const handleOpenCreateProduct = useCallback(() => {
-    setProductFormMode("create");
-    setProductBeingEdited(null);
-    setProductFormVisible(true);
-  }, []);
-
-  const handleOpenEditProduct = useCallback((product: Product) => {
-    setProductFormMode("edit");
-    setProductBeingEdited(product);
-    setProductFormVisible(true);
-  }, []);
-
-  const handleProductCreated = useCallback(
-    (product: Product) => {
-      setProducts((prev) => sortProducts([...prev, product]));
-      setProductSalesTotals((prev) => ({
-        ...prev,
-        [product.id]: prev[product.id] ?? 0,
-      }));
-      handleProductFormClose();
-    },
-    [handleProductFormClose, sortProducts],
-  );
-
-  const handleProductUpdated = useCallback(
-    (product: Product) => {
-      setProducts((prev) => sortProducts(prev.map((item) => (item.id === product.id ? product : item))));
-      setProductSalesTotals((prev) => ({
-        ...prev,
-        [product.id]: prev[product.id] ?? 0,
-      }));
-      handleProductFormClose();
-    },
-    [handleProductFormClose, sortProducts],
-  );
-
-  const handleDeleteProduct = useCallback(
-    (product: Product) => {
-      if (!product?.id) return;
-
-      const displayProduct = localizedProductMap.get(product.id) ?? product;
-      const confirmPrompt = `${productsCopy.alerts.deleteTitle}\n\n${productsCopy.alerts.deleteMessage(displayProduct.name)}`;
-      const executeDelete = async () => {
-        try {
-          await deleteProduct(product.id);
-          setProducts((prev) => prev.filter((item) => item.id !== product.id));
-          setProductSalesTotals((prev) => {
-            const { [product.id]: _ignored, ...rest } = prev;
-            return rest;
-          });
-        } catch (e: any) {
-          console.error(e);
-          Alert.alert(productsCopy.alerts.deleteErrorTitle, e?.message ?? String(e));
-        }
-      };
-
-      if (Platform.OS === "web" && typeof window !== "undefined") {
-        const confirmed = window.confirm(confirmPrompt);
-        if (confirmed) {
-          void executeDelete();
-        }
-        return;
-      }
-
-      Alert.alert(
-        productsCopy.alerts.deleteTitle,
-        productsCopy.alerts.deleteMessage(displayProduct.name),
-        [
-          { text: productsCopy.alerts.cancel, style: "cancel" },
-          { text: productsCopy.alerts.confirm, style: "destructive", onPress: () => void executeDelete() },
-        ],
-      );
-    },
-    [localizedProductMap, productsCopy],
-  );
-
-  const handleOpenSellProduct = useCallback((product: Product) => {
-    setStockModalMode("sell");
-    setStockModalProduct(product);
-    setStockQuantityText("1");
-  }, []);
-
-  const handleOpenRestockProduct = useCallback((product: Product) => {
-    setStockModalMode("restock");
-    setStockModalProduct(product);
-    setStockQuantityText("1");
-  }, []);
-
-  const handleCloseStockModal = useCallback(() => {
-    setStockModalProduct(null);
-    setStockQuantityText("1");
-    setStockSaving(false);
-  }, []);
-
-  const handleStockQuantityChange = useCallback((text: string) => {
-    setStockQuantityText(text.replace(/[^0-9]/g, ""));
-  }, []);
-
-  const handleConfirmStockModal = useCallback(async () => {
-    if (!stockModalProduct) return;
-    const numericText = stockQuantityText.replace(/[^0-9]/g, "");
-    const quantity = Number(numericText);
-    if (!Number.isFinite(quantity) || quantity <= 0) {
-      Alert.alert(productsCopy.stockModal.quantityError);
-      return;
-    }
-
-    setStockSaving(true);
-    try {
-      let updated: Product;
-      if (stockModalMode === "sell") {
-        updated = await sellProduct(stockModalProduct.id, quantity);
-        try {
-          const entry = await recordProductSale({
-            productId: updated.id,
-            productName: updated.name,
-            unitPriceCents: updated.price_cents,
-            quantity,
-          });
-          appendCashEntry(entry);
-        } catch (registerError: any) {
-          console.error(registerError);
-          Alert.alert(
-            cashRegisterCopy.alerts.recordSaleFailedTitle,
-            cashRegisterCopy.alerts.recordSaleFailedMessage(
-              polyglotProductName(updated, language),
-            ),
-          );
-        }
-        Alert.alert(
-          productsCopy.stockModal.sellSuccessTitle,
-          productsCopy.stockModal.sellSuccessMessage(
-            polyglotProductName(updated, language),
-            quantity,
-          ),
-        );
-      } else {
-        updated = await restockProduct(stockModalProduct.id, quantity);
-        Alert.alert(
-          productsCopy.stockModal.restockSuccessTitle,
-          productsCopy.stockModal.restockSuccessMessage(
-            polyglotProductName(updated, language),
-            quantity,
-          ),
-        );
-      }
-
-      setProducts((prev) =>
-        sortProducts(prev.map((item) => (item.id === updated.id ? updated : item))),
-      );
-      if (stockModalMode === "sell") {
-        setProductSalesTotals((prev) => ({
-          ...prev,
-          [updated.id]: (prev[updated.id] ?? 0) + quantity,
-        }));
-      }
-      handleCloseStockModal();
-    } catch (e: any) {
-      const title =
-        stockModalMode === "sell"
-          ? productsCopy.alerts.sellErrorTitle
-          : productsCopy.alerts.restockErrorTitle;
-      console.error(e);
-      Alert.alert(title, e?.message ?? String(e));
-    } finally {
-      setStockSaving(false);
-    }
-  }, [
-    handleCloseStockModal,
-    appendCashEntry,
-    cashRegisterCopy.alerts.recordSaleFailedMessage,
-    cashRegisterCopy.alerts.recordSaleFailedTitle,
-    productsCopy.alerts.restockErrorTitle,
-    productsCopy.alerts.sellErrorTitle,
-    productsCopy.stockModal,
-    sortProducts,
-    stockModalMode,
-    stockModalProduct,
-    stockQuantityText,
-    language,
-  ]);
-
-  const stockModalDisplayProduct = stockModalProduct
-    ? localizedProductMap.get(stockModalProduct.id) ?? stockModalProduct
-    : null;
 
   const selectedService = useMemo(
     () => services.find((s) => s.id === selectedServiceId) ?? null,
@@ -1902,7 +1384,7 @@ function AuthenticatedApp({
         const barberName = BARBER_MAP[b.barber]?.name ?? b.barber;
         const customerName = b._customer
           ? `${b._customer.first_name}${b._customer.last_name ? ` ${b._customer.last_name}` : ""}`
-          : null;
+          : b.customer_name ?? b.customer ?? null;
         return assistantCopy.systemPrompt.bookingLine({
           date: humanDate(b.date, locale),
           start: b.start,
@@ -2052,6 +1534,8 @@ function AuthenticatedApp({
     };
   }, [serviceMap, weekBookings]);
 
+  const weekBarberCounts = weekSummary.barberCounts;
+
   const weekDayMap = useMemo(() => {
     const map = new Map<string, BookingWithCustomer[]>();
     weekBookings.forEach((booking) => {
@@ -2077,10 +1561,10 @@ function AuthenticatedApp({
   }, [locale, weekDays]);
 
   const topBarberEntry = useMemo(() => {
-    const entries = Array.from(weekSummary.barberCounts.entries());
+    const entries = Array.from(weekBarberCounts.entries());
     entries.sort((a, b) => b[1] - a[1]);
     return entries[0] ?? null;
-  }, [weekSummary.barberCounts]);
+  }, [weekBarberCounts]);
 
   const serviceBreakdown = useMemo(() => {
     const counts = new Map<
@@ -2106,14 +1590,14 @@ function AuthenticatedApp({
 
   const barberBreakdown = useMemo(
     () =>
-      Array.from(weekSummary.barberCounts.entries())
+      Array.from(weekBarberCounts.entries())
         .map(([barberId, count]) => ({
           id: barberId,
           name: BARBER_MAP[barberId]?.name ?? barberId,
           count,
         }))
         .sort((a, b) => b.count - a.count),
-    [weekSummary.barberCounts],
+    [weekBarberCounts],
   );
 
   const productSalesBreakdown = useMemo(() => {
@@ -2417,7 +1901,7 @@ function AuthenticatedApp({
                             );
                             const conflictService = conflict
                               ? localizedServiceMap.get(conflict.service_id) ?? serviceMap.get(conflict.service_id)
-                              : null;
+                              : undefined;
                             return (
                               <Pressable
                                 key={t}
@@ -3064,19 +2548,8 @@ function AuthenticatedApp({
                 danger: colors.danger,
               }}
               copy={teamCopy.userForm}
-              onSaved={(row) => {
-                const memberRole = (row.role ?? teamCopy.roles[0]?.value ?? "professional") as StaffRole;
-                const member: StaffMember = {
-                  id: row.id,
-                  first_name: row.first_name,
-                  last_name: row.last_name,
-                  email: row.email ?? null,
-                  phone: row.phone ?? null,
-                  date_of_birth: row.date_of_birth ?? null,
-                  role: memberRole,
-                };
-                setTeamMembers((prev) => sortTeamMembers([...prev.filter((m) => m.id !== member.id), member]));
-                setTeamFormVisible(false);
+              onSaved={() => {
+                handleCloseTeamForm();
                 void loadTeamMembers();
               }}
               onCancel={handleCloseTeamForm}
