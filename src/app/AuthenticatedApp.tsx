@@ -1899,6 +1899,7 @@ function AuthenticatedApp({
                             );
                             const conflictService = conflict
                               ? localizedServiceMap.get(conflict.service_id) ?? serviceMap.get(conflict.service_id)
+                              : undefined;
                             return (
                               <Pressable
                                 key={t}
