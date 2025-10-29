@@ -92,6 +92,7 @@ export const LANGUAGE_COPY = {
     teamPage: {
       title: "Team members",
       subtitle: "Register administrators, managers, and professionals who can access the workspace.",
+      back: "Back to settings",
       refresh: "Refresh list",
       listTitle: "Current team",
       empty: "No team members registered yet.",
@@ -152,6 +153,7 @@ export const LANGUAGE_COPY = {
       actions: {
         save: "Save changes",
         saving: "Saving…",
+        back: "Back to settings",
         retry: "Try again",
       },
       feedback: {
@@ -169,6 +171,7 @@ export const LANGUAGE_COPY = {
     servicesPage: {
       title: "Services",
       subtitle: "Manage what clients can book and adjust existing options as needed.",
+      back: "Back to settings",
       createCta: { label: "Create service", accessibility: "Open create service form" },
       listTitle: "Existing services",
       empty: "— none registered yet —",
@@ -189,6 +192,7 @@ export const LANGUAGE_COPY = {
     packagesPage: {
       title: "Service packages",
       subtitle: "Offer bundles with special pricing to encourage repeat visits.",
+      back: "Back to settings",
       createCta: { label: "Create package", accessibility: "Open create package form" },
       refresh: "Refresh",
       refreshAccessibility: "Refresh packages",
@@ -719,6 +723,7 @@ export const LANGUAGE_COPY = {
     teamPage: {
       title: "Equipe",
       subtitle: "Cadastre administradores, gerentes e profissionais com acesso ao sistema.",
+      back: "Voltar para configurações",
       refresh: "Atualizar lista",
       listTitle: "Equipe atual",
       empty: "Nenhum membro cadastrado ainda.",
@@ -797,6 +802,7 @@ export const LANGUAGE_COPY = {
     servicesPage: {
       title: "Serviços",
       subtitle: "Gerencie o que os clientes podem agendar e ajuste as opções existentes conforme necessário.",
+      back: "Voltar para configurações",
       createCta: { label: "Criar serviço", accessibility: "Abrir formulário de criação de serviço" },
       listTitle: "Serviços cadastrados",
       empty: "— nenhum cadastrado ainda —",
@@ -817,6 +823,7 @@ export const LANGUAGE_COPY = {
     packagesPage: {
       title: "Pacotes de serviços",
       subtitle: "Ofereça combos com preço especial para aumentar as visitas recorrentes.",
+      back: "Voltar para configurações",
       createCta: { label: "Criar pacote", accessibility: "Abrir formulário de pacote" },
       refresh: "Atualizar",
       refreshAccessibility: "Atualizar pacotes",

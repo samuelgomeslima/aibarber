@@ -7,7 +7,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
 import type { Barbershop } from "../../lib/barbershops";
 import type { SupportedLanguage } from "../../locales/language";
@@ -29,6 +29,7 @@ export type BarbershopSettingsScreenProps = {
   handleBarbershopFieldChange: (field: "name" | "slug" | "timezone", value: string) => void;
   handleSaveBarbershop: () => Promise<void>;
   handleRetryBarbershop: () => Promise<void>;
+  handleBackToSettings: () => void;
 };
 
 export type BarbershopSettingsScreenRenderer = (
@@ -49,9 +50,28 @@ export const defaultBarbershopSettingsRenderer: BarbershopSettingsScreenRenderer
   handleBarbershopFieldChange,
   handleSaveBarbershop,
   handleRetryBarbershop,
+  handleBackToSettings,
 }) => (
   <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}>
     <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
+      <Pressable
+        onPress={handleBackToSettings}
+        style={[
+          styles.smallBtn,
+          {
+            alignSelf: "flex-start",
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 6,
+            borderColor: colors.border,
+          },
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel={barbershopPageCopy.actions.back}
+      >
+        <Ionicons name="chevron-back" size={16} color={colors.accent} />
+        <Text style={{ color: colors.accent, fontWeight: "800" }}>{barbershopPageCopy.actions.back}</Text>
+      </Pressable>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <MaterialCommunityIcons name="store-edit-outline" size={22} color={colors.accent} />
         <Text style={[styles.title, { color: colors.text }]}>{barbershopPageCopy.title}</Text>

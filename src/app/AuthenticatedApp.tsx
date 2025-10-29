@@ -214,6 +214,7 @@ export type ServicesScreenProps = {
   localizedServiceMap: Map<string, Service>;
   handleOpenEditService: (service: Service) => void;
   handleDeleteService: (service: Service) => void;
+  handleBackToSettings: () => void;
 };
 
 export type ServicesScreenRenderer = (
@@ -2232,7 +2233,25 @@ function AuthenticatedApp({
         refreshControl={<RefreshControl refreshing={servicePackagesLoading} onRefresh={loadServicePackages} />}
       >
         <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
-          <View style={[styles.listHeaderRow, isCompactLayout && styles.listHeaderRowCompact]}> 
+          <Pressable
+            onPress={() => handleNavigate("settings")}
+            style={[
+              styles.smallBtn,
+              {
+                alignSelf: "flex-start",
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 6,
+                borderColor: colors.border,
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={packagesCopy.back}
+          >
+            <Ionicons name="chevron-back" size={16} color={colors.accent} />
+            <Text style={{ color: colors.accent, fontWeight: "800" }}>{packagesCopy.back}</Text>
+          </Pressable>
+          <View style={[styles.listHeaderRow, isCompactLayout && styles.listHeaderRowCompact]}>
             <View style={{ flex: 1, gap: 4 }}>
               <Text style={[styles.title, { color: colors.text }]}>{packagesCopy.title}</Text>
               <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
@@ -2416,6 +2435,7 @@ function AuthenticatedApp({
             localizedServiceMap,
             handleOpenEditService,
             handleDeleteService,
+            handleBackToSettings: () => handleNavigate("settings"),
           })
         : null
     ) : activeScreen === "assistant" ? (
@@ -2449,6 +2469,24 @@ function AuthenticatedApp({
     ) : activeScreen === "team" ? (
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}>
         <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
+          <Pressable
+            onPress={() => handleNavigate("settings")}
+            style={[
+              styles.smallBtn,
+              {
+                alignSelf: "flex-start",
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 6,
+                borderColor: colors.border,
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={teamCopy.back}
+          >
+            <Ionicons name="chevron-back" size={16} color={colors.accent} />
+            <Text style={{ color: colors.accent, fontWeight: "800" }}>{teamCopy.back}</Text>
+          </Pressable>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <Ionicons name="people-outline" size={22} color={colors.accent} />
             <Text style={[styles.title, { color: colors.text }]}>{teamCopy.title}</Text>
@@ -2572,6 +2610,7 @@ function AuthenticatedApp({
         handleBarbershopFieldChange,
         handleSaveBarbershop,
         handleRetryBarbershop,
+        handleBackToSettings: () => handleNavigate("settings"),
       })
     ) : activeScreen === "settings" ? (
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: isCompactLayout ? 16 : 20, gap: 16 }}>
