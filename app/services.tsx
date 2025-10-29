@@ -1,6 +1,6 @@
 import React from "react";
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
 import AuthenticatedApp, {
   type ServicesScreenProps,
@@ -31,6 +31,7 @@ export function ServicesScreen({
   localizedServiceMap,
   handleOpenEditService,
   handleDeleteService,
+  handleBackToSettings,
 }: ServicesScreenProps): React.ReactElement {
   return (
     <ScrollView
@@ -39,6 +40,24 @@ export function ServicesScreen({
       refreshControl={<RefreshControl refreshing={servicesLoading} onRefresh={loadServices} />}
     >
       <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
+        <Pressable
+          onPress={handleBackToSettings}
+          style={[
+            styles.smallBtn,
+            {
+              alignSelf: "flex-start",
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              borderColor: colors.border,
+            },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel={servicesCopy.back}
+        >
+          <Ionicons name="chevron-back" size={16} color={colors.accent} />
+          <Text style={{ color: colors.accent, fontWeight: "800" }}>{servicesCopy.back}</Text>
+        </Pressable>
         <View style={[styles.listHeaderRow, isCompactLayout && styles.listHeaderRowCompact]}>
           <View style={{ flex: 1, gap: 4 }}>
             <Text style={[styles.title, { color: colors.text }]}>{servicesCopy.title}</Text>
