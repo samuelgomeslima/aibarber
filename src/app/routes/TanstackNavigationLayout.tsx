@@ -19,6 +19,7 @@ const MENU_KEYS = [
   "products",
   "cash-register",
   "assistant",
+  "rosaries",
   "support",
   "settings",
 ] as const;
@@ -38,6 +39,7 @@ const MENU_LABELS: Record<SupportedLanguage, Record<MenuKey, string>> = {
     "products": "Products",
     "cash-register": "Cash register",
     "assistant": "Assistant",
+    "rosaries": "Rosaries",
     "support": "Support",
     "settings": "Settings",
   },
@@ -47,6 +49,7 @@ const MENU_LABELS: Record<SupportedLanguage, Record<MenuKey, string>> = {
     "products": "Produtos",
     "cash-register": "Caixa",
     "assistant": "Assistente",
+    "rosaries": "Terços",
     "support": "Suporte",
     "settings": "Configurações",
   },
@@ -58,6 +61,7 @@ const MENU_ITEMS: MenuItem[] = [
   { key: "products", to: "/products", icon: "pricetag-outline" },
   { key: "cash-register", to: "/cash-register", icon: "cash-outline" },
   { key: "assistant", to: "/assistant", icon: "sparkles-outline" },
+  { key: "rosaries", to: "/rosaries", icon: "flower-outline" },
   { key: "support", to: "/support", icon: "help-buoy-outline" },
   { key: "settings", to: "/settings", icon: "settings-outline" },
 ];

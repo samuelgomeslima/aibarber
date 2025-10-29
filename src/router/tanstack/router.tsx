@@ -10,6 +10,7 @@ import PackagesRoute from "../../app/routes/PackagesRoute";
 import ProductsRoute from "../../app/routes/ProductsRoute";
 import CashRegisterRoute from "../../app/routes/CashRegisterRoute";
 import AssistantRoute from "../../app/routes/AssistantRoute";
+import TercosRoute from "../../app/routes/TercosRoute";
 import SupportRoute from "../../app/routes/SupportRoute";
 import TeamMembersRoute from "../../app/routes/TeamMembersRoute";
 import SettingsRoute from "../../app/routes/SettingsRoute";
@@ -72,6 +73,12 @@ createRoute({
   getParentRoute: () => rootRoute,
   path: "assistant",
   component: AssistantRoute,
+});
+
+createRoute({
+  getParentRoute: () => rootRoute,
+  path: "rosaries",
+  component: TercosRoute,
 });
 
 createRoute({
