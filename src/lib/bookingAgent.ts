@@ -54,7 +54,7 @@ function buildToolDefinitions(services: Service[]) {
       function: {
         name: "list_bookings",
         description:
-          "Return the existing bookings. If a date is provided, only return bookings for that day. Always include the booking id, service id, barber id, and timeslot.",
+          "Return the existing bookings for a specific date. Always include the booking id, service id, barber id, and timeslot.",
         parameters: {
           type: "object",
           properties: {
@@ -174,7 +174,7 @@ function buildToolDefinitions(services: Service[]) {
   ];
 }
 
-async function listBookings(args: { date?: string }, serviceMap: Map<string, Service>): Promise<unknown> {
+async function listBookings(args: { date: string }, serviceMap: Map<string, Service>): Promise<unknown> {
   if (!args?.date) {
     return { error: "date is required" };
   }
