@@ -138,6 +138,16 @@ describe("createOpenAIClient", () => {
 
       expect(transcript).toBe("Hello world");
       expect(fetchImpl).toHaveBeenCalledTimes(1);
+      expect(appendMock).toHaveBeenNthCalledWith(1, "model", "gpt-4o-mini-transcribe");
+      expect(appendMock).toHaveBeenNthCalledWith(
+        2,
+        "file",
+        expect.objectContaining({
+          uri: "file:///test.m4a",
+          name: "voice-message.m4a",
+          type: "audio/m4a",
+        }),
+      );
 
       const [url, requestInit] = fetchImpl.mock.calls[0] ?? [];
       expect(url).toBe("/api/transcribe");
