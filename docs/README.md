@@ -21,7 +21,7 @@ Azure Static Web Apps automatically discovers the Azure Functions application be
    npm install
    (cd api && npm install)
    ```
-3. Add a `api/local.settings.json` file (excluded from git) with your secrets:
+3. Add an `api/local.settings.json` file (excluded from git) with your secrets:
    ```json
    {
      "IsEncrypted": false,
