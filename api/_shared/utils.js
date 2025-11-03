@@ -12,8 +12,7 @@ function jsonResponse(status, body) {
 
 function getProvidedToken(req) {
   if (!req || typeof req !== "object" || !req.headers) return undefined;
-  const headers = req.headers;
-  return headers["x-api-key"] || headers["x-functions-key"];
+  return getHeader(req, "x-api-key") ?? getHeader(req, "x-functions-key");
 }
 
 function getHeader(req, name) {
