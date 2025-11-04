@@ -439,6 +439,22 @@ function AuthenticatedApp({
   } = useTeamManagement({ teamCopy, locale });
 
   const { apiStatuses, apiStatusLoading, apiStatusError, fetchApiStatuses } = useApiStatus();
+  const {
+    barbershop,
+    barbershopForm,
+    barbershopLoading,
+    barbershopSaving,
+    barbershopError,
+    barbershopSuccess,
+    handleBarbershopFieldChange,
+    loadBarbershop,
+    handleSaveBarbershop,
+    handleRetryBarbershop,
+    resetBarbershopFeedback,
+  } = useBarbershopSettings({
+    currentUserId: currentUser?.id,
+    barbershopCopy: barbershopPageCopy,
+  });
   useEffect(() => {
     if (activeScreen !== "barbershopSettings") {
       resetBarbershopFeedback();
@@ -462,22 +478,6 @@ function AuthenticatedApp({
   }, [fetchApiStatuses]);
 
   const emailConfirmationCopy = copy.settingsPage.emailConfirmation;
-  const {
-    barbershop,
-    barbershopForm,
-    barbershopLoading,
-    barbershopSaving,
-    barbershopError,
-    barbershopSuccess,
-    handleBarbershopFieldChange,
-    loadBarbershop,
-    handleSaveBarbershop,
-    handleRetryBarbershop,
-    resetBarbershopFeedback,
-  } = useBarbershopSettings({
-    currentUserId: currentUser?.id,
-    barbershopCopy: barbershopPageCopy,
-  });
 
   useEffect(() => {
     setActiveScreen(initialScreen);
