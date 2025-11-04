@@ -9,13 +9,9 @@ import {
   ActivityIndicator,
   RefreshControl,
   Platform,
-  Modal,
-  TextInput,
   useWindowDimensions,
-  Linking,
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
-import type { User } from "@supabase/supabase-js";
 
 import {
   BARBERS,
@@ -35,14 +31,9 @@ import {
   formatPrice,
 } from "../lib/domain";
 import { polyglotProductName, polyglotProducts, polyglotServices } from "../lib/polyglot";
-import { useOptionalLanguageContext } from "../contexts/LanguageContext";
 import { useThemeContext } from "../contexts/ThemeContext";
-import { getInitialLanguage, type SupportedLanguage } from "../locales/language";
+import type { SupportedLanguage } from "../locales/language";
 import type { RecurrenceFrequency } from "../locales/types";
-import { getEmailConfirmationRedirectUrl } from "../lib/auth";
-import { getBarbershopForOwner, updateBarbershop, type Barbershop } from "../lib/barbershops";
-import { fetchUserPreferences } from "../lib/userPreferences";
-import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { applyAlpha, mixHexColor, tintHexColor } from "../utils/color";
 import { buildDateTime, getCurrentTimeString, getTodayDateKey, normalizeTimeInput } from "../utils/datetime";
 import type { ThemePreference } from "../theme/preferences";
@@ -110,6 +101,10 @@ import { useProductsManagement } from "./hooks/useProductsManagement";
 import { useCashRegisterManagement, type CashSummary } from "./hooks/useCashRegisterManagement";
 import { useTeamManagement } from "./hooks/useTeamManagement";
 import { useApiStatus } from "./hooks/useApiStatus";
+import { useAuthUser } from "./hooks/useAuthUser";
+import { useLanguagePreference } from "./hooks/useLanguagePreference";
+import { useBarbershopSettings } from "./hooks/useBarbershopSettings";
+import ClientModal from "./components/ClientModal";
 
 
 export type { BarbershopSettingsScreenProps } from "./screens/BarbershopSettingsScreen";
@@ -287,20 +282,20 @@ function AuthenticatedApp({
   renderServices,
 }: AuthenticatedAppProps) {
   const [activeScreen, setActiveScreen] = useState<ScreenName>(initialScreen);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [currentUserLoading, setCurrentUserLoading] = useState(true);
-  const [resendingConfirmation, setResendingConfirmation] = useState(false);
-  const [resentConfirmation, setResentConfirmation] = useState(false);
-  const [resendConfirmationError, setResendConfirmationError] = useState<string | null>(null);
-  const languageContext = useOptionalLanguageContext();
-  const [fallbackLanguage, setFallbackLanguage] = useState<SupportedLanguage>(() => getInitialLanguage());
-  const [fallbackLanguageReady, setFallbackLanguageReady] = useState<boolean>(() =>
-    languageContext ? true : !isSupabaseConfigured(),
+  const {
+    currentUser,
+    currentUserLoading,
+    resendingConfirmation,
+    resentConfirmation,
+    resendConfirmationError,
+    setResendConfirmationError,
+    handleResendConfirmationEmail,
+    showEmailConfirmationReminder,
+  } = useAuthUser();
+  const { language, setLanguage, copy, locale, languageReady } = useLanguagePreference(
+    currentUser?.id ?? undefined,
+    currentUserLoading,
   );
-  const language = languageContext?.language ?? fallbackLanguage;
-  const setLanguage = languageContext?.setLanguage ?? setFallbackLanguage;
-  const copy = useMemo(() => LANGUAGE_COPY[language], [language]);
-  const locale = language === "pt" ? "pt-BR" : "en-US";
   const bookServiceCopy = copy.bookService;
   const bookingsCopy = copy.bookings;
   const assistantCopy = copy.assistant;
@@ -324,7 +319,6 @@ function AuthenticatedApp({
   const { colors, resolvedTheme, themePreference, setThemePreference, ready: themePreferenceReady } =
     useThemeContext();
   const styles = useMemo(() => createAuthenticatedAppStyles(colors), [colors]);
-  const languageReady = languageContext ? languageContext.ready : fallbackLanguageReady;
   const preferencesReady = themePreferenceReady && languageReady;
 
   const localizedServiceMapRef = useRef<Map<string, Service>>(new Map());
@@ -447,10 +441,9 @@ function AuthenticatedApp({
   const { apiStatuses, apiStatusLoading, apiStatusError, fetchApiStatuses } = useApiStatus();
   useEffect(() => {
     if (activeScreen !== "barbershopSettings") {
-      setBarbershopError(null);
-      setBarbershopSuccess(null);
+      resetBarbershopFeedback();
     }
-  }, [activeScreen]);
+  }, [activeScreen, resetBarbershopFeedback]);
 
   useEffect(() => {
     if (activeScreen === "team") {
@@ -468,309 +461,38 @@ function AuthenticatedApp({
     void fetchApiStatuses();
   }, [fetchApiStatuses]);
 
-  useEffect(() => {
-    if (languageContext) {
-      return;
-    }
-
-    if (!isSupabaseConfigured()) {
-      setFallbackLanguageReady(true);
-      return;
-    }
-
-    const userId = currentUser?.id;
-    if (!userId) {
-      if (!currentUserLoading) {
-        setFallbackLanguageReady(true);
-      }
-      return;
-    }
-
-    let isMounted = true;
-    setFallbackLanguageReady(false);
-
-    const loadPreferences = async () => {
-      try {
-        const preferences = await fetchUserPreferences(userId);
-        if (!isMounted) {
-          return;
-        }
-
-        if (preferences?.language) {
-          setFallbackLanguage(preferences.language);
-        }
-      } catch (error) {
-        console.error("Failed to load language preference", error);
-      } finally {
-        if (isMounted) {
-          setFallbackLanguageReady(true);
-        }
-      }
-    };
-
-    void loadPreferences();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [currentUser?.id, currentUserLoading, languageContext, setFallbackLanguage]);
   const emailConfirmationCopy = copy.settingsPage.emailConfirmation;
-  const [barbershop, setBarbershop] = useState<Barbershop | null>(null);
-  const [barbershopForm, setBarbershopForm] = useState<{ name: string; slug: string; timezone: string }>(() => ({
-    name: "",
-    slug: "",
-    timezone: "",
-  }));
-  const [barbershopLoading, setBarbershopLoading] = useState(false);
-  const [barbershopSaving, setBarbershopSaving] = useState(false);
-  const [barbershopError, setBarbershopError] = useState<string | null>(null);
-  const [barbershopSuccess, setBarbershopSuccess] = useState<string | null>(null);
-  const emailConfirmed = Boolean(currentUser?.email_confirmed_at);
-  const showEmailConfirmationReminder = !currentUserLoading && currentUser && !emailConfirmed;
+  const {
+    barbershop,
+    barbershopForm,
+    barbershopLoading,
+    barbershopSaving,
+    barbershopError,
+    barbershopSuccess,
+    handleBarbershopFieldChange,
+    loadBarbershop,
+    handleSaveBarbershop,
+    handleRetryBarbershop,
+    resetBarbershopFeedback,
+  } = useBarbershopSettings({
+    currentUserId: currentUser?.id,
+    barbershopCopy: barbershopPageCopy,
+  });
 
   useEffect(() => {
     setActiveScreen(initialScreen);
   }, [initialScreen]);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadUser = async () => {
-      setCurrentUserLoading(true);
-      try {
-        const { data, error } = await supabase.auth.getUser();
-        if (!isMounted) {
-          return;
-        }
-        if (error) {
-          console.error("Failed to load authenticated user", error);
-          setCurrentUser(null);
-        } else {
-          setCurrentUser(data.user ?? null);
-        }
-      } catch (error) {
-        console.error("Failed to load authenticated user", error);
-        if (isMounted) {
-          setCurrentUser(null);
-        }
-      } finally {
-        if (isMounted) {
-          setCurrentUserLoading(false);
-        }
-      }
-    };
-
-    void loadUser();
-
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!isMounted) {
-        return;
-      }
-      setCurrentUser(session?.user ?? null);
-      setCurrentUserLoading(false);
-    });
-
-    return () => {
-      isMounted = false;
-      subscription?.subscription.unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (currentUser?.email_confirmed_at) {
-      setResentConfirmation(false);
-      setResendConfirmationError(null);
-    }
-  }, [currentUser?.email_confirmed_at]);
-
-  useEffect(() => {
-    if (resendConfirmationError) {
-      setResendConfirmationError(emailConfirmationCopy.error);
-    }
-  }, [emailConfirmationCopy.error, resendConfirmationError]);
-
-  const handleResendConfirmationEmail = useCallback(async () => {
-    if (!currentUser?.email || resendingConfirmation) {
-      return;
-    }
-
-    setResendingConfirmation(true);
-    setResentConfirmation(false);
-    setResendConfirmationError(null);
-
-    try {
-      const { error } = await supabase.auth.resend({
-        type: "signup",
-        email: currentUser.email,
-        options: { emailRedirectTo: getEmailConfirmationRedirectUrl() },
-      });
-
-      if (error) {
-        console.error("Failed to resend confirmation email", error);
-        setResendConfirmationError(emailConfirmationCopy.error);
-        return;
-      }
-
-      setResentConfirmation(true);
-    } catch (error) {
-      console.error("Failed to resend confirmation email", error);
-      setResendConfirmationError(emailConfirmationCopy.error);
-    } finally {
-      setResendingConfirmation(false);
-    }
-  }, [currentUser?.email, resendingConfirmation, emailConfirmationCopy.error]);
-
-  const handleBarbershopFieldChange = useCallback(
-    (field: "name" | "slug" | "timezone", value: string) => {
-      setBarbershopForm((current) => {
-        let nextValue = value;
-        if (field === "slug") {
-          nextValue = value
-            .toLowerCase()
-            .replace(/[^a-z0-9-]/g, "-")
-            .replace(/-+/g, "-")
-            .replace(/^-+|-+$/g, "");
-        }
-        return { ...current, [field]: nextValue };
-      });
-      setBarbershopSuccess(null);
-    },
-    [],
-  );
-
-  const loadBarbershop = useCallback(async () => {
-    if (!currentUser?.id) {
-      setBarbershop(null);
-      setBarbershopForm({ name: "", slug: "", timezone: "" });
-      setBarbershopError(null);
-      setBarbershopSuccess(null);
-      return;
-    }
-
-    setBarbershopLoading(true);
-    setBarbershopError(null);
-    setBarbershopSuccess(null);
-
-    try {
-      if (!isSupabaseConfigured()) {
-        setBarbershop(null);
-        setBarbershopForm({ name: "", slug: "", timezone: "" });
-        setBarbershopError(barbershopPageCopy.errors.notConfigured);
-        return;
-      }
-
-      const result = await getBarbershopForOwner(currentUser.id);
-
-      if (!result) {
-        setBarbershop(null);
-        setBarbershopForm({ name: "", slug: "", timezone: "" });
-        setBarbershopError(barbershopPageCopy.errors.notFound);
-        return;
-      }
-
-      setBarbershop(result);
-      setBarbershopForm({
-        name: result.name ?? "",
-        slug: result.slug ?? "",
-        timezone: result.timezone ?? "UTC",
-      });
-    } catch (error) {
-      console.error("Failed to load barbershop", error);
-      const fallback = barbershopPageCopy.errors.loadFailed;
-      const message = error instanceof Error ? error.message || fallback : fallback;
-      setBarbershopError(message);
-      setBarbershop(null);
-      setBarbershopForm({ name: "", slug: "", timezone: "" });
-    } finally {
-      setBarbershopLoading(false);
-    }
-  }, [
-    currentUser?.id,
-    barbershopPageCopy.errors.loadFailed,
-    barbershopPageCopy.errors.notConfigured,
-    barbershopPageCopy.errors.notFound,
-  ]);
-
-  const handleSaveBarbershop = useCallback(async () => {
-    if (!barbershop?.id || barbershopSaving) {
-      return;
-    }
-
-    if (!isSupabaseConfigured()) {
-      setBarbershopError(barbershopPageCopy.errors.notConfigured);
-      return;
-    }
-
-    const trimmedName = barbershopForm.name.trim();
-    if (!trimmedName) {
-      setBarbershopError(barbershopPageCopy.errors.nameRequired);
-      return;
-    }
-
-    const trimmedTimezone = barbershopForm.timezone.trim();
-    if (!trimmedTimezone) {
-      setBarbershopError(barbershopPageCopy.errors.timezoneRequired);
-      return;
-    }
-
-    const slugInput = barbershopForm.slug.trim();
-    const normalizedSlug = slugInput
-      ? slugInput
-          .toLowerCase()
-          .replace(/[^a-z0-9-]/g, "-")
-          .replace(/-+/g, "-")
-          .replace(/^-+|-+$/g, "")
-      : null;
-
-    setBarbershopSaving(true);
-    setBarbershopError(null);
-    setBarbershopSuccess(null);
-
-    try {
-      const updated = await updateBarbershop(barbershop.id, {
-        name: trimmedName,
-        slug: normalizedSlug,
-        timezone: trimmedTimezone,
-      });
-
-      setBarbershop(updated);
-      setBarbershopForm({
-        name: updated.name ?? trimmedName,
-        slug: updated.slug ?? "",
-        timezone: updated.timezone ?? trimmedTimezone,
-      });
-      setBarbershopSuccess(barbershopPageCopy.feedback.saved);
-    } catch (error) {
-      console.error("Failed to update barbershop", error);
-      const fallback = barbershopPageCopy.errors.saveFailed;
-      const message = error instanceof Error ? error.message || fallback : fallback;
-      setBarbershopError(message);
-    } finally {
-      setBarbershopSaving(false);
-    }
-  }, [
-    barbershop?.id,
-    barbershopForm.name,
-    barbershopForm.slug,
-    barbershopForm.timezone,
-    barbershopPageCopy.errors.nameRequired,
-    barbershopPageCopy.errors.notConfigured,
-    barbershopPageCopy.errors.saveFailed,
-    barbershopPageCopy.errors.timezoneRequired,
-    barbershopPageCopy.feedback.saved,
-    barbershopSaving,
-  ]);
-
-  const handleRetryBarbershop = useCallback(() => {
-    setBarbershopError(null);
-    return loadBarbershop();
-  }, [loadBarbershop]);
-
   useEffect(() => {
     if (activeScreen === "barbershopSettings") {
       void loadBarbershop();
     }
   }, [activeScreen, loadBarbershop]);
+
+  useEffect(() => {
+    if (resendConfirmationError) {
+      setResendConfirmationError(emailConfirmationCopy.error);
+    }
+  }, [emailConfirmationCopy.error, resendConfirmationError, setResendConfirmationError]);
 
   // Cliente -> obrigatório antes do barbeiro
   const [clientModalOpen, setClientModalOpen] = useState(false);
@@ -2643,8 +2365,8 @@ function AuthenticatedApp({
             {resendConfirmationError ? (
               <Text style={{ color: colors.danger, fontWeight: "700" }}>{resendConfirmationError}</Text>
             ) : null}
-            <Pressable
-              onPress={handleResendConfirmationEmail}
+              <Pressable
+                onPress={() => handleResendConfirmationEmail(emailConfirmationCopy.error)}
               disabled={resendingConfirmation}
               style={[
                 styles.smallBtn,
@@ -3449,134 +3171,4 @@ function formatWeekday(date: Date, locale: string) {
 }
 
 /** ======== Modal de Cliente (lista + criar) ======== */
-function ClientModal({
-  visible,
-  onClose,
-  customers,
-  loading,
-  onRefreshQuery,
-  onPick,
-  onSaved,
-  copy,
-  colors,
-  styles,
-}: {
-  visible: boolean;
-  onClose: () => void;
-  customers: Customer[];
-  loading: boolean;
-  onRefreshQuery: (q: string) => void;
-  onPick: (c: Customer) => void;
-  onSaved: (c: Customer) => void;
-  copy: (typeof LANGUAGE_COPY)[SupportedLanguage]["bookService"]["clientModal"];
-  colors: ThemeColors;
-  styles: AuthenticatedAppStyles;
-}) {
-  const [tab, setTab] = useState<"list" | "create">("list");
-  const [query, setQuery] = useState("");
-
-  useEffect(() => { if (visible) { setTab("list"); setQuery(""); } }, [visible]);
-
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
-        <View style={[styles.sheet, { backgroundColor: colors.sidebarBg, borderColor: colors.border }]}>
-          <View style={styles.sheetHeader}>
-            <Text style={{ color: colors.text, fontWeight: "900", fontSize: 16 }}>{copy.title}</Text>
-            <Pressable onPress={onClose}><Ionicons name="close" size={22} color={colors.subtext} /></Pressable>
-          </View>
-
-          <ScrollView
-            style={styles.sheetScroll}
-            contentContainerStyle={{ gap: 12, paddingBottom: 4 }}
-            keyboardShouldPersistTaps="handled"
-          >
-            {/* Tabs */}
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              <Pressable onPress={() => setTab("list")}
-                style={[styles.tab, tab === "list" && { backgroundColor: colors.accent, borderColor: colors.accent }]}>
-                <Text style={[styles.tabText, tab === "list" && { color: colors.accentFgOn }]}>{copy.tabs.list}</Text>
-              </Pressable>
-              <Pressable onPress={() => setTab("create")}
-                style={[styles.tab, tab === "create" && { backgroundColor: colors.accent, borderColor: colors.accent }]}>
-                <Text style={[styles.tabText, tab === "create" && { color: colors.accentFgOn }]}>{copy.tabs.create}</Text>
-              </Pressable>
-            </View>
-
-            {tab === "list" ? (
-              <View style={{ gap: 10 }}>
-                {Platform.OS === "web" && (
-                  <input
-                    placeholder={copy.searchPlaceholder}
-                    value={query}
-                    onChange={(e: any) => setQuery(String(e.target.value))}
-                    onKeyDown={(e: any) => { if (e.key === "Enter") onRefreshQuery(query); }}
-                    style={{
-                      padding: 10,
-                      borderRadius: 10,
-                      width: "100%",
-                      border: `1px solid ${colors.border}`,
-                      background: colors.surface,
-                      color: colors.text,
-                      fontWeight: 700,
-                      fontSize: 16,
-                    }}
-                  />
-                )}
-                <Pressable onPress={() => onRefreshQuery(query)} style={[styles.smallBtn, { alignSelf: "flex-start", borderColor: colors.border }]}>
-                  <Text style={{ color: colors.subtext, fontWeight: "800" }}>{copy.searchButton}</Text>
-                </Pressable>
-
-                <View style={[styles.card, { gap: 6 }]}>
-                  {loading ? <ActivityIndicator /> : customers.length === 0 ? (
-                    <Text style={{ color: colors.subtext }}>{copy.empty}</Text>
-                  ) : (
-                    customers.map(c => (
-                      <Pressable key={c.id} onPress={() => onPick(c)} style={styles.listRow}>
-                        <MaterialCommunityIcons name="account" size={18} color={colors.accent} />
-                        <Text style={{ color: colors.text, fontWeight: "800" }}>
-                          {c.first_name} {c.last_name}
-                        </Text>
-                        {c.email ? <Text style={{ color: colors.subtext, marginLeft: 6, fontSize: 12 }}>{c.email}</Text> : null}
-                      </Pressable>
-                    ))
-                  )}
-                </View>
-              </View>
-            ) : (
-              <View style={{ marginTop: 4 }}>
-                <UserForm
-                  onSaved={(row) => {
-                    onSaved({
-                      id: row.id,
-                      first_name: row.first_name,
-                      last_name: row.last_name,
-                      phone: row.phone,
-                      email: row.email,
-                      date_of_birth: row.date_of_birth,
-                    });
-                    onClose();
-                  }}
-                  onCancel={() => setTab("list")}
-                  colors={{
-                    text: colors.text,
-                    subtext: colors.subtext,
-                    border: colors.border,
-                    surface: colors.surface,
-                    accent: colors.accent,
-                    accentFgOn: colors.accentFgOn,
-                    danger: colors.danger,
-                  }}
-                  copy={copy.userForm}
-                />
-              </View>
-            )}
-          </ScrollView>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-
 export default AuthenticatedApp;
