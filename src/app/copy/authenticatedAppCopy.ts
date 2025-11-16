@@ -36,6 +36,13 @@ export const LANGUAGE_COPY = {
         light: "Light",
         dark: "Dark",
       },
+      clientBooking: {
+        title: "Client booking link",
+        description:
+          "Share this public page so clients can choose the barbershop, barber, service, and time without logging in.",
+        linkLabel: "Public booking URL",
+        openCta: "Open booking page",
+      },
       emailConfirmation: {
         title: "Confirm your email",
         description: (email: string) =>
@@ -666,6 +673,13 @@ export const LANGUAGE_COPY = {
         system: "Sistema",
         light: "Claro",
         dark: "Escuro",
+      },
+      clientBooking: {
+        title: "Link público de agendamento",
+        description:
+          "Compartilhe esta página pública para que os clientes escolham a barbearia, o profissional, o serviço e o horário sem login.",
+        linkLabel: "URL pública de agendamento",
+        openCta: "Abrir página para clientes",
       },
       emailConfirmation: {
         title: "Confirme seu e-mail",
