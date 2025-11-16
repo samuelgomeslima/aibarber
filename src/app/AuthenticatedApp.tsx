@@ -10,6 +10,7 @@ import {
   RefreshControl,
   Platform,
   useWindowDimensions,
+  Linking,
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 
@@ -47,6 +48,53 @@ type SlotPeriod = "morning" | "afternoon" | "evening";
 const BOOKING_LIMIT_OPTIONS = [200, 500, 1000] as const;
 export type BookingLimitOption = (typeof BOOKING_LIMIT_OPTIONS)[number];
 const API_STATUS_ORDER: ApiServiceName[] = ["chat", "transcribe"];
+const CLIENT_BOOKING_PATH = "/client-booking";
+const CLIENT_BOOKING_URL_ENV_VALUES = [
+  process.env.EXPO_PUBLIC_CLIENT_BOOKING_URL,
+  process.env.EXPO_PUBLIC_SITE_URL,
+  process.env.EXPO_PUBLIC_APP_URL,
+  process.env.EXPO_PUBLIC_APP_BASE_URL,
+] as const;
+const DEFAULT_CLIENT_BOOKING_URL = `https://localhost:3000${CLIENT_BOOKING_PATH}`;
+
+function normalizeBaseUrl(candidate: string | undefined | null): string | null {
+  if (!candidate) return null;
+  const trimmed = candidate.trim();
+  if (!trimmed) return null;
+
+  const attempt = (value: string) => {
+    try {
+      return new URL(value).toString();
+    } catch (_error) {
+      return null;
+    }
+  };
+
+  return attempt(trimmed) ?? attempt(`https://${trimmed}`);
+}
+
+function resolveClientBookingUrl(): string {
+  for (const candidate of CLIENT_BOOKING_URL_ENV_VALUES) {
+    const normalized = normalizeBaseUrl(candidate);
+    if (normalized) {
+      try {
+        return new URL(CLIENT_BOOKING_PATH, normalized).toString();
+      } catch (_error) {
+        continue;
+      }
+    }
+  }
+
+  if (typeof window !== "undefined" && window.location?.origin) {
+    try {
+      return new URL(CLIENT_BOOKING_PATH, window.location.origin).toString();
+    } catch (_error) {
+      // fall through to default
+    }
+  }
+
+  return DEFAULT_CLIENT_BOOKING_URL;
+}
 import {
   getBookings,
   getBookingsForRange,
@@ -307,6 +355,7 @@ function AuthenticatedApp({
   const productFormCopy = copy.productForm;
   const serviceFormCopy = copy.serviceForm;
   const teamCopy = copy.teamPage;
+  const settingsClientBookingCopy = copy.settingsPage.clientBooking;
   const settingsBarbershopCopy = copy.settingsPage.barbershop;
   const settingsServicesCopy = copy.settingsPage.services;
   const settingsPackagesCopy = copy.settingsPage.packages;
@@ -320,6 +369,10 @@ function AuthenticatedApp({
     useThemeContext();
   const styles = useMemo(() => createAuthenticatedAppStyles(colors), [colors]);
   const preferencesReady = themePreferenceReady && languageReady;
+  const clientBookingUrl = useMemo(() => resolveClientBookingUrl(), []);
+  const handleOpenClientBookingLink = useCallback(() => {
+    void Linking.openURL(clientBookingUrl);
+  }, [clientBookingUrl]);
 
   const localizedServiceMapRef = useRef<Map<string, Service>>(new Map());
   const localizedProductMapRef = useRef<Map<string, Product>>(new Map());
@@ -2344,6 +2397,47 @@ function AuthenticatedApp({
           <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
             {copy.settingsPage.subtitle}
           </Text>
+        </View>
+
+        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.surface, gap: 12 }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <Ionicons name="link-outline" size={22} color={colors.accent} />
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={[styles.languageLabel, { color: colors.subtext }]}>{settingsClientBookingCopy.title}</Text>
+              <Text style={{ color: colors.subtext, fontSize: 13, fontWeight: "600" }}>
+                {settingsClientBookingCopy.description}
+              </Text>
+            </View>
+          </View>
+          <View
+            style={{
+              borderWidth: 1,
+              borderRadius: 12,
+              borderColor: colors.border,
+              backgroundColor: colors.bg,
+              padding: 12,
+            }}
+          >
+            <Text style={{ color: colors.subtext, fontSize: 12, fontWeight: "700" }}>
+              {settingsClientBookingCopy.linkLabel}
+            </Text>
+            <Text selectable style={{ color: colors.text, fontWeight: "800", marginTop: 4 }}>
+              {clientBookingUrl}
+            </Text>
+          </View>
+          <Pressable
+            onPress={handleOpenClientBookingLink}
+            style={[
+              styles.smallBtn,
+              { alignSelf: "flex-start", borderColor: colors.accent, backgroundColor: colors.accent },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={settingsClientBookingCopy.openCta}
+          >
+            <Text style={{ color: colors.accentFgOn, fontWeight: "900" }}>
+              {settingsClientBookingCopy.openCta}
+            </Text>
+          </Pressable>
         </View>
 
         {showEmailConfirmationReminder ? (
