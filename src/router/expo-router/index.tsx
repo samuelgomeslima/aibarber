@@ -30,6 +30,14 @@ export function useSegments(): string[] {
       return () => undefined;
     }
 
+    const supportsEventListeners =
+      typeof window.addEventListener === "function" &&
+      typeof window.removeEventListener === "function";
+
+    if (!supportsEventListeners) {
+      return () => undefined;
+    }
+
     const updateSegments = () => {
       setSegments(getPathSegments());
     };
