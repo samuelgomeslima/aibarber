@@ -1,0 +1,18 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/api/*"]
+  },
+  "routes": [
+    {
+      "route": "/client-booking",
+      "rewrite": "/index.html",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/client-booking/*",
+      "rewrite": "/index.html",
+      "allowedRoles": ["anonymous", "authenticated"]
+    }
+  ]
+}
