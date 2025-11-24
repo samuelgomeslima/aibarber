@@ -173,7 +173,13 @@ export function createRouter({
 }
 
 export function RouterProvider({ router }: RouterProviderProps): React.ReactElement {
-  const [pathname, setPathname] = useState(router.defaultPath);
+  const [pathname, setPathname] = useState(() => {
+    if (typeof window !== "undefined" && window.location?.pathname) {
+      return normalizePath(window.location.pathname);
+    }
+
+    return router.defaultPath;
+  });
 
   const matches = useMemo(() => {
     const resolvedMatches = router.matchRoutes(pathname);
@@ -185,12 +191,29 @@ export function RouterProvider({ router }: RouterProviderProps): React.ReactElem
 
   const state = useMemo<RouterState>(() => ({ location: { pathname } }), [pathname]);
 
-  const navigate = React.useCallback(
-    (options: RouterNavigateOptions) => {
-      setPathname(normalizePath(options.to));
-    },
-    [],
-  );
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handlePopState = (): void => {
+      setPathname(normalizePath(window.location.pathname));
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
+
+  const navigate = React.useCallback((options: RouterNavigateOptions) => {
+    const nextPath = normalizePath(options.to);
+
+    if (typeof window !== "undefined" && window.location?.pathname !== nextPath) {
+      window.history.pushState({}, "", nextPath);
+    }
+
+    setPathname(nextPath);
+  }, []);
 
   const contextValue = useMemo<RouterContextValue>(
     () => ({

@@ -5,12 +5,112 @@
   },
   "routes": [
     {
+      "route": "/assistant",
+      "rewrite": "/index.html",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/assistant/*",
+      "rewrite": "/index.html",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/book-service",
+      "rewrite": "/index.html",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/book-service/*",
+      "rewrite": "/index.html",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/bookings",
+      "rewrite": "/index.html",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/bookings/*",
+      "rewrite": "/index.html",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/cash-register",
+      "rewrite": "/index.html",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/cash-register/*",
+      "rewrite": "/index.html",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
       "route": "/client-booking",
       "rewrite": "/index.html",
       "allowedRoles": ["anonymous", "authenticated"]
     },
     {
       "route": "/client-booking/*",
+      "rewrite": "/index.html",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/packages",
+      "rewrite": "/index.html",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/packages/*",
+      "rewrite": "/index.html",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/products",
+      "rewrite": "/index.html",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/products/*",
+      "rewrite": "/index.html",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/services",
+      "rewrite": "/index.html",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/services/*",
+      "rewrite": "/index.html",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/settings",
+      "rewrite": "/index.html",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/settings/*",
+      "rewrite": "/index.html",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/support",
+      "rewrite": "/index.html",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/support/*",
+      "rewrite": "/index.html",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/team",
+      "rewrite": "/index.html",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/team/*",
       "rewrite": "/index.html",
       "allowedRoles": ["anonymous", "authenticated"]
     }
