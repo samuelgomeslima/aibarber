@@ -1,6 +1,7 @@
 # AIBarber Deployment and Security Guide
 
-This guide consolidates the project deployment steps, authentication settings, and security practices needed to operate the AIBarber application.
+This guide consolidates the project deployment steps, authentication settings, and security practices needed to operate the
+AIBarber application.
 
 ## Repository Structure
 ```
