@@ -58,6 +58,11 @@ function normalizeUrl(candidate: string | undefined | null): string | null {
   return tryCreate(trimmed) ?? tryCreate(`https://${trimmed}`);
 }
 
+/**
+ * Resolves the email confirmation redirect URL using the first non-empty value in
+ * this priority order: EXPO_PUBLIC_EMAIL_CONFIRMATION_REDIRECT_TO,
+ * EXPO_PUBLIC_SITE_URL, EXPO_PUBLIC_APP_URL, EXPO_PUBLIC_APP_BASE_URL.
+ */
 export function getEmailConfirmationRedirectUrl(): string {
   const resolvedCandidates = [
     normalizeUrl(process.env.EXPO_PUBLIC_EMAIL_CONFIRMATION_REDIRECT_TO),
