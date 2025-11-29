@@ -8,6 +8,7 @@ export default defineConfig({
     alias: {
       "expo-router": expoRouterAlias,
       "expo-router/entry": path.resolve(expoRouterAlias, "entry"),
+      "react-native": path.resolve(__dirname, "tests/mocks/reactNativeStub.ts"),
     },
   },
   test: {

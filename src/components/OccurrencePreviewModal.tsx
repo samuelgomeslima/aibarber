@@ -51,9 +51,11 @@ export default function OccurrencePreviewModal({
             {items.map((it, idx) => {
               const status = it.ok
                 ? copy.status.ok
-                : it.reason === "conflict"
-                  ? copy.status.conflict
-                  : copy.status.outsideHours;
+                : it.reason && !["conflict", "outside-hours"].includes(it.reason)
+                  ? it.reason
+                  : it.reason === "conflict"
+                    ? copy.status.conflict
+                    : copy.status.outsideHours;
               const color = it.ok ? colors.text : colors.danger;
               return (
                 <View key={idx} style={[styles.row, { borderColor: colors.border, backgroundColor: colors.surface }]}>
