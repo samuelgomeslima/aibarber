@@ -25,4 +25,24 @@ describe("OccurrencePreviewModal", () => {
 
     expect(html).toContain("Barber unavailable for this slot");
   });
+
+  it("shows a neutral fallback when a failure reason is missing", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(OccurrencePreviewModal, {
+        visible: true,
+        items: [
+          {
+            date: "2024-01-02",
+            start: "10:00",
+            end: "11:00",
+            ok: false,
+          },
+        ],
+        onClose: () => {},
+        onConfirm: () => {},
+      })
+    );
+
+    expect(html).toContain("Unknown error");
+  });
 });
