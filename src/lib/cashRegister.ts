@@ -172,11 +172,11 @@ const persistEntry = async (input: NormalizedEntryInput): Promise<CashEntry> => 
   return persistEntryInSupabase(input);
 };
 
-const ensureAmount = (unit: number | null, quantity: number, fallback: number) => {
+export const calculateEntryAmount = (unit: number | null, quantity: number, fallback: number) => {
   if (unit === null) {
     const numeric = Number(fallback);
     if (!Number.isFinite(numeric)) return 0;
-    return Math.round(numeric);
+    return Math.round(numeric * quantity);
   }
   return unit * quantity;
 };
@@ -185,7 +185,7 @@ export async function recordServiceSale(input: ServiceSaleInput): Promise<CashEn
   const quantity = ensureQuantity(input.quantity, 1);
   const unit = ensureUnitAmount(input.unitPriceCents);
   const sourceName = normalizeSourceName(input.serviceName, "Service sale");
-  const amount = ensureAmount(unit, quantity, input.unitPriceCents);
+  const amount = calculateEntryAmount(unit, quantity, input.unitPriceCents);
 
   return persistEntry({
     type: "service_sale",
@@ -203,7 +203,7 @@ export async function recordProductSale(input: ProductSaleInput): Promise<CashEn
   const quantity = ensureQuantity(input.quantity, 1);
   const unit = ensureUnitAmount(input.unitPriceCents);
   const sourceName = normalizeSourceName(input.productName, "Product sale");
-  const amount = ensureAmount(unit, quantity, input.unitPriceCents);
+  const amount = calculateEntryAmount(unit, quantity, input.unitPriceCents);
 
   return persistEntry({
     type: "product_sale",
