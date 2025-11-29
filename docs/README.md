@@ -143,8 +143,8 @@ console.log(data);
 ```
 Because the browser calls the SWA endpoint, the OpenAI API key remains in the server environment.
 
-### Optional Route Restrictions
-To require authentication before calling `/api/chat`, add a `staticwebapp.config.json` file in the project root:
+### Route Restrictions
+The deployed configuration already requires authentication for `/api/chat` via `staticwebapp.config.json`:
 ```json
 {
   "routes": [
@@ -155,6 +155,11 @@ To require authentication before calling `/api/chat`, add a `staticwebapp.config
   ]
 }
 ```
+Requests must include:
+- A valid SWA authentication token issued by your identity provider (for example, GitHub or Azure AD) so that the caller is in the `authenticated` role. Anonymous users receive `401 Unauthorized`.
+- The `x-api-key` header containing the shared `OPENAI_PROXY_TOKEN` secret to satisfy the Function-level check.
+
+If you need to loosen access for testing, remove `/api/chat` from the `routes` list or allow the `anonymous` role temporarily, then restore the stricter setting before production deployments.
 
 ## Azure Resources
 1. **Azure Static Web App** – Hosts the front-end and orchestrates the Functions backend.
