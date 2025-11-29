@@ -5,6 +5,10 @@
   },
   "routes": [
     {
+      "route": "/api/chat",
+      "allowedRoles": ["authenticated"]
+    },
+    {
       "route": "/assistant",
       "rewrite": "/index.html",
       "allowedRoles": ["anonymous", "authenticated"]
