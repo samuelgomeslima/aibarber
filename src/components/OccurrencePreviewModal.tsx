@@ -73,6 +73,7 @@ export default function OccurrencePreviewModal({
             </Pressable>
             <Pressable
               disabled={okCount === 0}
+              accessibilityState={{ disabled: okCount === 0 }}
               style={[
                 styles.btn,
                 {
