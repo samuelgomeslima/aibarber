@@ -256,6 +256,7 @@ export type OccurrencePreviewCopy = {
     ok: string;
     conflict: string;
     outsideHours: string;
+    unknown: string;
   };
   actions: {
     back: string;

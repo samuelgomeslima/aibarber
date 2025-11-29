@@ -55,7 +55,9 @@ export default function OccurrencePreviewModal({
                   ? it.reason
                   : it.reason === "conflict"
                     ? copy.status.conflict
-                    : copy.status.outsideHours;
+                    : it.reason === "outside-hours"
+                      ? copy.status.outsideHours
+                      : copy.status.unknown;
               const color = it.ok ? colors.text : colors.danger;
               return (
                 <View key={idx} style={[styles.row, { borderColor: colors.border, backgroundColor: colors.surface }]}>

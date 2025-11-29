@@ -330,6 +330,7 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
         ok: "OK",
         conflict: "Conflict",
         outsideHours: "Outside hours",
+        unknown: "Unknown error",
       },
       actions: {
         back: "Back",
@@ -372,6 +373,7 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
         ok: "OK",
         conflict: "Conflict",
         outsideHours: "Outside hours",
+        unknown: "Unknown error",
       },
       actions: {
         back: "Back",
@@ -687,6 +689,7 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
         ok: "OK",
         conflict: "Conflito",
         outsideHours: "Fora do horário",
+        unknown: "Erro desconhecido",
       },
       actions: {
         back: "Voltar",
@@ -729,6 +732,7 @@ export const COMPONENT_COPY: Record<SupportedLanguage, ComponentCopy> = {
         ok: "OK",
         conflict: "Conflito",
         outsideHours: "Fora do horário",
+        unknown: "Erro desconhecido",
       },
       actions: {
         back: "Voltar",
