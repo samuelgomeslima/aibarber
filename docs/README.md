@@ -184,7 +184,7 @@ output_location: "dist"      # Vite build output
 > Avoid storing `OPENAI_API_KEY` or `OPENAI_PROXY_TOKEN` as GitHub secrets unless you specifically need them for automated tests.
 
 ## Authentication Settings
-Set the `EXPO_PUBLIC_EMAIL_CONFIRMATION_REDIRECT_TO` environment variable to the fully qualified URL of your deployed dashboard (for example, `https://app.example.com`). The value determines the redirect used when administrators confirm their email address. If the variable is absent, links fall back to `https://localhost:3000`, which is only suitable for local development. You can also provide the URL through `EXPO_PUBLIC_SITE_URL`, `EXPO_PUBLIC_APP_URL`, or `EXPO_PUBLIC_APP_BASE_URL`; the app uses the first defined value.
+Set the `EXPO_PUBLIC_EMAIL_CONFIRMATION_REDIRECT_TO` environment variable to the fully qualified URL of your deployed dashboard (for example, `https://app.example.com`). The value determines the redirect used when administrators confirm their email address. If the variable is absent, links fall back to `https://localhost:3000`, which is only suitable for local development. You can also provide the URL through `EXPO_PUBLIC_SITE_URL`, `EXPO_PUBLIC_APP_URL`, or `EXPO_PUBLIC_APP_BASE_URL`; the app uses the first non-empty value in that order.
 
 ## Security Recommendations
 - Implement request logging with structured redaction to avoid storing sensitive prompt data.
