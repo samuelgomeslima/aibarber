@@ -170,11 +170,11 @@ output_location: "dist"      # Vite build output
 ```
 
 ### Required Secrets in GitHub
-| Secret Name                       | Where to define                              | Purpose                                     |
-| --------------------------------- | -------------------------------------------- | ------------------------------------------- |
-| `AZURE_STATIC_WEB_APPS_API_TOKEN` | GitHub repository → Settings → Secrets        | Authentication for the SWA deployment task. |
-| `OPENAI_API_KEY`                  | Azure Portal → Static Web App → Configuration | Used by the Azure Function at runtime.      |
-| `OPENAI_PROXY_TOKEN`              | Azure Portal → Static Web App → Configuration | Shared secret between the client and proxies. |
+| Secret Name | Where to define | Purpose |
+| --- | --- | --- |
+| `AZURE_STATIC_WEB_APPS_API_TOKEN` | GitHub repository → Settings → Secrets | Authentication for the SWA deployment task. |
+| `OPENAI_API_KEY` | Azure Portal → Static Web App → Configuration | Used by the Azure Function at runtime. |
+| `OPENAI_PROXY_TOKEN` | Azure Portal → Static Web App → Configuration | Shared secret between the client and proxies. |
 
 > Avoid storing `OPENAI_API_KEY` or `OPENAI_PROXY_TOKEN` as GitHub secrets unless you specifically need them for automated tests.
 
