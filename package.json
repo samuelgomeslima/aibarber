@@ -14,7 +14,7 @@
     "@expo/metro-runtime": "~5.0.4",
     "@supabase/supabase-js": "^2.81.1",
     "expo": "~54.0.25",
-    "expo-localization": "~17.0.7",
+    "expo-localization": "~17.0.8",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-native": "0.79.6",
